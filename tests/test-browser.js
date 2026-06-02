@@ -3,7 +3,7 @@ const path = require('path');
 
 const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const URL = 'http://47.106.206.100:3000';
-const SCREENSHOT_DIR = path.join(__dirname, 'test-screenshots');
+const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 async function ss(page, name) {
