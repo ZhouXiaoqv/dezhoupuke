@@ -16,7 +16,7 @@
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--white); overflow:hidden; height:100vh; width:100vw; user-select:none; -webkit-user-select:none; }
+body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--white); overflow:hidden; height:100vh; width:100vw; user-select:none; -webkit-user-select:none; padding-bottom:env(safe-area-inset-bottom); }
 
 /* ===== SCREENS ===== */
 .screen { position:fixed; inset:0; display:none; flex-direction:column; justify-content:center; align-items:center; z-index:100; background:#0a0a0a; }
@@ -267,6 +267,75 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   50%{opacity:1;transform:scale(1.2)}
 }
 
+/* ===== AUTH TABS/FORMS ===== */
+.auth-tabs { display:flex; gap:6px; margin-bottom:16px; }
+.auth-tab { flex:1; padding:8px; border:1.5px solid #2a2a2a; border-radius:8px; background:transparent; color:var(--dim); font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s; font-family:'Noto Sans SC',sans-serif; }
+.auth-tab:hover { border-color:#444; }
+.auth-tab.active { border-color:var(--gold); color:var(--gold); background:rgba(212,168,64,0.08); }
+.auth-form { display:none; } .auth-form.active { display:block; }
+.user-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(212,168,64,0.1); border:1px solid rgba(212,168,64,0.2); border-radius:16px; padding:4px 12px; font-size:11px; color:var(--gold); margin-bottom:12px; cursor:pointer; transition:all 0.2s; }
+.user-badge:hover { border-color:var(--gold); }
+.guest-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(128,128,128,0.1); border:1px solid rgba(128,128,128,0.2); border-radius:16px; padding:4px 12px; font-size:11px; color:var(--dim); margin-bottom:12px; }
+
+/* ===== PROFILE OVERLAY ===== */
+.profile-overlay { position:fixed; inset:0; background:rgba(5,5,15,0.92); display:none; justify-content:center; align-items:center; z-index:160; backdrop-filter:blur(6px); }
+.profile-overlay.active { display:flex; }
+.profile-box { background:#111; border:1px solid #222; border-radius:12px; padding:32px; width:min(520px,92vw); max-height:85vh; overflow-y:auto; }
+.profile-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.profile-title { font-size:20px; font-weight:900; color:var(--gold); }
+.profile-close { background:none; border:none; color:#666; font-size:20px; cursor:pointer; }
+.profile-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
+.stat-card { background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; padding:12px; text-align:center; }
+.stat-value { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--gold); }
+.stat-label { font-size:10px; color:var(--dim); margin-top:4px; letter-spacing:1px; }
+.achievements-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
+.achievement-card { background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; padding:10px; text-align:center; transition:all 0.2s; }
+.achievement-card.unlocked { border-color:var(--gold-dim); background:rgba(212,168,64,0.05); }
+.achievement-card.locked { opacity:0.35; filter:grayscale(1); }
+.achievement-icon { font-size:24px; margin-bottom:4px; }
+.achievement-name { font-size:11px; font-weight:700; }
+.achievement-desc { font-size:9px; color:var(--dim); margin-top:2px; }
+
+/* ===== ACHIEVEMENT TOAST ===== */
+.achievement-toast { position:fixed; top:80px; right:20px; z-index:200; background:linear-gradient(135deg,rgba(30,25,10,0.95),rgba(20,15,5,0.95)); border:1.5px solid var(--gold); border-radius:12px; padding:14px 20px; min-width:200px; animation:achieveSlideIn 0.5s ease-out,achieveSlideOut 0.5s ease-in 3.5s forwards; box-shadow:0 0 30px rgba(212,168,64,0.2); pointer-events:none; }
+@keyframes achieveSlideIn { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes achieveSlideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(120%);opacity:0} }
+.achieve-toast-label { font-size:9px; color:var(--gold-dim); letter-spacing:2px; text-transform:uppercase; }
+.achieve-toast-name { font-size:14px; font-weight:700; color:var(--gold); margin-top:2px; }
+.achieve-toast-desc { font-size:11px; color:var(--dim); margin-top:2px; }
+
+/* ===== GAME INTRO OVERLAY ===== */
+.intro-overlay { position:fixed; inset:0; background:rgba(5,5,15,0.95); display:none; justify-content:center; align-items:center; z-index:170; backdrop-filter:blur(8px); }
+.intro-overlay.active { display:flex; }
+.intro-box { background:#111; border:1px solid #222; border-radius:16px; padding:36px; width:min(600px,92vw); max-height:85vh; overflow-y:auto; text-align:center; }
+.intro-title { font-size:28px; font-weight:900; color:var(--gold); margin-bottom:4px; }
+.intro-sub { font-size:12px; color:var(--dim); letter-spacing:3px; margin-bottom:24px; }
+.intro-text { font-size:13px; color:var(--dim); line-height:1.8; text-align:left; margin-bottom:24px; }
+.intro-steps { text-align:left; margin-bottom:24px; }
+.intro-step { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid #1a1a1a; }
+.intro-step:last-child { border-bottom:none; }
+.intro-step-num { flex-shrink:0; width:28px; height:28px; border-radius:50%; background:rgba(212,168,64,0.1); border:1.5px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--gold); }
+.intro-step-text { font-size:13px; color:var(--white); line-height:1.6; }
+.intro-step-text strong { color:var(--gold); }
+.intro-hands { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:20px; }
+.intro-hand { background:#0a0a0a; border:1px solid #1a1a1a; border-radius:8px; padding:8px 12px; text-align:left; display:flex; justify-content:space-between; align-items:center; }
+.intro-hand-name { font-size:12px; font-weight:700; }
+.intro-hand-rank { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold); }
+
+/* ===== GAME MODE SELECTOR ===== */
+.mode-selector { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; }
+.mode-btn { padding:6px 14px; border:1.5px solid #2a2a2a; border-radius:20px; background:transparent; color:var(--dim); font-size:11px; cursor:pointer; transition:all 0.2s; font-family:'Noto Sans SC',sans-serif; }
+.mode-btn:hover { border-color:#444; color:var(--white); }
+.mode-btn.active { border-color:var(--gold); color:var(--gold); background:rgba(212,168,64,0.08); }
+.mode-label { font-size:11px; color:var(--dim); margin-bottom:4px; }
+.mode-desc { font-size:10px; color:#4a4a4a; margin-top:4px; font-style:italic; }
+.game-mode-badge { display:inline-block; font-size:9px; padding:2px 8px; border-radius:8px; letter-spacing:0.5px; margin-left:4px; }
+.mode-classic { background:rgba(64,160,96,0.12); color:#60d080; }
+.mode-turbo { background:rgba(255,100,50,0.12); color:#ff8050; }
+.mode-shortdeck { background:rgba(160,96,255,0.12); color:#b080ff; }
+.mode-highroller { background:rgba(212,168,64,0.12); color:var(--gold); }
+.mode-allinfold { background:rgba(204,51,51,0.12); color:#f06060; }
+
 /* ===== LEADERBOARD PANEL ===== */
 .leaderboard-overlay {
   position:fixed; inset:0; background:rgba(5,5,15,0.92);
@@ -447,26 +516,27 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .toast.show { opacity:1; }
 
 @media (max-width:700px) {
-  .table { width:92vw; height:36vh; border-width:6px; }
+  body { padding-bottom:env(safe-area-inset-bottom); }
+  .table { width:92vw; height:34vh; border-width:6px; }
   .table::before { inset:4px; }
-  /* Cards — much smaller on mobile */
-  .card { width:30px; height:42px; border-radius:4px; }
+  /* Cards — smaller on mobile */
+  .card { width:28px; height:40px; border-radius:4px; }
   .card .rank { font-size:9px; } .card .suit { font-size:10px; }
   .card-front { padding:3px 4px; }
   .card-front .rank-br { font-size:8px; }
   .card-back::after { font-size:12px; }
   /* Other players' cards — compact */
-  .seat-cards .card { width:26px; height:36px; }
+  .seat-cards .card { width:24px; height:34px; }
   .seat-cards .card .rank { font-size:8px; } .seat-cards .card .suit { font-size:9px; }
   .seat-cards .card .rank-br { display:none; }
-  /* My hand — smaller, positioned outside table */
-  .my-hand { bottom:4px; gap:4px; }
-  .my-hand .card { width:42px; height:58px; }
+  /* My hand — always above browser nav bar */
+  .my-hand { bottom:max(60px, calc(env(safe-area-inset-bottom) + 56px)); gap:4px; }
+  .my-hand .card { width:40px; height:56px; }
   .my-hand .card .rank { font-size:14px; } .my-hand .card .suit { font-size:16px; }
   .my-hand .card .rank-br { font-size:10px; }
   .my-hand .card:hover { transform:translateY(-4px); }
   /* Push hand up above action panel on mobile */
-  #table-container.action-active .my-hand { bottom:72px; }
+  #table-container.action-active .my-hand { bottom:max(120px, calc(env(safe-area-inset-bottom) + 116px)); }
   /* Seat info — compact */
   .seat-info { padding:3px 8px; min-width:60px; border-radius:6px; }
   .seat-name { font-size:10px; }
@@ -477,8 +547,8 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   .community { gap:3px; }
   .pot-amount { font-size:16px; }
   .pot-label { font-size:9px; }
-  /* Action panel — compact */
-  .action-panel { padding:8px 10px; gap:6px; }
+  /* Action panel — compact with safe area */
+  .action-panel { padding:8px 10px; padding-bottom:max(10px, env(safe-area-inset-bottom)); gap:6px; }
   .action-btn { padding:8px 12px; font-size:11px; min-width:50px; }
   .raise-slider input[type="range"] { width:80px; }
   .raise-amount { font-size:11px; min-width:40px; }
@@ -514,8 +584,29 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   <div class="lobby-title">德州扑克</div>
   <div class="lobby-sub">TEXAS HOLD'EM ONLINE</div>
   <button class="btn btn-dim" id="leaderboardBtn" style="padding:8px 24px;margin-bottom:24px;font-size:12px;letter-spacing:2px">🏆 排行榜</button>
+  <div id="userArea"></div>
+  <button class="btn btn-dim" id="howToPlayBtn" style="padding:8px 24px;margin-bottom:12px;font-size:12px;letter-spacing:2px">📖 新手教程</button>
 
   <div class="lobby-box">
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab active" data-tab="guest">游客模式</button>
+      <button class="auth-tab" data-tab="login">登录</button>
+      <button class="auth-tab" data-tab="register">注册</button>
+    </div>
+    <div class="auth-form" id="loginForm">
+      <div class="input-group"><label>用户名</label><input type="text" id="loginUser" placeholder="用户名" maxlength="12"></div>
+      <div class="input-group"><label>密码</label><input type="password" id="loginPass" placeholder="密码" maxlength="20"></div>
+      <div class="btn-row"><button class="btn btn-gold" id="loginBtn">登录</button></div>
+    </div>
+    <div class="auth-form" id="registerForm">
+      <div class="input-group"><label>用户名</label><input type="text" id="regUser" placeholder="1-12个字符" maxlength="12"></div>
+      <div class="input-group"><label>密码</label><input type="password" id="regPass" placeholder="至少4个字符" maxlength="20"></div>
+      <div class="btn-row"><button class="btn btn-gold" id="registerBtn">注册</button></div>
+    </div>
+    <div class="auth-form active" id="guestForm">
+      <div style="font-size:11px;color:var(--dim);padding:8px 0">游客模式无需注册，数据不会保存。注册账号可以保存战绩和成就。</div>
+    </div>
+
     <div class="input-group">
       <label>你的昵称</label>
       <input type="text" id="nameInput" placeholder="输入昵称" maxlength="12" value="">
@@ -534,6 +625,16 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
         <option value="hard">🔴 高手</option>
       </select>
     </div>
+
+    <div class="mode-label">🎮 玩法模式</div>
+    <div class="mode-selector" id="modeSelector">
+      <button class="mode-btn active" data-mode="classic">经典</button>
+      <button class="mode-btn" data-mode="turbo">🔥 急速</button>
+      <button class="mode-btn" data-mode="shortdeck">🃏 短牌</button>
+      <button class="mode-btn" data-mode="highroller">💎 高额</button>
+      <button class="mode-btn" data-mode="allinfold">⚡ All-in/Fold</button>
+    </div>
+    <div class="mode-desc" id="modeDesc">经典德州扑克，标准盲注</div>
 
     <div class="divider"></div>
 
@@ -626,6 +727,55 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   </div>
 </div>
 
+<!-- Profile/Achievements Overlay -->
+<div class="profile-overlay" id="profileOverlay">
+  <div class="profile-box">
+    <div class="profile-header">
+      <div class="profile-title">👤 个人空间</div>
+      <button class="profile-close" id="profileClose">✕</button>
+    </div>
+    <div class="profile-stats" id="profileStats"></div>
+    <h3 style="font-size:14px;color:var(--gold);margin-bottom:12px;letter-spacing:1px">🏅 成就</h3>
+    <div class="achievements-grid" id="achievementsGrid"></div>
+  </div>
+</div>
+
+<!-- Game Introduction Overlay -->
+<div class="intro-overlay" id="introOverlay">
+  <div class="intro-box">
+    <div class="intro-title">🃏 德州扑克</div>
+    <div class="intro-sub">TEXAS HOLD'EM</div>
+    <div class="intro-text">
+      德州扑克是世界上最流行的扑克游戏。每位玩家发 <strong>2张底牌</strong>，然后分三轮发出 <strong>5张公共牌</strong>（翻牌3张、转牌1张、河牌1张）。
+      用你的2张底牌和5张公共牌中的牌，凑出 <strong>最好的5张牌组合</strong>。
+      <br><br>
+      游戏过程中可以 <strong>弃牌(Fold)</strong>、<strong>过牌(Check)</strong>、<strong>跟注(Call)</strong>、<strong>加注(Raise)</strong> 或 <strong>All-in</strong>。
+      最后剩下的玩家中，牌型最大的人赢得底池！
+    </div>
+    <h3 style="font-size:14px;color:var(--gold);margin-bottom:12px">牌型大小（从大到小）</h3>
+    <div class="intro-hands">
+      <div class="intro-hand"><span class="intro-hand-name">👑 皇家同花顺</span><span class="intro-hand-rank">最强</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">🌟 同花顺</span><span class="intro-hand-rank">★★★★★</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">🔥 四条</span><span class="intro-hand-rank">★★★★</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">🏠 葫芦</span><span class="intro-hand-rank">★★★☆</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">♠ 同花</span><span class="intro-hand-rank">★★★</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">➡️ 顺子</span><span class="intro-hand-rank">★★☆</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">🔺 三条</span><span class="intro-hand-rank">★★</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">✌️ 两对</span><span class="intro-hand-rank">★☆</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">👆 一对</span><span class="intro-hand-rank">★</span></div>
+      <div class="intro-hand"><span class="intro-hand-name">📊 高牌</span><span class="intro-hand-rank">最弱</span></div>
+    </div>
+    <h3 style="font-size:14px;color:var(--gold);margin-bottom:12px">🎮 怎么开始？</h3>
+    <div class="intro-steps">
+      <div class="intro-step"><div class="intro-step-num">1</div><div class="intro-step-text"><strong>输入昵称</strong>，选择游客模式或注册账号</div></div>
+      <div class="intro-step"><div class="intro-step-num">2</div><div class="intro-step-text"><strong>创建房间</strong>邀请朋友，或加入公开房间</div></div>
+      <div class="intro-step"><div class="intro-step-num">3</div><div class="intro-step-text">等人到齐后<strong>点击准备</strong>，房主开始游戏</div></div>
+      <div class="intro-step"><div class="intro-step-num">4</div><div class="intro-step-text">也可以直接<strong>🤖 人机对战</strong>练习技术</div></div>
+    </div>
+    <button class="btn btn-gold" id="introClose" style="padding:12px 32px;font-size:14px">我懂了，开始玩！</button>
+  </div>
+</div>
+
 <script>
 // ===== NETWORK LAYER =====
 const Net = {
@@ -673,6 +823,20 @@ const Net = {
   },
 };
 
+// ===== USER SYSTEM =====
+let authToken = localStorage.getItem('poker_token') || null;
+let userProfile = null;
+let isRegistered = false;
+let selectedGameMode = 'classic';
+
+const MODE_DESCS = {
+  classic: '经典德州扑克，标准盲注',
+  turbo: '🔥 急速模式 — 更高盲注，更少筹码，节奏更快',
+  shortdeck: '🃏 短牌模式 — 去掉2-5，只有6-A共36张牌',
+  highroller: '💎 高额模式 — 盲注50/100，起始筹码10000',
+  allinfold: '⚡ All-in/Fold — 只能全押或弃牌，没有中间选项',
+};
+
 // ===== UI HELPERS =====
 function $(id) { return document.getElementById(id); }
 function showScreen(id) {
@@ -690,6 +854,41 @@ function toast(msg) {
 }
 
 function showError(msg) { $('lobbyError').textContent = msg; }
+
+// Auth tabs
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    tab.classList.add('active');
+    const formId = tab.dataset.tab + 'Form';
+    const form = $(formId);
+    if (form) form.classList.add('active');
+  });
+});
+
+// Login handler
+$('loginBtn').addEventListener('click', async () => {
+  const username = $('loginUser').value.trim();
+  const password = $('loginPass').value;
+  if (!username || !password) { showError('请输入用户名和密码'); return; }
+  try {
+    if (!Net.connected) await Net.connect(getWsUrl());
+    Net.send('user:login', { username, password });
+  } catch { showError('无法连接到服务器'); }
+});
+
+// Register handler
+$('registerBtn').addEventListener('click', async () => {
+  const username = $('regUser').value.trim();
+  const password = $('regPass').value;
+  if (!username) { showError('请输入用户名'); return; }
+  if (!password || password.length < 4) { showError('密码至少4个字符'); return; }
+  try {
+    if (!Net.connected) await Net.connect(getWsUrl());
+    Net.send('user:register', { username, password });
+  } catch { showError('无法连接到服务器'); }
+});
 
 // ===== SOUND SYSTEM (Web Audio API — no external files) =====
 const SFX = (() => {
@@ -1096,16 +1295,25 @@ function updateHandLabel(state) {
 // ===== ACTION PANEL =====
 function showActions(data) {
   const panel = $('actionPanel');
-  $('btnCheck').style.display = data.toCall === 0 ? '' : 'none';
-  $('btnCall').style.display = data.toCall > 0 ? '' : 'none';
+  if (data.allInOrFold) {
+    $('btnCheck').style.display = 'none';
+    $('btnCall').style.display = 'none';
+    $('btnRaise').style.display = 'none';
+    $('raiseSliderGroup').style.display = 'none';
+    // Show check if no bet to call
+    if (data.toCall === 0) $('btnCheck').style.display = '';
+  } else {
+    $('btnCheck').style.display = data.toCall === 0 ? '' : 'none';
+    $('btnCall').style.display = data.toCall > 0 ? '' : 'none';
+    $('btnRaise').style.display = '';
+    $('raiseSliderGroup').style.display = '';
+  }
   $('callAmount').textContent = data.toCall > 0 ? data.toCall : '';
-
   const slider = $('raiseRange');
   slider.min = data.minRaise;
   slider.max = data.maxRaise;
   slider.value = data.minRaise;
   $('raiseValue').textContent = data.minRaise;
-
   panel.classList.add('active');
   $('table-container').classList.add('action-active');
 }
@@ -1186,7 +1394,11 @@ Net.on('room:players', (d) => {
 Net.on('room:playerJoined', () => toast('新玩家加入'));
 Net.on('room:playerLeft', (d) => toast(`${d.name} 离开了`));
 Net.on('room:playerDisconnected', (d) => toast(`${d.name} 断开连接`));
-Net.on('room:hostChanged', (d) => { if (d.hostId === Net.playerId) { isHost = true; toast('你成为了房主'); } });
+Net.on('room:hostChanged', (d) => {
+  isHost = d.hostId === Net.playerId;
+  $('startGameBtn').style.display = isHost ? '' : 'none';
+  if (isHost) toast('你成为了房主');
+});
 
 Net.on('room:gameStarted', () => {
   showScreen('table');
@@ -1211,10 +1423,13 @@ Net.on('room:list', (d) => {
     const statusClass = r.gameRunning ? 'playing' : 'waiting';
     const statusText = r.gameRunning ? '🎮 游戏中' : '⏳ 等待中';
     const botLabel = r.hasBots ? ' 🤖人机' : '';
+    const modeLabel = {classic:'',turbo:'🔥急速',shortdeck:'🃏短牌',highroller:'💎高额',allinfold:'⚡All-in/Fold'};
+    const modeClass = 'mode-' + (r.gameMode || 'classic');
+    const modeBadge = r.gameMode && r.gameMode !== 'classic' ? '<span class="game-mode-badge ' + modeClass + '">' + (modeLabel[r.gameMode]||'') + '</span>' : '';
     
     card.innerHTML = `
       <div class="room-card-left">
-        <div class="room-card-code">${r.code}</div>
+        <div class="room-card-code">${r.code} ${modeBadge}</div>
         <div class="room-card-host">房主: ${r.hostName}${botLabel}</div>
       </div>
       <div class="room-card-right">
@@ -1339,6 +1554,103 @@ Net.on('disconnect', () => {
   attemptReconnect();
 });
 
+// User system handlers
+Net.on('user:registered', (d) => {
+  authToken = d.token;
+  userProfile = d.profile;
+  isRegistered = true;
+  localStorage.setItem('poker_token', d.token);
+  Net.playerId = d.playerId;
+  Net.playerName = d.username;
+  updateUserArea();
+  toast('注册成功！欢迎 ' + d.username);
+});
+
+Net.on('user:loggedIn', (d) => {
+  authToken = d.token;
+  userProfile = d.profile;
+  isRegistered = true;
+  localStorage.setItem('poker_token', d.token);
+  Net.playerId = d.playerId;
+  Net.playerName = d.username;
+  $('nameInput').value = d.username;
+  updateUserArea();
+  toast('登录成功！欢迎回来 ' + d.username);
+});
+
+Net.on('user:profile', (d) => {
+  userProfile = d.profile;
+  renderProfile(d.profile);
+});
+
+Net.on('user:error', (d) => {
+  showError(d.message);
+  toast(d.message);
+});
+
+Net.on('user:achievement', (d) => {
+  showAchievementToast(d.achievement);
+  // Update profile if loaded
+  if (userProfile) {
+    userProfile.achievements.push(d.achievement);
+  }
+});
+
+function updateUserArea() {
+  const area = $('userArea');
+  if (!area) return;
+  if (isRegistered && userProfile) {
+    area.innerHTML = '<div class="user-badge" id="userBadgeClick"><span class="user-icon">👤</span>' + userProfile.username + ' · ' + userProfile.stats.handsWon + '胜</div>';
+    $('userBadgeClick').addEventListener('click', () => {
+      $('profileOverlay').classList.add('active');
+      Net.send('user:profile');
+    });
+  } else {
+    area.innerHTML = '<div class="guest-badge"><span>👤</span> 游客模式</div>';
+  }
+}
+
+function renderProfile(profile) {
+  const s = profile.stats;
+  $('profileStats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${s.handsPlayed}</div><div class="stat-label">总场次</div></div>
+    <div class="stat-card"><div class="stat-value">${s.handsWon}</div><div class="stat-label">胜场</div></div>
+    <div class="stat-card"><div class="stat-value">${s.handsPlayed > 0 ? Math.round(s.handsWon/s.handsPlayed*100) : 0}%</div><div class="stat-label">胜率</div></div>
+    <div class="stat-card"><div class="stat-value">${s.totalWon > 0 ? '+' : ''}${s.totalWon}</div><div class="stat-label">总盈利</div></div>
+    <div class="stat-card"><div class="stat-value">${s.biggestPot}</div><div class="stat-label">最大底池</div></div>
+    <div class="stat-card"><div class="stat-value">${s.bestHand || '-'}</div><div class="stat-label">最佳牌型</div></div>
+  `;
+
+  const ACHIEVEMENTS = {
+    first_win:{name:'初次胜利',desc:'赢得第一手牌',icon:'🏆'},ten_wins:{name:'十胜将军',desc:'累计赢得10手牌',icon:'🎖️'},
+    fifty_wins:{name:'半百英雄',desc:'累计赢得50手牌',icon:'⭐'},hundred_wins:{name:'百战百胜',desc:'累计赢得100手牌',icon:'💎'},
+    royal_flush:{name:'皇家降临',desc:'获得皇家同花顺',icon:'👑'},straight_flush:{name:'同花顺子',desc:'获得同花顺',icon:'🌟'},
+    four_kind:{name:'四条天王',desc:'获得四条',icon:'🔥'},full_house:{name:'葫芦娃',desc:'获得葫芦',icon:'🏠'},
+    flush:{name:'同花达人',desc:'获得同花',icon:'♠'},all_in_5:{name:'全押狂人',desc:'累计All-in 5次',icon:'💰'},
+    all_in_20:{name:'赌神附体',desc:'累计All-in 20次',icon:'🎰'},big_pot:{name:'大赢家',desc:'赢得超过500的底池',icon:'💵'},
+    huge_pot:{name:'超级赢家',desc:'赢得超过2000的底池',icon:'🤑'},play_50:{name:'身经百战',desc:'累计打满50手牌',icon:'📊'},
+    play_200:{name:'牌桌老手',desc:'累计打满200手牌',icon:'🎓'},win_streak_3:{name:'三连胜',desc:'连续赢得3手牌',icon:'🔥'},
+    win_streak_5:{name:'五连胜',desc:'连续赢得5手牌',icon:'⚡'},comeback:{name:'绝地翻盘',desc:'筹码低于500时赢回超过1000',icon:'🔄'},
+    bluff_master:{name:'诈唬大师',desc:'用高牌赢下一手',icon:'🎭'},first_game:{name:'初入江湖',desc:'完成第一局游戏',icon:'🃏'},
+  };
+
+  const unlockedIds = new Set(profile.achievements.map(a => a.id));
+  let html = '';
+  for (const [id, ach] of Object.entries(ACHIEVEMENTS)) {
+    const unlocked = unlockedIds.has(id);
+    html += '<div class="achievement-card ' + (unlocked ? 'unlocked' : 'locked') + '"><div class="achievement-icon">' + ach.icon + '</div><div class="achievement-name">' + ach.name + '</div><div class="achievement-desc">' + ach.desc + '</div></div>';
+  }
+  $('achievementsGrid').innerHTML = html;
+}
+
+function showAchievementToast(ach) {
+  const toast = document.createElement('div');
+  toast.className = 'achievement-toast';
+  toast.innerHTML = '<div class="achieve-toast-label">🏅 成就解锁</div><div class="achieve-toast-name">' + (ach.icon||'') + ' ' + ach.name + '</div><div class="achieve-toast-desc">' + ach.desc + '</div>';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4500);
+}
+
 // ===== RECONNECT =====
 async function attemptReconnect() {
   for (let i = 0; i < 5; i++) {
@@ -1366,7 +1678,7 @@ $('createRoomBtn').addEventListener('click', async () => {
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
-    Net.send('room:create', { name });
+    Net.send('room:create', { name, gameMode: selectedGameMode });
   } catch { showError('无法连接到服务器'); }
 });
 
@@ -1383,7 +1695,7 @@ $('botGameBtn').addEventListener('click', async () => {
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
-    Net.send('room:botGame', { name, difficulty });
+    Net.send('room:botGame', { name, difficulty, gameMode: selectedGameMode });
   } catch { showError('无法连接到服务器'); }
 });
 
@@ -1544,14 +1856,42 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'a') $('btnAllin').click();
 });
 
+// Game mode selector
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedGameMode = btn.dataset.mode;
+    $('modeDesc').textContent = MODE_DESCS[selectedGameMode] || '';
+  });
+});
+
+// How to play button
+$('howToPlayBtn').addEventListener('click', () => {
+  $('introOverlay').classList.add('active');
+});
+$('introClose').addEventListener('click', () => {
+  $('introOverlay').classList.remove('active');
+});
+
+// Profile close
+$('profileClose').addEventListener('click', () => {
+  $('profileOverlay').classList.remove('active');
+});
+
 // Auto-connect and fetch room list on load
 (async () => {
   try {
     await Net.connect(getWsUrl());
+    // Try token login first
+    if (authToken) {
+      Net.send('user:tokenLogin', { token: authToken });
+    }
     const name = $('nameInput').value.trim() || '玩家';
     await Net.auth(name);
+    updateUserArea();
     Net.send('room:list');
-    startRoomListRefresh(); // Auto-refresh every 5s
+    startRoomListRefresh();
   } catch {
     showError('服务器未启动。请先运行 npm start');
   }
@@ -1593,7 +1933,14 @@ const VoiceChat = (() => {
   let muted = false;
 
   const RTC_CONFIG = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.stunprotocol.org:3478' },
+    ]
   };
 
   function createPC(peerId, initiator) {
@@ -1615,9 +1962,15 @@ const VoiceChat = (() => {
       if (!audio) {
         audio = new Audio();
         audio.autoplay = true;
+        audio.playsInline = true;
         audioEls.set(peerId, audio);
       }
       audio.srcObject = stream;
+      audio.play().catch(() => {
+        // Retry on user interaction
+        const resume = () => { audio.play().catch(()=>{}); document.removeEventListener('click', resume); };
+        document.addEventListener('click', resume, { once: true });
+      });
       showVoiceIndicator(peerId);
     };
 

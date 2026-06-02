@@ -13,10 +13,11 @@ const BB = 20;
 const START_STACK = 2000;
 
 // ===== Deck =====
-function createDeck() {
+function createDeck(shortDeck = false) {
   const d = [];
+  const startRank = shortDeck ? 6 : 0; // Short deck: 6+ only
   for (let s = 0; s < 4; s++)
-    for (let r = 0; r < 13; r++)
+    for (let r = startRank; r < 13; r++)
       d.push({ suit: s, rank: r, rankStr: RANKS[r], suitStr: SUITS[s] });
   return d;
 }
@@ -99,12 +100,19 @@ function compareEval(a, b) {
 
 // ===== Game Class =====
 class Game {
-  constructor(players) {
+  constructor(players, options = {}) {
+    this.sb = options.sb || SB;
+    this.bb = options.bb || BB;
+    this.startStack = options.startStack || START_STACK;
+    this.shortDeck = options.shortDeck || false;
+    this.allInOrFold = options.allInOrFold || false;
+    this.gameMode = options.gameMode || 'classic';
+
     this.players = players.map((p, i) => ({
       id: p.id,
       name: p.name,
       seatIdx: i,
-      stack: p.stack || START_STACK,
+      stack: p.stack || this.startStack,
       hand: [],
       bet: 0,
       totalBet: 0,
@@ -113,7 +121,8 @@ class Game {
       lastAction: '',
       connected: p.connected !== false,
       isBot: !!p.isBot,
-      botStyle: p.botStyle || null, // 'tag' | 'lap' | 'maniac' | 'rock'
+      botStyle: p.botStyle || null,
+      _username: p._username || null,
     }));
     this.deck = [];
     this.community = [];
@@ -121,8 +130,8 @@ class Game {
     this.dealerIdx = Math.floor(Math.random() * this.players.length);
     this.currentIdx = 0;
     this.phase = 'idle';
-    this.minRaise = BB;
-    this.lastRaise = BB;
+    this.minRaise = this.bb;
+    this.lastRaise = this.bb;
     this.roundBet = 0;
     this.actedCount = 0;
     this.handNum = 0;
@@ -200,13 +209,13 @@ class Game {
     if (this.actionTimeout) clearTimeout(this.actionTimeout);
 
     this.handNum++;
-    this.deck = shuffle(createDeck());
+    this.deck = shuffle(createDeck(this.shortDeck));
     this.community = [];
     this.pot = 0;
     this.winners = [];
     this.phase = 'preflop';
-    this.lastRaise = BB;
-    this.minRaise = BB;
+    this.lastRaise = this.bb;
+    this.minRaise = this.bb;
     this.roundBet = 0;
 
     for (const p of this.players) {
@@ -231,8 +240,8 @@ class Game {
     this.sbIdx = sbIdx; // Save for later phases
     this.bbIdx = bbIdx; // Save for later phases
 
-    this.postBlind(this.players[sbIdx], SB);
-    this.postBlind(this.players[bbIdx], BB);
+    this.postBlind(this.players[sbIdx], this.sb);
+    this.postBlind(this.players[bbIdx], this.bb);
 
     // Deal
     for (let i = 0; i < 2; i++) {
@@ -275,6 +284,7 @@ class Game {
     const hand = player.hand;
     const community = this.community;
     const activeCount = this.inHandPlayers().length;
+    const bb = this.bb;
 
     // Estimate hand strength via Monte Carlo simulation
     let strength = 0;
@@ -294,14 +304,14 @@ class Game {
       case 'tag': // Tight-Aggressive
         if (adj > 0.82) { action = 'raise'; amount = Math.min(this.pot, player.stack); }
         else if (adj > 0.6) { action = toCall === 0 ? 'check' : 'call'; }
-        else if (adj > 0.42 && toCall <= BB * 3) { action = toCall === 0 ? 'check' : 'call'; }
+        else if (adj > 0.42 && toCall <= bb * 3) { action = toCall === 0 ? 'check' : 'call'; }
         else if (toCall === 0) { action = 'check'; }
         else { action = 'fold'; }
         break;
 
       case 'lap': // Loose-Passive (Calling Station)
         if (adj > 0.9 && Math.random() < 0.25) { action = 'raise'; amount = Math.min(this.pot, player.stack); }
-        else if (adj > 0.28 || toCall <= BB * 2) { action = toCall === 0 ? 'check' : 'call'; }
+        else if (adj > 0.28 || toCall <= bb * 2) { action = toCall === 0 ? 'check' : 'call'; }
         else if (toCall === 0) { action = 'check'; }
         else { action = 'fold'; }
         break;
@@ -318,7 +328,7 @@ class Game {
 
       case 'rock': // Tight-Passive
         if (adj > 0.85) { action = toCall === 0 ? 'check' : 'call'; }
-        else if (adj > 0.5 && toCall <= BB * 2) { action = toCall === 0 ? 'check' : 'call'; }
+        else if (adj > 0.5 && toCall <= bb * 2) { action = toCall === 0 ? 'check' : 'call'; }
         else if (toCall === 0) { action = 'check'; }
         else { action = 'fold'; }
         break;
@@ -338,6 +348,13 @@ class Game {
     const delay = 800 + Math.random() * 1400;
     this.actionTimeout = setTimeout(() => {
       this.actionTimeout = null;
+      // All-in-or-fold mode: bots can only fold, check, or allin
+      if (this.allInOrFold) {
+        if (action === 'call' || action === 'raise') {
+          this.handleAction(player.id, { action: 'allin' });
+          return;
+        }
+      }
       this.handleAction(player.id, { action, amount });
     }, delay);
   }
@@ -427,6 +444,8 @@ class Game {
       minRaise: this.roundBet + this.minRaise,
       maxRaise: player.stack + player.bet,
       pot: this.pot,
+      gameMode: this.gameMode,
+      allInOrFold: this.allInOrFold,
     };
 
     // Send yourTurn ONLY to the current player (not broadcast)
@@ -449,6 +468,14 @@ class Game {
 
     const toCall = this.roundBet - player.bet;
     const { action, amount } = actionData;
+
+    // All-in-or-fold mode: only fold, check, or allin allowed
+    if (this.allInOrFold) {
+      if (action === 'call' || action === 'raise') {
+        // Convert call/raise to allin
+        return this.handleAction(playerId, { action: 'allin' });
+      }
+    }
 
     switch (action) {
       case 'fold':
@@ -530,8 +557,8 @@ class Game {
     for (const p of this.players) p.bet = 0;
     this.roundBet = 0;
     this.actedCount = 0;
-    this.lastRaise = BB;
-    this.minRaise = BB;
+    this.lastRaise = this.bb;
+    this.minRaise = this.bb;
 
     const inHand = this.inHandPlayers();
     if (inHand.length <= 1) { this.endHand(); return; }

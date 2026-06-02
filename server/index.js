@@ -4,6 +4,10 @@
  * Protocol:
  *   Client → Server:
  *     { type: 'auth',         data: { playerId, name } }
+ *     { type: 'user:register', data: { username, password } }
+ *     { type: 'user:login',    data: { username, password } }
+ *     { type: 'user:profile' }
+ *     { type: 'user:guest',    data: { name } }
  *     { type: 'room:create',  data: { name, options } }
  *     { type: 'room:join',    data: { code, name } }
  *     { type: 'room:leave' }
@@ -14,6 +18,11 @@
  *
  *   Server → Client:
  *     { type: 'auth:ok',           data: { playerId } }
+ *     { type: 'user:registered',   data: { token, username, profile } }
+ *     { type: 'user:loggedIn',     data: { token, username, profile } }
+ *     { type: 'user:profile',      data: { profile } }
+ *     { type: 'user:achievement',  data: { achievement } }
+ *     { type: 'user:error',        data: { message } }
  *     { type: 'room:created',      data: { code } }
  *     { type: 'room:joined',       data: { code } }
  *     { type: 'room:state',        data: { code, hostId, gameRunning } }
@@ -40,15 +49,19 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { RoomRegistry } = require('./room');
 const { evaluateHand: evaluateForStats } = require('./game');
+const { UserStore, ACHIEVEMENTS } = require('./userStore');
 
 // ===== Config =====
 const PORT = process.env.PORT || 3000;
 const STATIC_DIR = path.join(__dirname, '..', 'public');
 
-// ===== Leaderboard Stats =====
+// ===== User Store =====
+const userStore = new UserStore();
+
+// ===== Leaderboard Stats (in-memory, backed by UserStore for registered users) =====
 class StatsTracker {
   constructor() {
-    this.stats = new Map(); // name -> stats
+    this.stats = new Map();
   }
 
   record(playerName, data) {
@@ -77,6 +90,10 @@ class StatsTracker {
   }
 
   getLeaderboard(sortBy = 'totalWon', limit = 20) {
+    // Merge in-memory stats with UserStore data for richer leaderboard
+    const userBoard = userStore.getLeaderboard(sortBy, limit);
+    if (userBoard.length > 0) return userBoard;
+
     const list = [...this.stats.values()];
     list.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
     return list.slice(0, limit).map((s, i) => ({
@@ -89,6 +106,7 @@ class StatsTracker {
       biggestPot: s.biggestPot,
       bestHand: s.bestHand || '-',
       allIns: s.allIns,
+      achievementCount: 0,
     }));
   }
 }
@@ -142,9 +160,58 @@ const playerSockets = new Map(); // playerId -> ws
 // Periodic cleanup of stale rooms
 setInterval(() => registry.cleanup(), 60000);
 
+// Helper: wire up stats reporting for a room
+function wireStatsReporting(room, ws) {
+  room.onStatsReport = (game) => {
+    const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
+    for (const gp of game.players) {
+      const won = game.winners.some(w => w.id === gp.id);
+      const winData = game.winners.find(w => w.id === gp.id);
+      let handRank = -1, handName = '';
+      if (gp.hand.length === 2 && game.community.length >= 3 && !gp.folded) {
+        try {
+          const ev = evaluateForStats([...gp.hand, ...game.community]);
+          handRank = ev.rank;
+          handName = ev.name;
+        } catch {}
+      }
+
+      const recordData = {
+        won,
+        amount: won ? (winData?.amount || 0) : 0,
+        handRank,
+        handName,
+        allIn: gp.lastAction === 'allin' || gp.allIn,
+        stackBefore: gp.stack - (won ? (winData?.amount || 0) : 0),
+      };
+
+      // Record in-memory stats
+      stats.record(gp.name, recordData);
+
+      // Record in UserStore if registered
+      if (gp._username) {
+        const result = userStore.recordGame(gp._username, recordData);
+        // Send achievement unlocks to the player
+        if (result.newAchievements && result.newAchievements.length > 0) {
+          const playerWs = playerSockets.get(gp.id);
+          if (playerWs && playerWs.readyState === 1) {
+            for (const ach of result.newAchievements) {
+              playerWs.send(JSON.stringify({
+                type: 'user:achievement',
+                data: { achievement: ach }
+              }));
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
 wss.on('connection', (ws) => {
   let playerId = null;
   let currentRoom = null;
+  let currentUser = null; // { username, token } for registered users
 
   // Send heartbeat
   ws.isAlive = true;
@@ -173,6 +240,82 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      // ===== User: Register =====
+      case 'user:register': {
+        const result = userStore.register(data.username, data.password);
+        if (result.error) {
+          ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
+        } else {
+          currentUser = { username: result.username, token: result.token };
+          playerId = playerId || crypto.randomUUID();
+          playerSockets.set(playerId, ws);
+          ws.playerId = playerId;
+          ws.playerName = result.username;
+          ws.send(JSON.stringify({
+            type: 'user:registered',
+            data: { token: result.token, username: result.username, profile: result.profile, playerId }
+          }));
+        }
+        break;
+      }
+
+      // ===== User: Login =====
+      case 'user:login': {
+        const result = userStore.login(data.username, data.password);
+        if (result.error) {
+          ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
+        } else {
+          currentUser = { username: result.username, token: result.token };
+          playerId = playerId || crypto.randomUUID();
+          playerSockets.set(playerId, ws);
+          ws.playerId = playerId;
+          ws.playerName = result.username;
+          ws.send(JSON.stringify({
+            type: 'user:loggedIn',
+            data: { token: result.token, username: result.username, profile: result.profile, playerId }
+          }));
+        }
+        break;
+      }
+
+      // ===== User: Token Login (auto-login) =====
+      case 'user:tokenLogin': {
+        const result = userStore.validateToken(data.token);
+        if (!result) {
+          ws.send(JSON.stringify({ type: 'user:error', data: { message: '登录已过期，请重新登录' } }));
+        } else {
+          currentUser = { username: result.username, token: data.token };
+          playerId = playerId || crypto.randomUUID();
+          playerSockets.set(playerId, ws);
+          ws.playerId = playerId;
+          ws.playerName = result.username;
+          ws.send(JSON.stringify({
+            type: 'user:loggedIn',
+            data: { token: data.token, username: result.username, profile: result.profile, playerId }
+          }));
+        }
+        break;
+      }
+
+      // ===== User: Profile =====
+      case 'user:profile': {
+        if (!currentUser) {
+          ws.send(JSON.stringify({ type: 'user:error', data: { message: '请先登录' } }));
+          break;
+        }
+        const profile = userStore.getProfile(currentUser.username);
+        if (profile) {
+          ws.send(JSON.stringify({ type: 'user:profile', data: { profile } }));
+        }
+        break;
+      }
+
+      // ===== User: Achievements List =====
+      case 'user:achievements': {
+        ws.send(JSON.stringify({ type: 'user:achievementsList', data: { achievements: ACHIEVEMENTS } }));
+        break;
+      }
+
       // ===== Room: List =====
       case 'room:list': {
         const rooms = registry.getRoomList();
@@ -187,34 +330,33 @@ wss.on('connection', (ws) => {
         if (currentRoom) registry.leaveRoom(playerId);
 
         const name = data.name || ws.playerName;
-        const room = registry.createRoom(playerId, name, ws, data.options);
+        const options = data.options || {};
+
+        // Game mode presets
+        if (data.gameMode === 'turbo') {
+          options.sb = 20; options.bb = 40; options.startStack = 1500;
+        } else if (data.gameMode === 'shortdeck') {
+          options.sb = 10; options.bb = 20; options.startStack = 2000;
+          options.shortDeck = true;
+        } else if (data.gameMode === 'highroller') {
+          options.sb = 50; options.bb = 100; options.startStack = 10000;
+        } else if (data.gameMode === 'allinfold') {
+          options.sb = 10; options.bb = 20; options.startStack = 2000;
+          options.allInOrFold = true;
+        }
+
+        const room = registry.createRoom(playerId, name, ws, options);
         currentRoom = room;
 
-        // Wire up stats reporting
-        room.onStatsReport = (game) => {
-          const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
-          for (const gp of game.players) {
-            const won = game.winners.some(w => w.id === gp.id);
-            const winData = game.winners.find(w => w.id === gp.id);
-            let handRank = -1, handName = '';
-            if (gp.hand.length === 2 && game.community.length >= 3 && !gp.folded) {
-              try {
-                const ev = evaluateForStats([...gp.hand, ...game.community]);
-                handRank = ev.rank;
-                handName = ev.name;
-              } catch {}
-            }
-            stats.record(gp.name, {
-              won,
-              amount: won ? (winData?.amount || 0) : 0,
-              handRank,
-              handName,
-              allIn: gp.lastAction === 'allin' || gp.allIn,
-            });
-          }
-        };
+        // Tag username on player for stats
+        if (currentUser) {
+          const rp = room.players.get(playerId);
+          if (rp) rp._username = currentUser.username;
+        }
 
-        ws.send(JSON.stringify({ type: 'room:created', data: { code: room.code } }));
+        wireStatsReporting(room, ws);
+
+        ws.send(JSON.stringify({ type: 'room:created', data: { code: room.code, gameMode: data.gameMode || 'classic' } }));
         room.broadcastPlayerList();
         break;
       }
@@ -236,6 +378,16 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({ type: 'room:error', data: { message: result.error } }));
         } else {
           currentRoom = result.room;
+          // Tag username
+          if (currentUser) {
+            const rp = currentRoom.players.get(playerId);
+            if (rp) rp._username = currentUser.username;
+          }
+          // Send room state on join (fixes host rejoin bug)
+          ws.send(JSON.stringify({
+            type: 'room:state',
+            data: { code: currentRoom.code, hostId: currentRoom.hostId, gameRunning: currentRoom.gameRunning }
+          }));
           ws.send(JSON.stringify({ type: 'room:joined', data: { code } }));
         }
         break;
@@ -297,32 +449,25 @@ wss.on('connection', (ws) => {
 
         const name = data.name || ws.playerName;
         const difficulty = data.difficulty || 'medium';
-        const room = registry.createRoom(playerId, name, ws);
+        const options = {};
+
+        // Apply game mode to bot games too
+        if (data.gameMode === 'turbo') {
+          options.sb = 20; options.bb = 40; options.startStack = 1500;
+        } else if (data.gameMode === 'shortdeck') {
+          options.sb = 10; options.bb = 20; options.startStack = 2000;
+          options.shortDeck = true;
+        }
+
+        const room = registry.createRoom(playerId, name, ws, options);
         currentRoom = room;
 
-        // Wire up stats reporting
-        room.onStatsReport = (game) => {
-          const HAND_NAMES_STATS = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
-          for (const gp of game.players) {
-            const won = game.winners.some(w => w.id === gp.id);
-            const winData = game.winners.find(w => w.id === gp.id);
-            let handRank = -1, handName = '';
-            if (gp.hand.length === 2 && game.community.length >= 3 && !gp.folded) {
-              try {
-                const ev = evaluateForStats([...gp.hand, ...game.community]);
-                handRank = ev.rank;
-                handName = ev.name;
-              } catch {}
-            }
-            stats.record(gp.name, {
-              won,
-              amount: won ? (winData?.amount || 0) : 0,
-              handRank,
-              handName,
-              allIn: gp.lastAction === 'allin' || gp.allIn,
-            });
-          }
-        };
+        if (currentUser) {
+          const rp = room.players.get(playerId);
+          if (rp) rp._username = currentUser.username;
+        }
+
+        wireStatsReporting(room, ws);
 
         ws.send(JSON.stringify({ type: 'room:created', data: { code: room.code, isBotGame: true } }));
         room.broadcastPlayerList();
@@ -368,7 +513,6 @@ wss.on('connection', (ws) => {
       // ===== Voice Chat Signaling =====
       case 'voice:join': {
         if (!currentRoom) break;
-        // Notify all other players that this player joined voice
         currentRoom.routeVoiceSignal(playerId, 'voice:join', data);
         break;
       }
@@ -447,6 +591,7 @@ httpServer.listen(PORT, () => {
   │   WS:    ws://localhost:${PORT}              │
   │                                             │
   │   Static files: ${STATIC_DIR}
+  │   User data:    ${path.join(__dirname, '..', 'data')}
   │                                             │
   └─────────────────────────────────────────────┘
   `);

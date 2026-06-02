@@ -20,6 +20,9 @@ class Room {
     this.startStack = options.startStack || START_STACK;
     this.sb = options.sb || 10;
     this.bb = options.bb || 20;
+    this.gameMode = options.gameMode || 'classic';
+    this.shortDeck = options.shortDeck || false;
+    this.allInOrFold = options.allInOrFold || false;
 
     this.players = new Map(); // id -> { id, name, ws, stack, ready }
     this.spectators = new Map(); // id -> { id, name, ws }
@@ -58,6 +61,13 @@ class Room {
       playerCount: this.players.size,
       maxPlayers: this.maxPlayers,
     });
+
+    // Send current room state to the new player (fixes host rejoin bug)
+    ws.send(JSON.stringify({
+      type: 'room:state',
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning }
+    }));
+
     this.broadcastPlayerList();
     return true;
   }
@@ -158,7 +168,15 @@ class Room {
     if (this.hostId === id && this.players.size > 0) {
       const first = this.players.values().next().value;
       this.hostId = first.id;
+      // Send hostChanged to all (including new host)
       this.broadcast('room:hostChanged', { hostId: this.hostId });
+      // Also send room:state to new host so their UI updates
+      if (first.ws && first.ws.readyState === 1) {
+        first.ws.send(JSON.stringify({
+          type: 'room:state',
+          data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning }
+        }));
+      }
     }
 
     this.broadcastPlayerList();
@@ -227,9 +245,14 @@ class Room {
       connected: true,
       isBot: !!p.isBot,
       botStyle: p.botStyle || null,
+      _username: p._username || null,
     }));
 
-    this.game = new Game(gamePlayers);
+    this.game = new Game(gamePlayers, {
+      sb: this.sb, bb: this.bb, startStack: this.startStack,
+      shortDeck: this.shortDeck, allInOrFold: this.allInOrFold,
+      gameMode: this.gameMode,
+    });
 
     // Wire up game callbacks
     this.game.onBroadcast = (type, data) => {
@@ -470,6 +493,7 @@ class RoomRegistry {
         hostName: r.players.get(r.hostId)?.name || 'Unknown',
         hasBots: botCount > 0,
         botCount,
+        gameMode: r.gameMode || 'classic',
       };
     });
   }
