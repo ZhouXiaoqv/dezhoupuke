@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const SCREENSHOT_DIR = path.join(__dirname, '..', 'dezhoupuke', 'test-screenshots');
+const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function ss(page, name) {
   const fp = path.join(SCREENSHOT_DIR, `bug-${name}.png`);

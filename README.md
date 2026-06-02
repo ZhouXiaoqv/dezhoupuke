@@ -27,6 +27,7 @@ poker-online/
 │   └── room.js       # 房间管理（创建/加入/生命周期）
 ├── public/
 │   └── index.html    # 客户端（大厅 + 牌桌 UI + 网络层）
+├── tests/              # 测试文件（WebSocket 单元测试 + 浏览器 E2E）
 ├── package.json
 └── README.md
 ```
