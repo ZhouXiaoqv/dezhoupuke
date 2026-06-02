@@ -975,6 +975,117 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .tarot-draw-btn:hover { transform:scale(1.04); box-shadow:0 4px 20px rgba(128,0,255,0.3); }
 .fortune-close { position:absolute; top:12px; right:14px; background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; z-index:2; }
 .fortune-close:hover { color:var(--text); }
+
+/* ===== ACTION LOG PANEL ===== */
+.action-log-toggle {
+  position:fixed; top:52px; right:16px; z-index:60;
+  background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1);
+  border-radius:20px; padding:6px 14px; cursor:pointer;
+  font-size:14px; line-height:1; transition:all 0.3s;
+  backdrop-filter:blur(8px); display:none;
+}
+.action-log-toggle.visible { display:flex; align-items:center; gap:4px; }
+.action-log-toggle:hover { border-color:var(--gold-dim); }
+.action-log-toggle .log-dot {
+  width:6px; height:6px; border-radius:50%; background:var(--gold);
+  display:none; animation:logDotPulse 1s ease-in-out infinite;
+}
+.action-log-toggle .log-dot.active { display:inline-block; }
+@keyframes logDotPulse {
+  0%,100%{opacity:0.4;transform:scale(0.8)}
+  50%{opacity:1;transform:scale(1.3)}
+}
+
+.action-log-panel {
+  position:fixed; top:80px; right:16px; bottom:80px;
+  width:260px; z-index:55;
+  background:rgba(8,8,8,0.92); border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px; backdrop-filter:blur(12px);
+  display:none; flex-direction:column; overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+}
+.action-log-panel.open { display:flex; }
+
+.action-log-header {
+  padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06);
+  display:flex; justify-content:space-between; align-items:center;
+  flex-shrink:0;
+}
+.action-log-title {
+  font-size:12px; font-weight:700; color:var(--gold);
+  letter-spacing:1px;
+}
+.action-log-close {
+  background:none; border:none; color:#666; font-size:14px;
+  cursor:pointer; padding:2px 6px; border-radius:4px; transition:color 0.2s;
+}
+.action-log-close:hover { color:var(--white); }
+
+.action-log-body {
+  flex:1; overflow-y:auto; padding:6px 0;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
+}
+.action-log-body::-webkit-scrollbar { width:4px; }
+.action-log-body::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
+
+.log-phase-sep {
+  text-align:center; padding:6px 10px; font-size:9px; color:var(--gold-dim);
+  letter-spacing:2px; text-transform:uppercase; position:relative;
+}
+.log-phase-sep::before, .log-phase-sep::after {
+  content:''; position:absolute; top:50%; height:1px; width:20%;
+  background:rgba(212,168,64,0.15);
+}
+.log-phase-sep::before { left:8%; }
+.log-phase-sep::after { right:8%; }
+
+.log-entry {
+  padding:4px 14px; font-size:11px; line-height:1.5;
+  display:flex; gap:6px; align-items:baseline;
+  animation:logSlideIn 0.25s ease-out;
+}
+@keyframes logSlideIn {
+  from { transform:translateX(12px); opacity:0; }
+  to { transform:translateX(0); opacity:1; }
+}
+.log-entry .log-name {
+  font-weight:700; flex-shrink:0; max-width:70px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.log-entry .log-detail { color:var(--dim); }
+.log-entry .log-amount { font-family:'JetBrains Mono',monospace; color:var(--gold); font-size:10px; }
+
+.log-entry.log-blind .log-name { color:#80a0c0; }
+.log-entry.log-fold .log-name { color:#888; }
+.log-entry.log-check .log-name { color:#80d080; }
+.log-entry.log-call .log-name { color:#60c0f0; }
+.log-entry.log-raise .log-name { color:var(--gold); }
+.log-entry.log-allin .log-name { color:var(--red); }
+.log-entry.log-winner .log-name { color:#40e080; }
+.log-entry.log-winner { background:rgba(64,224,128,0.04); }
+
+.log-entry .log-pot {
+  margin-left:auto; font-family:'JetBrains Mono',monospace;
+  font-size:9px; color:#4a4a4a; flex-shrink:0;
+}
+
+.log-result-bar {
+  padding:8px 14px; border-top:1px solid rgba(255,255,255,0.06);
+  font-size:11px; color:var(--gold); text-align:center;
+  flex-shrink:0; background:rgba(212,168,64,0.03);
+}
+
+.action-log-empty {
+  text-align:center; color:#3a3a3a; font-size:11px;
+  padding:40px 16px; letter-spacing:1px;
+}
+
+@media (max-width:700px) {
+  .action-log-panel { width:200px; top:70px; right:8px; bottom:70px; }
+  .action-log-toggle { top:44px; right:8px; padding:4px 10px; font-size:12px; }
+  .log-entry { padding:3px 10px; font-size:10px; }
+  .log-phase-sep { font-size:8px; padding:4px 8px; }
+}
 </style>
 </head>
 <body>
@@ -1289,6 +1400,19 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   <button class="next-hand-skip" id="nextHandSkip">立即开始</button>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Action Log Panel -->
+<button class="action-log-toggle" id="actionLogToggle"><span>📋</span><span class="log-dot" id="logDot"></span></button>
+<div class="action-log-panel" id="actionLogPanel">
+  <div class="action-log-header">
+    <div class="action-log-title">操作记录</div>
+    <button class="action-log-close" id="actionLogClose">✕</button>
+  </div>
+  <div class="action-log-body" id="actionLogBody">
+    <div class="action-log-empty">等待牌局开始...</div>
+  </div>
+  <div class="log-result-bar" id="logResultBar" style="display:none"></div>
+</div>
 
 <!-- ===== LEADERBOARD OVERLAY ===== -->
 <div class="leaderboard-overlay" id="leaderboardOverlay">
@@ -2318,6 +2442,68 @@ let prevPot = 0;
 let prevActions = {}; // playerId -> lastAction
 let prevMyHandIds = null; // track my hand cards to avoid re-animating
 
+// ===== ACTION LOG =====
+let logPrevPhase = '';
+let logPrevActions = {};   // playerId → lastAction
+let logPrevPot = 0;
+
+function addLogEntry(name, actionText, amount, pot, actionType) {
+  const body = $('actionLogBody');
+  // Remove empty placeholder
+  const empty = body.querySelector('.action-log-empty');
+  if (empty) empty.remove();
+
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${actionType}`;
+
+  let amountStr = '';
+  if (amount > 0) amountStr = ` <span class="log-amount">${amount}</span>`;
+
+  entry.innerHTML = `<span class="log-name">${name}</span><span class="log-detail">${actionText}${amountStr}</span><span class="log-pot">底池${pot}</span>`;
+  body.appendChild(entry);
+  body.scrollTop = body.scrollHeight;
+
+  // Flash the toggle dot
+  const dot = $('logDot');
+  dot.classList.add('active');
+  setTimeout(() => dot.classList.remove('active'), 1500);
+}
+
+function addLogPhaseSeparator(phaseName) {
+  const body = $('actionLogBody');
+  const empty = body.querySelector('.action-log-empty');
+  if (empty) empty.remove();
+
+  const sep = document.createElement('div');
+  sep.className = 'log-phase-sep';
+  sep.textContent = phaseName;
+  body.appendChild(sep);
+  body.scrollTop = body.scrollHeight;
+}
+
+function clearActionLog() {
+  const body = $('actionLogBody');
+  body.innerHTML = '<div class="action-log-empty">等待发牌...</div>';
+  $('logResultBar').style.display = 'none';
+  logPrevPhase = '';
+  logPrevActions = {};
+  logPrevPot = 0;
+}
+
+function showLogResult(winners) {
+  const bar = $('logResultBar');
+  bar.style.display = '';
+  bar.textContent = winners.map(w => `${w.name}「${w.hand || ''}」+${w.amount}`).join('  ');
+}
+
+// Toggle logic
+$('actionLogToggle').addEventListener('click', () => {
+  $('actionLogPanel').classList.toggle('open');
+});
+$('actionLogClose').addEventListener('click', () => {
+  $('actionLogPanel').classList.remove('open');
+});
+
 function renderGame(state) {
   gameState = state;
   const table = $('table');
@@ -2327,7 +2513,26 @@ function renderGame(state) {
   const communityGrew = state.community.length > prevCommunityLen;
   const potGrew = state.pot > prevPot;
 
-  // Detect action changes for sounds
+  // Phase separator for action log (before actions, so order is correct)
+  if (phaseChanged && state.phase !== 'idle') {
+    const LOG_PHASE_NAMES = {preflop:'— 翻牌前 —',flop:'— 翻牌 —',turn:'— 转牌 —',river:'— 河牌 —',showdown:'— 摊牌 —'};
+    if (LOG_PHASE_NAMES[state.phase]) addLogPhaseSeparator(LOG_PHASE_NAMES[state.phase]);
+  }
+
+  // Action log: detect blind posts (SB/BB don't set lastAction on server)
+  if (logPrevPhase === '' && state.phase === 'preflop' && state.pot > 0) {
+    if (state.sbIdx !== undefined) {
+      const sbP = state.players[state.sbIdx];
+      if (sbP && sbP.bet > 0) addLogEntry(sbP.name, '小盲', sbP.bet, state.pot, 'blind');
+    }
+    if (state.bbIdx !== undefined) {
+      const bbP = state.players[state.bbIdx];
+      if (bbP && bbP.bet > 0) addLogEntry(bbP.name, '大盲', bbP.bet, state.pot, 'blind');
+    }
+  }
+
+  // Detect action changes for sounds + action log
+  const ACTION_LABELS = {fold:'弃牌',check:'过牌',call:'跟注',raise:'加注',allin:'ALL IN',winner:'🏆 赢家'};
   for (const p of state.players) {
     const prev = prevActions[p.id];
     if (p.lastAction && p.lastAction !== prev && p.lastAction !== '') {
@@ -2342,6 +2547,12 @@ function renderGame(state) {
       if (p.id !== Net.playerId && p.lastAction !== 'winner') {
         VoiceAnnounce.playerAction(p.name, p.lastAction);
       }
+
+      // Action log entry
+      const label = ACTION_LABELS[p.lastAction] || p.lastAction;
+      let amount = 0;
+      if (['call','raise','allin'].includes(p.lastAction)) amount = p.bet;
+      addLogEntry(p.name, label, amount, state.pot, p.lastAction);
     }
   }
 
@@ -2364,6 +2575,7 @@ function renderGame(state) {
 
   // Update tracking
   prevPhase = state.phase;
+  logPrevPhase = state.phase;
   prevCommunityLen = state.community.length;
   prevPot = state.pot;
   for (const p of state.players) prevActions[p.id] = p.lastAction;
@@ -2846,6 +3058,8 @@ Net.on('room:error', (d) => { showError(d.message); toast(d.message); });
 Net.on('room:left', () => {
   if (typeof VoiceChat !== 'undefined') VoiceChat.leave();
   $('voiceToggle').classList.remove('visible','active','muted');
+  $('actionLogToggle').classList.remove('visible');
+  $('actionLogPanel').classList.remove('open');
   myReady = false;
   $('readyBtn').textContent = '准备';
   $('readyBtn').className = 'btn btn-green';
@@ -2858,6 +3072,8 @@ Net.on('room:left', () => {
 Net.on('room:destroyed', () => {
   if (typeof VoiceChat !== 'undefined') VoiceChat.leave();
   $('voiceToggle').classList.remove('visible','active','muted');
+  $('actionLogToggle').classList.remove('visible');
+  $('actionLogPanel').classList.remove('open');
   myReady = false;
   $('readyBtn').textContent = '准备';
   $('readyBtn').className = 'btn btn-green';
@@ -2887,12 +3103,16 @@ Net.on('game:handStart', (d) => {
   prevActions = {};
   prevMyHandIds = null;
   window._prevOtherHands = {};
+  // Action log
+  clearActionLog();
+  $('actionLogToggle').classList.add('visible');
 });
 
 Net.on('game:showdown', (d) => {
   hideActions();
   const winners = d.winners.map(w => `${w.name}「${w.hand}」+${w.amount}`).join(', ');
   toast(`摊牌: ${winners}`);
+  showLogResult(d.winners);
   // Win celebration particles
   setTimeout(() => {
     for (const w of d.winners) {
@@ -2905,6 +3125,9 @@ Net.on('game:showdown', (d) => {
 Net.on('game:handEnd', (d) => {
   hideActions();
   hideNextHandBar();
+  const winners = d.winners.map(w => `${w.name} +${w.amount}`).join(', ');
+  toast(`本手结束: ${winners}`);
+  showLogResult(d.winners);
   const myId = Net.playerId;
   const iWon = d.winners.some(w => w.id === myId);
   if (iWon) SFX.win(); else SFX.lose();

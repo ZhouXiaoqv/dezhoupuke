@@ -7,6 +7,7 @@ const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
 const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
+const gameLogger = require('./gameLogger');
 
 const SB = 10;
 const BB = 20;
@@ -243,6 +244,9 @@ class Game {
     this.sbIdx = sbIdx; // Save for later phases
     this.bbIdx = bbIdx; // Save for later phases
 
+    // Start logging this hand (before blinds so they get recorded)
+    gameLogger.startHand(this);
+
     this.postBlind(this.players[sbIdx], this.sb);
     this.postBlind(this.players[bbIdx], this.bb);
 
@@ -250,6 +254,15 @@ class Game {
     for (let i = 0; i < 2; i++) {
       for (const p of this.players) {
         if (!p.folded) p.hand.push(this.deck.pop());
+      }
+    }
+
+    // Record dealt hands in the logger
+    if (gameLogger.currentHand) {
+      for (const p of this.players) {
+        if (p.hand && p.hand.length === 2) {
+          gameLogger.currentHand.hands[p.id] = p.hand.map(c => c ? `${c.rankStr}${c.suitStr}` : null);
+        }
       }
     }
 
@@ -269,6 +282,8 @@ class Game {
     player.totalBet += actual;
     this.pot += actual;
     if (player.stack === 0) player.allIn = true;
+    const blindType = amount === this.sb ? '小盲' : '大盲';
+    gameLogger.logAction(this, player, blindType, actual);
   }
 
   broadcastState() {
@@ -479,11 +494,13 @@ class Game {
       case 'fold':
         player.folded = true;
         player.lastAction = 'fold';
+        gameLogger.logAction(this, player, '弃牌', 0);
         break;
 
       case 'check':
         if (toCall > 0) return this.scheduleNextAction(); // Invalid
         player.lastAction = 'check';
+        gameLogger.logAction(this, player, '过牌', 0);
         break;
 
       case 'call': {
@@ -494,6 +511,7 @@ class Game {
         this.pot += actual;
         if (player.stack === 0) player.allIn = true;
         player.lastAction = player.allIn ? 'allin' : 'call';
+        gameLogger.logAction(this, player, player.allIn ? 'ALL IN(跟注)' : '跟注', actual);
         break;
       }
 
@@ -511,6 +529,7 @@ class Game {
         if (player.stack === 0) { player.allIn = true; player.lastAction = 'allin'; }
         else player.lastAction = 'raise';
         this.actedCount = 0; // Others need to act again
+        gameLogger.logAction(this, player, '加注', toPay, { raiseTo: player.bet });
         break;
       }
 
@@ -526,6 +545,7 @@ class Game {
           this.roundBet = player.bet;
           this.actedCount = 0;
         }
+        gameLogger.logAction(this, player, 'ALL IN', amt);
         break;
       }
 
@@ -579,6 +599,7 @@ class Game {
       return;
     }
 
+    gameLogger.logPhaseChange(this, this.phase);
     this.broadcastState();
 
     const canAct = this.canActPlayers();
@@ -595,33 +616,82 @@ class Game {
   showdown() {
     this.phase = 'showdown';
     const inHand = this.inHandPlayers();
+
+    // Evaluate hands and sort best → worst
     const evals = inHand.map(p => ({
       player: p,
       eval: evaluateHand([...p.hand, ...this.community])
     }));
-
     evals.sort((a, b) => compareEval(b.eval, a.eval));
 
-    const winners = [evals[0]];
-    for (let i = 1; i < evals.length; i++) {
-      if (compareEval(evals[i].eval, evals[0].eval) === 0) winners.push(evals[i]);
-      else break;
+    // ===== Side pot calculation =====
+    // 1) Collect all unique totalBet levels (including folded players)
+    const allBets = new Set();
+    for (const p of this.players) {
+      if (p.totalBet > 0) allBets.add(p.totalBet);
+    }
+    const levels = [...allBets].sort((a, b) => a - b);
+
+    // 2) Walk through layers, calculate each layer's pot
+    let prevLevel = 0;
+    const awards = {}; // playerId → total won
+
+    for (const level of levels) {
+      const layerSize = level - prevLevel;
+      if (layerSize <= 0) { prevLevel = level; continue; }
+
+      // Every player with totalBet >= level contributes layerSize
+      let layerPot = 0;
+      for (const p of this.players) {
+        if (p.totalBet >= level) layerPot += layerSize;
+      }
+      if (layerPot <= 0) { prevLevel = level; continue; }
+
+      // Eligible winners: in-hand (not folded) with totalBet >= level
+      const eligible = evals.filter(e => e.player.totalBet >= level);
+      if (eligible.length === 0) { prevLevel = level; continue; }
+
+      // Best hand(s) among eligible
+      const best = [eligible[0]];
+      for (let i = 1; i < eligible.length; i++) {
+        const cmp = compareEval(eligible[i].eval, eligible[0].eval);
+        if (cmp === 0) best.push(eligible[i]);
+        else break;
+      }
+
+      // Split layer pot equally among tied best
+      const share = Math.floor(layerPot / best.length);
+      let remainder = layerPot - share * best.length;
+
+      for (let i = 0; i < best.length; i++) {
+        const pid = best[i].player.id;
+        const extra = (i === 0) ? remainder : 0; // remainder → first winner
+        awards[pid] = (awards[pid] || 0) + share + extra;
+      }
+
+      prevLevel = level;
     }
 
-    const share = Math.floor(this.pot / winners.length);
+    // 3) Apply winnings and build result
     this.winners = [];
-    for (const w of winners) {
-      w.player.stack += share;
-      w.player.lastAction = 'winner';
-      this.winners.push({ id: w.player.id, name: w.player.name, hand: w.eval.name, amount: share });
+    for (const [pid, amount] of Object.entries(awards)) {
+      if (amount <= 0) continue;
+      const e = evals.find(e => e.player.id === pid);
+      e.player.stack += amount;
+      e.player.lastAction = 'winner';
+      this.winners.push({
+        id: pid, name: e.player.name,
+        hand: e.eval.name, amount,
+      });
     }
 
-    // Remainder goes to first winner
-    const remainder = this.pot - share * winners.length;
-    if (remainder > 0) winners[0].player.stack += remainder;
+    // Sort winners by amount descending for display
+    this.winners.sort((a, b) => b.amount - a.amount);
 
     this.broadcastState();
     this.broadcast('game:showdown', { winners: this.winners });
+    gameLogger.logPhaseChange(this, 'showdown');
+    gameLogger.logResult(this, this.winners);
 
     setTimeout(() => {
       this.broadcast('game:handEnd', { winners: this.winners });
@@ -639,6 +709,7 @@ class Game {
 
       this.broadcastState();
       this.broadcast('game:handEnd', { winners: this.winners });
+      gameLogger.logResult(this, this.winners);
       if (this.onGameEnd) this.onGameEnd();
     }
   }
