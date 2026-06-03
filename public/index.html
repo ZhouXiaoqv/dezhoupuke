@@ -116,16 +116,10 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .next-hand-skip { background:none; border:1px solid #333; border-radius:8px; padding:6px 16px; color:var(--gold); font-size:12px; cursor:pointer; font-family:'Noto Sans SC',sans-serif; transition:all 0.2s; }
 .next-hand-skip:hover { border-color:var(--gold); }
 
-/* Mobile preset raise grid */
-.raise-presets { display:none; grid-template-columns:repeat(3,1fr); gap:6px; width:100%; margin-top:6px; }
-.raise-preset-btn { background:rgba(15,15,15,0.8); border:1px solid #2a2a2a; border-radius:8px; padding:8px; font-size:12px; font-weight:700; color:var(--dim); cursor:pointer; font-family:'JetBrains Mono',monospace; transition:all 0.15s; text-align:center; }
-.raise-preset-btn:hover { border-color:var(--gold); color:var(--gold); }
-.raise-preset-btn.allin { color:#f06060; border-color:rgba(204,51,51,0.3); }
-.raise-preset-btn.allin:hover { border-color:var(--red); background:rgba(204,51,51,0.1); }
-@media (max-width:768px) {
-  .raise-presets { display:grid; }
-  .raise-slider { display:none !important; }
-}
+.raise-slider { display:none !important; }
+.raise-presets { display:none !important; }
+.custom-raise-input { display:flex; align-items:center; gap:8px; justify-content:center; }
+.custom-raise-amount { width:120px; padding:8px 12px; border-radius:8px; border:1px solid var(--gold); background:rgba(0,0,0,0.6); color:var(--gold); font-size:16px; font-family:'JetBrains Mono',monospace; text-align:center; }
 
 /* Auth section */
 .auth-section { width:min(620px,92vw); margin-bottom:16px; background:rgba(15,15,15,0.6); border:1px solid #1a1a1a; border-radius:12px; padding:16px; }
@@ -213,7 +207,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .share-btn.copied { border-color:#40a060 !important; color:#60d080 !important; }
 
 /* ===== TABLE ===== */
-#table-container { position:relative; width:100vw; height:100vh; background:radial-gradient(ellipse at center,#0f0f0f 0%,#050505 100%); display:none; justify-content:center; align-items:center; }
+#table-container { position:relative; width:100vw; height:100vh; background:radial-gradient(ellipse at center,#0f0f0f 0%,#050505 100%); display:none; justify-content:center; align-items:center; --action-panel-height:0px; }
 #table-container.active { display:flex; }
 
 .table { position:relative; width:min(90vw,900px); height:min(55vh,450px); background:radial-gradient(ellipse at center,var(--felt) 0%,var(--felt-dark) 100%); border-radius:50%; border:12px solid var(--wood); box-shadow:0 0 0 3px var(--wood-light),0 0 60px rgba(0,0,0,0.8),inset 0 0 80px rgba(0,0,0,0.3); transition:box-shadow 0.3s; }
@@ -347,7 +341,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 
 /* ===== TURN LABEL ===== */
 .turn-label {
-  position:absolute; bottom:calc(min(55vh,450px) + 20px); left:50%;
+  position:absolute; top:calc(50% - (min(55vh,450px) / 2) - 42px); left:50%;
   transform:translateX(-50%);
   font-family:'Noto Sans SC',sans-serif; font-size:18px; font-weight:900;
   color:var(--gold); text-shadow:0 0 20px rgba(212,168,64,0.5);
@@ -649,7 +643,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 /* Push hand cards up when action panel is visible */
 #table-container.action-active .my-hand { bottom:110px; }
 
-.hand-rank-label { position:absolute; bottom:140px; left:50%; transform:translateX(-50%); font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold); background:rgba(0,0,0,0.6); padding:4px 16px; border-radius:12px; border:1px solid rgba(212,168,64,0.3); z-index:30; white-space:nowrap; opacity:0; transition:opacity 0.3s; }
+.hand-rank-label { position:absolute; bottom:140px; left:50%; transform:translateX(-50%); font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold); background:rgba(0,0,0,0.6); padding:4px 16px; border-radius:12px; border:1px solid rgba(212,168,64,0.3); z-index:30; white-space:nowrap; opacity:0; transition:opacity 0.3s, bottom 0.3s ease; }
 .hand-rank-label.visible { opacity:1; }
 
 .action-panel { position:fixed; bottom:0; left:0; right:0; background:linear-gradient(to top,rgba(10,10,10,0.98),rgba(10,10,10,0.9)); border-top:1px solid rgba(255,255,255,0.08); padding:16px 20px; display:flex; align-items:center; justify-content:center; gap:12px; z-index:50; backdrop-filter:blur(10px); opacity:0; pointer-events:none; transition:opacity 0.3s; flex-wrap:wrap; }
@@ -677,7 +671,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 
 @media (max-width:700px) {
   body { padding-bottom:env(safe-area-inset-bottom); }
-  .table { width:92vw; height:34vh; border-width:6px; }
+  .table { width:92vw; height:32vh; border-width:6px; }
   .table::before { inset:4px; }
   /* Cards — smaller on mobile */
   .card { width:28px; height:40px; border-radius:4px; }
@@ -690,19 +684,21 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   .seat-cards .card .rank { font-size:8px; } .seat-cards .card .suit { font-size:9px; }
   .seat-cards .card .rank-br { display:none; }
   /* My hand — always above browser nav bar */
-  .my-hand { bottom:max(60px, calc(env(safe-area-inset-bottom) + 56px)); gap:4px; }
+  .my-hand { bottom:max(64px, calc(env(safe-area-inset-bottom) + 60px)); gap:4px; }
   .my-hand .card { width:40px; height:56px; }
   .my-hand .card .rank { font-size:14px; } .my-hand .card .suit { font-size:16px; }
   .my-hand .card .rank-br { font-size:10px; }
   .my-hand .card:hover { transform:translateY(-4px); }
   /* Push hand up above action panel on mobile — extra room for raise presets grid */
-  #table-container.action-active .my-hand { bottom:max(180px, calc(env(safe-area-inset-bottom) + 176px)); }
+  #table-container.action-active .my-hand { bottom:calc(var(--action-panel-height) + env(safe-area-inset-bottom) + 14px); }
   /* Seat info — compact */
   .seat-info { padding:3px 8px; min-width:60px; border-radius:6px; }
   .seat-name { font-size:10px; }
   .seat-stack { font-size:9px; }
   .seat-action { font-size:8px; min-height:10px; }
   .seat { gap:2px; }
+  .seat-cards { gap:2px; }
+  .seat:not(.seat-0) { width:18vw; max-width:72px; }
   /* Community cards */
   .community { gap:3px; }
   .pot-amount { font-size:16px; }
@@ -710,12 +706,12 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   /* Action panel — compact with safe area */
   .action-panel { padding:8px 10px; padding-bottom:max(10px, env(safe-area-inset-bottom)); gap:6px; }
   .action-btn { padding:8px 12px; font-size:11px; min-width:50px; }
-  .raise-slider { display:none !important; }
   .raise-amount { font-size:11px; min-width:40px; }
   /* Status bar */
   .status-bar { font-size:11px; padding:4px 12px; }
   /* Hand rank label */
-  .hand-rank-label { bottom:100px; font-size:11px; padding:3px 10px; }
+  .hand-rank-label { bottom:128px; font-size:11px; padding:3px 10px; max-width:72vw; overflow:hidden; text-overflow:ellipsis; }
+  #table-container.action-active .hand-rank-label { bottom:calc(var(--action-panel-height) + env(safe-area-inset-bottom) + 78px); }
   /* Dealer button */
   .dealer-btn { width:16px; height:16px; font-size:8px; }
   .blind-btn { width:14px; height:14px; font-size:6px; }
@@ -727,14 +723,14 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   .sound-toggle { padding:4px 10px; font-size:13px; }
   /* Seat repositions for mobile */
   .seat-0 { bottom:0; }
-  .seat-1 { left:0; top:38%; }
-  .seat-1 .seat-bet { right:-36px; }
-  .seat-2 { left:10%; top:-8px; }
-  .seat-3 { right:10%; top:-8px; }
-  .seat-4 { right:0; top:38%; }
-  .seat-4 .seat-bet { left:-36px; }
-  .seat-5 { top:-8px; }
-  .turn-label { font-size:14px; padding:4px 14px; bottom:calc(34vh + 16px); }
+  .seat-1 { left:1%; top:44%; transform:translateY(-50%); }
+  .seat-1 .seat-bet { right:-28px; top:50%; }
+  .seat-2 { left:14%; top:-6px; }
+  .seat-3 { right:14%; top:-6px; }
+  .seat-4 { right:1%; top:44%; transform:translateY(-50%); }
+  .seat-4 .seat-bet { left:-28px; top:50%; }
+  .seat-5 { top:-12px; }
+  .turn-label { font-size:14px; padding:4px 14px; top:calc(50% - 16vh - 34px); }
   /* Mobile lobby */
   .action-grid { grid-template-columns:repeat(3,1fr); gap:8px; width:94vw; }
   .action-card { padding:18px 8px 14px; border-radius:12px; }
@@ -759,6 +755,20 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   /* Keep old selectors for compatibility */
   .lobby-box { padding:20px; }
 }
+
+@media (max-width:700px) and (orientation:portrait) {
+  .seat:not(.seat-0) { width:17vw; max-width:68px; }
+  .seat-cards .card { width:18px; height:28px; }
+  .seat-info { min-width:52px; padding:3px 5px; }
+  .seat-name { font-size:9px; }
+  .seat-stack { font-size:8px; }
+  .seat-action { font-size:7px; min-height:9px; }
+  .seat-1 { left:0.5%; top:45%; }
+  .seat-2 { left:13%; top:-4px; }
+  .seat-3 { right:13%; top:-4px; }
+  .seat-4 { right:0.5%; top:45%; }
+  .seat-5 { top:-10px; }
+}
 /* Landscape mode for mobile */
 @media (max-height:500px) and (orientation:landscape) {
   #lobbyScreen { padding:12px 0 20px; }
@@ -778,8 +788,8 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   .seat { transform:scale(0.85); }
   .action-panel { padding:6px; }
   .action-btn { padding:8px 12px; font-size:12px; }
-  .raise-presets { grid-template-columns:repeat(5,1fr); gap:4px; }
-  .raise-preset-btn { padding:6px; font-size:10px; }
+  .custom-raise-input { width:100%; }
+  .custom-raise-amount { width:min(38vw, 140px); font-size:14px; padding:8px 10px; }
   .turn-timer { width:36px; height:36px; }
   .turn-timer-ring { width:36px; height:36px; }
   .turn-timer-num { font-size:12px; }
@@ -1228,11 +1238,11 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
       <button class="raise-preset-btn allin" data-amount="allin">ALL IN</button>
       <button class="raise-preset-btn" data-amount="custom">自定义</button>
     </div>
-    <div class="custom-raise-input" id="customRaiseInput" style="display:none;align-items:center;gap:8px;width:100%;justify-content:center;margin-top:6px;">
-      <input type="number" id="customRaiseAmount" inputmode="numeric" pattern="[0-9]*" placeholder="输入金额" style="width:120px;padding:8px 12px;border-radius:8px;border:1px solid var(--gold);background:rgba(0,0,0,0.6);color:var(--gold);font-size:16px;font-family:'JetBrains Mono',monospace;text-align:center;">
-      <button class="action-btn btn-raise" id="customRaiseConfirm" style="padding:8px 18px;font-size:12px;">确认加注</button>
+    <div class="custom-raise-input" id="customRaiseInput" style="display:flex;align-items:center;gap:8px;width:100%;justify-content:center;margin-top:6px;">
+      <input type="number" class="custom-raise-amount" id="customRaiseAmount" inputmode="numeric" pattern="[0-9]*" placeholder="输入金额">
+      <button class="action-btn btn-raise" id="customRaiseConfirm" style="padding:8px 18px;font-size:12px;">加注</button>
     </div>
-    <button class="action-btn btn-raise" id="btnRaise">加注</button>
+    <button class="action-btn btn-raise" id="btnRaise" style="display:none">加注</button>
     <button class="action-btn btn-allin" id="btnAllin">ALL IN</button>
   </div>
 </div>
@@ -2711,36 +2721,45 @@ function updateHandLabel(state) {
 }
 
 // ===== ACTION PANEL =====
+function syncActionPanelOffset() {
+  const container = $('table-container');
+  const panel = $('actionPanel');
+  if (!container || !panel) return;
+  const height = panel.classList.contains('active') ? Math.ceil(panel.getBoundingClientRect().height) : 0;
+  container.style.setProperty('--action-panel-height', `${height}px`);
+}
+
 function showActions(data) {
   const panel = $('actionPanel');
-  // Reset custom raise input
-  const customInput = $('customRaiseInput'); if (customInput) customInput.style.display = 'none';
+  const customInput = $('customRaiseInput');
+  const customAmount = $('customRaiseAmount');
   if (data.allInOrFold) {
     $('btnCheck').style.display = 'none';
     $('btnCall').style.display = 'none';
-    $('btnRaise').style.display = 'none';
-    $('raiseSliderGroup').style.display = 'none';
+    if (customInput) customInput.style.display = 'none';
     // Show check if no bet to call
     if (data.toCall === 0) $('btnCheck').style.display = '';
   } else {
     $('btnCheck').style.display = data.toCall === 0 ? '' : 'none';
     $('btnCall').style.display = data.toCall > 0 ? '' : 'none';
-    $('btnRaise').style.display = '';
-    $('raiseSliderGroup').style.display = '';
+    if (customInput) customInput.style.display = 'flex';
+    if (customAmount) {
+      customAmount.min = data.minRaise;
+      customAmount.max = data.maxRaise;
+      customAmount.value = data.minRaise;
+      customAmount.placeholder = `最低 ${data.minRaise}`;
+    }
   }
   $('callAmount').textContent = data.toCall > 0 ? data.toCall : '';
-  const slider = $('raiseRange');
-  slider.min = data.minRaise;
-  slider.max = data.maxRaise;
-  slider.value = data.minRaise;
-  $('raiseValue').textContent = data.minRaise;
   panel.classList.add('active');
   $('table-container').classList.add('action-active');
+  requestAnimationFrame(() => requestAnimationFrame(syncActionPanelOffset));
 }
 
 function hideActions() {
   $('actionPanel').classList.remove('active');
   $('table-container').classList.remove('action-active');
+  syncActionPanelOffset();
   const table = $('table'); if (table) table.classList.remove('table-your-turn');
   const turnLabel = $('turnLabel'); if (turnLabel) turnLabel.classList.remove('visible');
   const customInput = $('customRaiseInput'); if (customInput) customInput.style.display = 'none';
@@ -2750,6 +2769,15 @@ function hideActions() {
 }
 
 // ===== NETWORK EVENT HANDLERS =====
+function hideActions() {
+  $('actionPanel').classList.remove('active');
+  $('table-container').classList.remove('action-active');
+  syncActionPanelOffset();
+  const table = $('table'); if (table) table.classList.remove('table-your-turn');
+  const turnLabel = $('turnLabel'); if (turnLabel) turnLabel.classList.remove('visible');
+  stopTurnTimer();
+}
+
 Net.on('room:created', (d) => {
   roomCode = d.code;
   $('roomCodeDisplay').textContent = d.code;
@@ -3337,6 +3365,11 @@ $('nextHandSkip').addEventListener('click', () => {
 });
 
 // ===== PRESET RAISE BUTTONS =====
+window.addEventListener('resize', () => requestAnimationFrame(syncActionPanelOffset));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => requestAnimationFrame(syncActionPanelOffset));
+}
+
 (function() {
   const presets = document.getElementById('raisePresets');
   if (!presets) return;
@@ -3352,6 +3385,7 @@ $('nextHandSkip').addEventListener('click', () => {
       if (customInput) {
         const isShowing = customInput.style.display === 'flex';
         customInput.style.display = isShowing ? 'none' : 'flex';
+        requestAnimationFrame(() => requestAnimationFrame(syncActionPanelOffset));
         if (!isShowing) {
           const inp = $('customRaiseAmount');
           if (inp) { inp.value = ''; inp.focus(); }
@@ -3401,6 +3435,22 @@ $('btnRaise').addEventListener('click', () => {
   Net.send('game:action', { action: 'raise', amount });
 });
 $('raiseRange').addEventListener('input', (e) => { $('raiseValue').textContent = e.target.value; });
+
+if ($('customRaiseConfirm')) {
+  $('customRaiseConfirm').addEventListener('click', (e) => {
+    const inp = $('customRaiseAmount');
+    if (!inp) return;
+    const val = parseInt(inp.value, 10);
+    const minRaise = parseInt(inp.min || '0', 10);
+    const maxRaise = parseInt(inp.max || '0', 10);
+    if (isNaN(val) || val < minRaise || (maxRaise > 0 && val > maxRaise)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      toast(`请输入 ${minRaise}${maxRaise > 0 ? ' - ' + maxRaise : ''} 之间的金额`);
+      inp.focus();
+    }
+  }, true);
+}
 
 // ===== SPECTATE BUTTON =====
 let isSpectator = false;
