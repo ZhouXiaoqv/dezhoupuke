@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Lab — Device Simulator</title>
+<style>
+@import url('https://fonts.loli.net/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0c0c0e;
+  --surface: #141417;
+  --surface2: #1a1a1f;
+  --border: #242429;
+  --border-hi: #32323a;
+  --text: #e4e4e8;
+  --text2: #8a8a96;
+  --text3: #52525c;
+  --accent: #3b82f6;
+  --accent-dim: rgba(59,130,246,0.12);
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --radius: 8px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ===== TOP BAR ===== */
+.topbar {
+  height: 48px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.topbar-logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+.url-bar {
+  flex: 1;
+  max-width: 560px;
+  height: 32px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 6px;
+  transition: border-color 0.2s;
+}
+.url-bar:focus-within { border-color: var(--accent); }
+
+.url-bar svg { flex-shrink: 0; opacity: 0.4; }
+
+.url-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+.url-bar input::placeholder { color: var(--text3); }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ===== BUTTONS ===== */
+.tb {
+  height: 30px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tb:hover { border-color: var(--border-hi); color: var(--text); background: var(--surface2); }
+.tb.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.tb svg { width: 14px; height: 14px; }
+
+.tb-icon {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* ===== MAIN LAYOUT ===== */
+.main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ===== LEFT SIDEBAR ===== */
+.sidebar {
+  width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sidebar-section {
+  padding: 12px;
+}
+
+.sidebar-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+  padding: 0 12px 12px;
+}
+
+.device-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.device-item:hover { background: var(--surface2); }
+.device-item.active { background: var(--accent-dim); }
+
+.device-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.device-item.active .device-icon { border-color: var(--accent); }
+
+.device-meta { flex: 1; min-width: 0; }
+.device-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.device-item.active .device-name { color: var(--accent); }
+.device-spec { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+/* ===== VIEWPORT AREA ===== */
+.viewport-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(59,130,246,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(139,92,246,0.02) 0%, transparent 50%),
+    var(--bg);
+  overflow: hidden;
+}
+
+/* Grid dots background */
+.viewport-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--border) 0.7px, transparent 0.7px);
+  background-size: 24px 24px;
+  opacity: 0.4;
+}
+
+/* ===== DEVICE FRAME ===== */
+.device-frame-wrapper {
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+
+.device-frame {
+  position: relative;
+  background: #1c1c1e;
+  border-radius: 44px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 0 0 2px rgba(0,0,0,0.8),
+    0 20px 60px rgba(0,0,0,0.5),
+    0 4px 16px rgba(0,0,0,0.3),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Notch */
+.device-notch {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 28px;
+  background: #1c1c1e;
+  border-radius: 0 0 18px 18px;
+  z-index: 20;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Dynamic Island style */
+.device-island {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 34px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 20;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Camera punch hole */
+.device-punch {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: #000;
+  border-radius: 50%;
+  z-index: 20;
+  box-shadow: 0 0 0 2px #1a1a1a;
+}
+
+.screen-container {
+  position: relative;
+  background: #000;
+  border-radius: 34px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.screen-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Safe area overlay */
+.safe-area-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  border-radius: 34px;
+  overflow: hidden;
+}
+.safe-area-overlay .sa-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  background: rgba(239,68,68,0.15);
+  border-bottom: 1px dashed rgba(239,68,68,0.4);
+  transition: height 0.3s;
+}
+.safe-area-overlay .sa-bottom {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(239,68,68,0.15);
+  border-top: 1px dashed rgba(239,68,68,0.4);
+  transition: height 0.3s;
+}
+.safe-area-overlay.hidden { display: none; }
+
+/* Touch cursor */
+.touch-cursor {
+  position: fixed;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: rgba(59,130,246,0.15);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.touch-cursor.visible { opacity: 1; }
+.touch-cursor.pressing {
+  transform: translate(-50%, -50%) scale(0.7);
+  background: rgba(59,130,246,0.35);
+}
+
+/* ===== BOTTOM STATUS BAR ===== */
+.statusbar {
+  height: 32px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.status-item {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.status-item .val { color: var(--text2); }
+
+/* ===== RIGHT PANEL (info) ===== */
+.info-panel {
+  width: 260px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.info-card-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.info-label {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.info-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.info-value.accent { color: var(--accent); }
+
+/* Zoom slider */
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+.zoom-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1100px) {
+  .info-panel { display: none; }
+}
+@media (max-width: 800px) {
+  .sidebar { width: 200px; }
+}
+
+/* ===== LOADING OVERLAY ===== */
+.screen-loading {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  border-radius: 34px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.screen-loading.visible { opacity: 1; pointer-events: all; }
+
+.loader-ring {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== ROTATION ===== */
+.device-frame-wrapper.landscape { transform: rotate(90deg); }
+.device-frame-wrapper.landscape-anim { transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Screenshot flash */
+@keyframes flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.flash-overlay {
+  position: absolute;
+  inset: 0;
+  background: white;
+  z-index: 50;
+  border-radius: 34px;
+  pointer-events: none;
+  animation: flash 0.3s ease-out forwards;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">Mobile Lab</div>
+  <div class="topbar-sep"></div>
+
+  <div class="url-bar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    <input type="text" id="urlInput" placeholder="输入 URL 或 localhost 地址..." value="http://localhost:3000">
+    <button class="tb tb-icon" id="goBtn" title="加载">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+
+  <div class="topbar-actions">
+    <button class="tb" id="rotateBtn" title="旋转">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
+      旋转
+    </button>
+    <button class="tb" id="touchBtn" title="触摸模拟">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8"/><path d="M15 15l-2 3h4l-2-3z"/><circle cx="15" cy="12" r="3"/></svg>
+      触摸
+    </button>
+    <button class="tb" id="safeAreaBtn" title="安全区域">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 2"/></svg>
+      Safe Area
+    </button>
+    <button class="tb" id="screenshotBtn" title="截图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+      截图
+    </button>
+    <button class="tb" id="refreshBtn" title="刷新">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Devices</div>
+    </div>
+    <div class="device-list" id="deviceList"></div>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div class="viewport-area" id="viewportArea">
+    <div class="device-frame-wrapper" id="frameWrapper">
+      <div class="device-frame" id="deviceFrame">
+        <div id="frameNotch"></div>
+        <div class="screen-container" id="screenContainer">
+          <iframe id="deviceScreen" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals" allow="camera; microphone; geolocation"></iframe>
+          <div class="safe-area-overlay hidden" id="safeAreaOverlay">
+            <div class="sa-top" id="saTop"></div>
+            <div class="sa-bottom" id="saBottom"></div>
+          </div>
+          <div class="screen-loading" id="screenLoading"><div class="loader-ring"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT INFO PANEL -->
+  <div class="info-panel">
+    <div class="info-card">
+      <div class="info-card-title">Device Info</div>
+      <div class="info-row"><span class="info-label">Device</span><span class="info-value accent" id="infoName">—</span></div>
+      <div class="info-row"><span class="info-label">Viewport</span><span class="info-value" id="infoViewport">—</span></div>
+      <div class="info-row"><span class="info-label">Physical</span><span class="info-value" id="infoPhysical">—</span></div>
+      <div class="info-row"><span class="info-label">DPR</span><span class="info-value" id="infoDpr">—</span></div>
+      <div class="info-row"><span class="info-label">Platform</span><span class="info-value" id="infoPlatform">—</span></div>
+      <div class="info-row"><span class="info-label">UA</span><span class="info-value" id="infoUA" style="font-size:9px;max-width:140px;word-break:break-all">—</span></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">Zoom</div>
+      <div class="zoom-control">
+        <input type="range" class="zoom-slider" id="zoomSlider" min="25" max="100" value="100">
+        <span class="zoom-label" id="zoomLabel">100%</span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">Safe Area Insets</div>
+      <div class="info-row"><span class="info-label">Top</span><span class="info-value" id="infoSaTop">—</span></div>
+      <div class="info-row"><span class="info-label">Bottom</span><span class="info-value" id="infoSaBottom">—</span></div>
+      <div class="info-row"><span class="info-label">Left</span><span class="info-value" id="infoSaLeft">—</span></div>
+      <div class="info-row"><span class="info-label">Right</span><span class="info-value" id="infoSaRight">—</span></div>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">Orientation</div>
+      <div class="info-row"><span class="info-label">Mode</span><span class="info-value accent" id="infoOrient">Portrait</span></div>
+      <div class="info-row"><span class="info-label">Effective</span><span class="info-value" id="infoEffSize">—</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="status-item"><div class="status-dot"></div> Ready</div>
+  <div class="status-item">Device: <span class="val" id="statusDevice">—</span></div>
+  <div class="status-item">Viewport: <span class="val" id="statusViewport">—</span></div>
+  <div class="status-item">Zoom: <span class="val" id="statusZoom">100%</span></div>
+  <div class="status-item" style="margin-left:auto">Touch: <span class="val" id="statusTouch">Off</span></div>
+</div>
+
+<!-- TOUCH CURSOR -->
+<div class="touch-cursor" id="touchCursor"></div>
+
+<script>
+// ===== DEVICE PRESETS =====
+const DEVICES = [
+  { id: 'iphone-se',     name: 'iPhone SE',           w: 375,  h: 667,  dpr: 2, notch: 'none',   platform: 'iOS',   safeT: 20, safeB: 0,  icon: '', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1' },
+  { id: 'iphone-12',     name: 'iPhone 12/13/14',     w: 390,  h: 844,  dpr: 3, notch: 'notch',  platform: 'iOS',   safeT: 47, safeB: 34, icon: '', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' },
+  { id: 'iphone-15pro',  name: 'iPhone 15 Pro',       w: 393,  h: 852,  dpr: 3, notch: 'island', platform: 'iOS',   safeT: 59, safeB: 34, icon: '', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' },
+  { id: 'iphone-16pro',  name: 'iPhone 16 Pro',       w: 402,  h: 874,  dpr: 3, notch: 'island', platform: 'iOS',   safeT: 62, safeB: 34, icon: '', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' },
+  { id: 'iphone-16promax', name: 'iPhone 16 Pro Max', w: 440,  h: 956,  dpr: 3, notch: 'island', platform: 'iOS',   safeT: 62, safeB: 34, icon: '', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' },
+  { id: 'pixel-7',       name: 'Pixel 7',             w: 412,  h: 915,  dpr: 2.625, notch: 'punch', platform: 'Android', safeT: 24, safeB: 0, icon: '', ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' },
+  { id: 'galaxy-s24',    name: 'Galaxy S24',          w: 360,  h: 780,  dpr: 3, notch: 'punch',  platform: 'Android', safeT: 24, safeB: 0, icon: '', ua: 'Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' },
+  { id: 'galaxy-s24ultra', name: 'Galaxy S24 Ultra',  w: 360,  h: 780,  dpr: 4, notch: 'punch',  platform: 'Android', safeT: 24, safeB: 0, icon: '', ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' },
+  { id: 'ipad-mini',     name: 'iPad Mini',           w: 744,  h: 1133, dpr: 2, notch: 'none',   platform: 'iPadOS', safeT: 20, safeB: 0, icon: '', ua: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' },
+  { id: 'ipad-pro11',    name: 'iPad Pro 11"',        w: 834,  h: 1194, dpr: 2, notch: 'none',   platform: 'iPadOS', safeT: 20, safeB: 0, icon: '', ua: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' },
+];
+
+// ===== STATE =====
+let currentDevice = DEVICES[2]; // iPhone 15 Pro default
+let isLandscape = false;
+let isTouchMode = false;
+let showSafeArea = false;
+let zoomLevel = 100;
+
+// ===== DOM REFS =====
+const $ = id => document.getElementById(id);
+const deviceList = $('deviceList');
+const frameWrapper = $('frameWrapper');
+const deviceFrame = $('deviceFrame');
+const screenContainer = $('screenContainer');
+const deviceScreen = $('deviceScreen');
+const frameNotch = $('frameNotch');
+const safeAreaOverlay = $('safeAreaOverlay');
+const screenLoading = $('screenLoading');
+const touchCursor = $('touchCursor');
+const urlInput = $('urlInput');
+const zoomSlider = $('zoomSlider');
+
+// ===== RENDER DEVICE LIST =====
+function renderDeviceList() {
+  deviceList.innerHTML = '';
+  DEVICES.forEach(d => {
+    const el = document.createElement('div');
+    el.className = `device-item${d.id === currentDevice.id ? ' active' : ''}`;
+    el.innerHTML = `
+      <div class="device-icon">${d.icon}</div>
+      <div class="device-meta">
+        <div class="device-name">${d.name}</div>
+        <div class="device-spec">${d.w} x ${d.h} @${d.dpr}x</div>
+      </div>
+    `;
+    el.addEventListener('click', () => selectDevice(d));
+    deviceList.appendChild(el);
+  });
+}
+
+// ===== SELECT DEVICE =====
+function selectDevice(device) {
+  currentDevice = device;
+  renderDeviceList();
+  applyDevice();
+}
+
+// ===== APPLY DEVICE =====
+function applyDevice() {
+  const d = currentDevice;
+  const vw = isLandscape ? d.h : d.w;
+  const vh = isLandscape ? d.w : d.h;
+
+  // Screen size
+  screenContainer.style.width = vw + 'px';
+  screenContainer.style.height = vh + 'px';
+
+  // Notch style
+  frameNotch.className = '';
+  frameNotch.style.cssText = '';
+  if (d.notch === 'notch') {
+    frameNotch.className = 'device-notch';
+    const nw = isLandscape ? 28 : Math.min(vw * 0.5, 210);
+    frameNotch.style.width = nw + 'px';
+    if (isLandscape) {
+      frameNotch.style.top = ''; frameNotch.style.left = '12px';
+      frameNotch.style.transform = '';
+      frameNotch.style.width = '28px'; frameNotch.style.height = nw + 'px';
+      frameNotch.style.borderRadius = '0 18px 18px 0';
+    }
+  } else if (d.notch === 'island') {
+    frameNotch.className = 'device-island';
+    const iw = isLandscape ? 34 : 120;
+    const ih = isLandscape ? 120 : 34;
+    frameNotch.style.width = iw + 'px';
+    frameNotch.style.height = ih + 'px';
+    if (isLandscape) {
+      frameNotch.style.top = '50%'; frameNotch.style.left = '20px';
+      frameNotch.style.transform = 'translateY(-50%)';
+      frameNotch.style.borderRadius = '20px';
+    }
+  } else if (d.notch === 'punch') {
+    frameNotch.className = 'device-punch';
+    if (isLandscape) {
+      frameNotch.style.top = '50%'; frameNotch.style.left = '22px';
+      frameNotch.style.transform = 'translateY(-50%)';
+    }
+  }
+
+  // Frame padding adjustment for landscape
+  if (isLandscape) {
+    deviceFrame.style.padding = '12px 36px';
+  } else {
+    deviceFrame.style.padding = '12px';
+  }
+
+  // Auto-zoom to fit
+  autoZoom(vw, vh);
+
+  // Safe area
+  updateSafeArea();
+
+  // Info panel
+  updateInfo();
+
+  // Status bar
+  $('statusDevice').textContent = d.name;
+  $('statusViewport').textContent = `${vw} x ${vh}`;
+}
+
+// ===== AUTO ZOOM =====
+function autoZoom(vw, vh) {
+  const area = $('viewportArea');
+  const aw = area.clientWidth - 80;
+  const ah = area.clientHeight - 80;
+  // Device frame adds ~24px padding each side, plus 88px for border radius padding
+  const fw = vw + 24 + (isLandscape ? 48 : 0);
+  const fh = vh + 24 + (isLandscape ? 48 : 0);
+  const zw = Math.floor((aw / fw) * 100);
+  const zh = Math.floor((ah / fh) * 100);
+  const z = Math.min(zw, zh, 100);
+  zoomLevel = Math.max(25, z);
+  zoomSlider.value = zoomLevel;
+  $('zoomLabel').textContent = zoomLevel + '%';
+  $('statusZoom').textContent = zoomLevel + '%';
+  frameWrapper.style.transform = `scale(${zoomLevel / 100})${isLandscape ? ' rotate(90deg)' : ''}`;
+}
+
+// ===== SAFE AREA =====
+function updateSafeArea() {
+  const d = currentDevice;
+  const saTop = d.safeT / d.dpr;
+  const saBottom = d.safeB / d.dpr;
+  $('saTop').style.height = saTop + 'px';
+  $('saBottom').style.height = saBottom + 'px';
+  $('infoSaTop').textContent = d.safeT + 'px (' + saTop.toFixed(1) + ' css px)';
+  $('infoSaBottom').textContent = d.safeB + 'px (' + saBottom.toFixed(1) + ' css px)';
+  $('infoSaLeft').textContent = '0px';
+  $('infoSaRight').textContent = '0px';
+}
+
+// ===== INFO PANEL =====
+function updateInfo() {
+  const d = currentDevice;
+  const vw = isLandscape ? d.h : d.w;
+  const vh = isLandscape ? d.w : d.h;
+  $('infoName').textContent = d.name;
+  $('infoViewport').textContent = `${vw} x ${vh}`;
+  $('infoPhysical').textContent = `${vw * d.dpr} x ${vh * d.dpr}`;
+  $('infoDpr').textContent = d.dpr + 'x';
+  $('infoPlatform').textContent = d.platform;
+  $('infoUA').textContent = d.ua.substring(0, 80) + '...';
+  $('infoOrient').textContent = isLandscape ? 'Landscape' : 'Portrait';
+  $('infoEffSize').textContent = `${vw} x ${vh} @ ${zoomLevel}%`;
+}
+
+// ===== LOAD URL =====
+function loadUrl() {
+  let url = urlInput.value.trim();
+  if (!url) return;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'http://' + url;
+    urlInput.value = url;
+  }
+  screenLoading.classList.add('visible');
+  deviceScreen.src = url;
+}
+
+deviceScreen.addEventListener('load', () => {
+  setTimeout(() => screenLoading.classList.remove('visible'), 300);
+});
+
+// ===== ROTATION =====
+$('rotateBtn').addEventListener('click', () => {
+  isLandscape = !isLandscape;
+  $('rotateBtn').classList.toggle('active', isLandscape);
+  frameWrapper.classList.add('landscape-anim');
+  applyDevice();
+  setTimeout(() => frameWrapper.classList.remove('landscape-anim'), 600);
+});
+
+// ===== TOUCH MODE =====
+$('touchBtn').addEventListener('click', () => {
+  isTouchMode = !isTouchMode;
+  $('touchBtn').classList.toggle('active', isTouchMode);
+  $('statusTouch').textContent = isTouchMode ? 'On' : 'Off';
+  touchCursor.classList.toggle('visible', isTouchMode);
+
+  if (isTouchMode) {
+    screenContainer.style.cursor = 'none';
+    deviceFrame.style.cursor = 'none';
+  } else {
+    screenContainer.style.cursor = '';
+    deviceFrame.style.cursor = '';
+    touchCursor.classList.remove('visible');
+  }
+});
+
+// Touch cursor tracking
+document.addEventListener('mousemove', e => {
+  if (!isTouchMode) return;
+  touchCursor.style.left = e.clientX + 'px';
+  touchCursor.style.top = e.clientY + 'px';
+});
+
+screenContainer.addEventListener('mousedown', () => {
+  if (isTouchMode) touchCursor.classList.add('pressing');
+});
+document.addEventListener('mouseup', () => {
+  touchCursor.classList.remove('pressing');
+});
+
+// ===== SAFE AREA TOGGLE =====
+$('safeAreaBtn').addEventListener('click', () => {
+  showSafeArea = !showSafeArea;
+  $('safeAreaBtn').classList.toggle('active', showSafeArea);
+  safeAreaOverlay.classList.toggle('hidden', !showSafeArea);
+});
+
+// ===== SCREENSHOT =====
+$('screenshotBtn').addEventListener('click', () => {
+  // Flash effect
+  const flash = document.createElement('div');
+  flash.className = 'flash-overlay';
+  screenContainer.appendChild(flash);
+  setTimeout(() => flash.remove(), 400);
+
+  // Try html2canvas-like approach via iframe
+  try {
+    const iframeDoc = deviceScreen.contentDocument || deviceScreen.contentWindow.document;
+    const canvas = document.createElement('canvas');
+    const d = currentDevice;
+    const vw = isLandscape ? d.h : d.w;
+    const vh = isLandscape ? d.w : d.h;
+    canvas.width = vw * d.dpr;
+    canvas.height = vh * d.dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(d.dpr, d.dpr);
+
+    // Capture via SVG foreignObject
+    const data = new XMLSerializer().serializeToString(iframeDoc.documentElement);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${vw}" height="${vh}">
+      <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml">${data}</div>
+      </foreignObject>
+    </svg>`;
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const link = document.createElement('a');
+      link.download = `screenshot_${d.id}_${vw}x${vh}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      // Fallback: just open in new tab
+      window.open(deviceScreen.src, '_blank');
+    };
+    img.src = url;
+  } catch (e) {
+    // Cross-origin: open URL in new tab
+    window.open(deviceScreen.src, '_blank');
+  }
+});
+
+// ===== REFRESH =====
+$('refreshBtn').addEventListener('click', () => {
+  screenLoading.classList.add('visible');
+  deviceScreen.src = deviceScreen.src;
+});
+
+// ===== ZOOM SLIDER =====
+zoomSlider.addEventListener('input', e => {
+  zoomLevel = parseInt(e.target.value);
+  $('zoomLabel').textContent = zoomLevel + '%';
+  $('statusZoom').textContent = zoomLevel + '%';
+  frameWrapper.style.transform = `scale(${zoomLevel / 100})${isLandscape ? ' rotate(90deg)' : ''}`;
+  updateInfo();
+});
+
+// ===== URL INPUT =====
+$('goBtn').addEventListener('click', loadUrl);
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadUrl();
+});
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'r') $('rotateBtn').click();
+  if (e.key === 't') $('touchBtn').click();
+  if (e.key === 's') $('safeAreaBtn').click();
+  if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) { e.preventDefault(); $('refreshBtn').click(); }
+});
+
+// ===== WINDOW RESIZE =====
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const vw = isLandscape ? currentDevice.h : currentDevice.w;
+    const vh = isLandscape ? currentDevice.w : currentDevice.h;
+    autoZoom(vw, vh);
+    updateInfo();
+  }, 150);
+});
+
+// ===== INIT =====
+renderDeviceList();
+applyDevice();
+loadUrl();
+</script>
+</body>
+</html>
