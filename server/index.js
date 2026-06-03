@@ -282,7 +282,8 @@ wss.on('connection', (ws) => {
       case 'user:tokenLogin': {
         const result = userStore.validateToken(data.token);
         if (!result) {
-          ws.send(JSON.stringify({ type: 'user:error', data: { message: '登录已过期，请重新登录' } }));
+          // Token expired — send non-error signal so client falls back to guest silently
+          ws.send(JSON.stringify({ type: 'user:tokenExpired', data: {} }));
         } else {
           currentUser = { username: result.username, token: data.token };
           playerId = playerId || crypto.randomUUID();

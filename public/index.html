@@ -276,6 +276,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .user-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(212,168,64,0.1); border:1px solid rgba(212,168,64,0.2); border-radius:16px; padding:4px 12px; font-size:11px; color:var(--gold); margin-bottom:12px; cursor:pointer; transition:all 0.2s; }
 .user-badge:hover { border-color:var(--gold); }
 .guest-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(128,128,128,0.1); border:1px solid rgba(128,128,128,0.2); border-radius:16px; padding:4px 12px; font-size:11px; color:var(--dim); margin-bottom:12px; }
+.lobby-locked { opacity:0.35; pointer-events:none; filter:grayscale(0.5); transition:opacity 0.3s, filter 0.3s; }
 
 /* ===== PROFILE OVERLAY ===== */
 .profile-overlay { position:fixed; inset:0; background:rgba(5,5,15,0.92); display:none; justify-content:center; align-items:center; z-index:160; backdrop-filter:blur(6px); }
@@ -502,8 +503,15 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 .btn-raise { border-color:var(--gold); color:var(--gold); } .btn-raise:hover { background:rgba(212,168,64,0.15); }
 .btn-allin { border-color:var(--red); color:#f06060; } .btn-allin:hover { background:rgba(204,51,51,0.15); }
 .raise-slider { display:flex; align-items:center; gap:10px; }
-.raise-slider input[type="range"] { width:120px; accent-color:var(--gold); cursor:pointer; }
-.raise-amount { font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--gold); min-width:50px; text-align:center; }
+.raise-slider input[type="number"] {
+  width:100px; padding:8px 10px; background:#0a0a0a; border:1.5px solid #2a2a2a;
+  border-radius:6px; color:var(--gold); font-family:'JetBrains Mono',monospace;
+  font-size:15px; font-weight:700; text-align:center; outline:none;
+  transition:border-color 0.3s; -moz-appearance:textfield;
+}
+.raise-slider input[type="number"]::-webkit-inner-spin-button,
+.raise-slider input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+.raise-slider input[type="number"]:focus { border-color:var(--gold); }
 
 .status-bar { position:fixed; top:12px; left:50%; transform:translateX(-50%); font-size:13px; color:var(--dim); background:rgba(0,0,0,0.6); padding:6px 20px; border-radius:20px; z-index:50; letter-spacing:1px; backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.05); }
 
@@ -550,8 +558,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
   /* Action panel — compact with safe area */
   .action-panel { padding:8px 10px; padding-bottom:max(10px, env(safe-area-inset-bottom)); gap:6px; }
   .action-btn { padding:8px 12px; font-size:11px; min-width:50px; }
-  .raise-slider input[type="range"] { width:80px; }
-  .raise-amount { font-size:11px; min-width:40px; }
+  .raise-slider input[type="number"] { width:80px; font-size:13px; padding:6px 8px; }
   /* Status bar */
   .status-bar { font-size:11px; padding:4px 12px; }
   /* Hand rank label */
@@ -589,11 +596,10 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
 
   <div class="lobby-box">
     <div class="auth-tabs" id="authTabs">
-      <button class="auth-tab active" data-tab="guest">游客模式</button>
-      <button class="auth-tab" data-tab="login">登录</button>
+      <button class="auth-tab active" data-tab="login">登录</button>
       <button class="auth-tab" data-tab="register">注册</button>
     </div>
-    <div class="auth-form" id="loginForm">
+    <div class="auth-form active" id="loginForm">
       <div class="input-group"><label>用户名</label><input type="text" id="loginUser" placeholder="用户名" maxlength="12"></div>
       <div class="input-group"><label>密码</label><input type="password" id="loginPass" placeholder="密码" maxlength="20"></div>
       <div class="btn-row"><button class="btn btn-gold" id="loginBtn">登录</button></div>
@@ -603,15 +609,15 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
       <div class="input-group"><label>密码</label><input type="password" id="regPass" placeholder="至少4个字符" maxlength="20"></div>
       <div class="btn-row"><button class="btn btn-gold" id="registerBtn">注册</button></div>
     </div>
-    <div class="auth-form active" id="guestForm">
-      <div style="font-size:11px;color:var(--dim);padding:8px 0">游客模式无需注册，数据不会保存。注册账号可以保存战绩和成就。</div>
+    <div id="authNotice" style="font-size:12px;color:var(--dim);padding:10px 0;text-align:center">登录后即可创建或加入房间</div>
+    <div id="loggedInBar" style="display:none;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;color:var(--gold);font-weight:700" id="loggedInName"></span>
+        <button class="btn btn-dim" style="padding:4px 12px;font-size:11px" id="logoutBtn">退出</button>
+      </div>
     </div>
 
-    <div class="input-group">
-      <label>你的昵称</label>
-      <input type="text" id="nameInput" placeholder="输入昵称" maxlength="12" value="">
-    </div>
-
+    <div id="gameActionsArea" class="lobby-locked">
     <h3>创建房间</h3>
     <div class="btn-row">
       <button class="btn btn-gold" id="createRoomBtn">创建房间</button>
@@ -654,6 +660,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
     <div class="room-list" id="publicRoomList">
       <div style="color:#3a3a3a;font-size:12px;text-align:center;padding:16px">点击房间卡片直接加入，无需手动输入房间号</div>
     </div>
+    </div>
 
     <div class="error-msg" id="lobbyError"></div>
   </div>
@@ -688,8 +695,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
     <button class="action-btn btn-check" id="btnCheck">过牌</button>
     <button class="action-btn btn-call" id="btnCall">跟注 <span id="callAmount"></span></button>
     <div class="raise-slider" id="raiseSliderGroup">
-      <input type="range" id="raiseRange" min="0" max="1000" value="40">
-      <span class="raise-amount" id="raiseValue">40</span>
+      <input type="number" id="raiseRange" min="0" max="1000" value="40" step="10">
     </div>
     <button class="action-btn btn-raise" id="btnRaise">加注</button>
     <button class="action-btn btn-allin" id="btnAllin">ALL IN</button>
@@ -767,7 +773,7 @@ body { background:#0a0a0a; font-family:'Noto Sans SC',sans-serif; color:var(--wh
     </div>
     <h3 style="font-size:14px;color:var(--gold);margin-bottom:12px">🎮 怎么开始？</h3>
     <div class="intro-steps">
-      <div class="intro-step"><div class="intro-step-num">1</div><div class="intro-step-text"><strong>输入昵称</strong>，选择游客模式或注册账号</div></div>
+      <div class="intro-step"><div class="intro-step-num">1</div><div class="intro-step-text"><strong>登录或注册</strong>账号，开始游戏</div></div>
       <div class="intro-step"><div class="intro-step-num">2</div><div class="intro-step-text"><strong>创建房间</strong>邀请朋友，或加入公开房间</div></div>
       <div class="intro-step"><div class="intro-step-num">3</div><div class="intro-step-text">等人到齐后<strong>点击准备</strong>，房主开始游戏</div></div>
       <div class="intro-step"><div class="intro-step-num">4</div><div class="intro-step-text">也可以直接<strong>🤖 人机对战</strong>练习技术</div></div>
@@ -826,8 +832,32 @@ const Net = {
 // ===== USER SYSTEM =====
 let authToken = localStorage.getItem('poker_token') || null;
 let userProfile = null;
-let isRegistered = false;
+let isLoggedIn = false;
 let selectedGameMode = 'classic';
+
+function enableGameControls(username) {
+  isLoggedIn = true;
+  $('gameActionsArea').classList.remove('lobby-locked');
+  $('authTabs').style.display = 'none';
+  $('loginForm').classList.remove('active');
+  $('registerForm').classList.remove('active');
+  $('authNotice').style.display = 'none';
+  $('loggedInBar').style.display = '';
+  $('loggedInName').textContent = username;
+}
+
+function disableGameControls() {
+  isLoggedIn = false;
+  authToken = null;
+  userProfile = null;
+  localStorage.removeItem('poker_token');
+  $('gameActionsArea').classList.add('lobby-locked');
+  $('authTabs').style.display = '';
+  $('authNotice').style.display = '';
+  $('loggedInBar').style.display = 'none';
+  $('loggedInName').textContent = '';
+  showError('');
+}
 
 const MODE_DESCS = {
   classic: '经典德州扑克，标准盲注',
@@ -1313,7 +1343,7 @@ function showActions(data) {
   slider.min = data.minRaise;
   slider.max = data.maxRaise;
   slider.value = data.minRaise;
-  $('raiseValue').textContent = data.minRaise;
+  slider.step = Math.max(10, Math.floor(data.minRaise / 10));
   panel.classList.add('active');
   $('table-container').classList.add('action-active');
 }
@@ -1439,10 +1469,10 @@ Net.on('room:list', (d) => {
     `;
     
     card.addEventListener('click', async () => {
-      const name = $('nameInput').value.trim() || '玩家';
+      if (!isLoggedIn) { showError('请先登录或注册'); return; }
+      const name = Net.playerName || '玩家';
       try {
         if (!Net.connected) await Net.connect(getWsUrl());
-        if (!Net.playerId) await Net.auth(name);
         Net.send('room:join', { code: r.code, name });
         toast(`正在加入 ${r.code}...`);
       } catch {
@@ -1558,23 +1588,26 @@ Net.on('disconnect', () => {
 Net.on('user:registered', (d) => {
   authToken = d.token;
   userProfile = d.profile;
-  isRegistered = true;
   localStorage.setItem('poker_token', d.token);
   Net.playerId = d.playerId;
   Net.playerName = d.username;
+  enableGameControls(d.username);
   updateUserArea();
+  Net.send('room:list');
+  startRoomListRefresh();
   toast('注册成功！欢迎 ' + d.username);
 });
 
 Net.on('user:loggedIn', (d) => {
   authToken = d.token;
   userProfile = d.profile;
-  isRegistered = true;
   localStorage.setItem('poker_token', d.token);
   Net.playerId = d.playerId;
   Net.playerName = d.username;
-  $('nameInput').value = d.username;
+  enableGameControls(d.username);
   updateUserArea();
+  Net.send('room:list');
+  startRoomListRefresh();
   toast('登录成功！欢迎回来 ' + d.username);
 });
 
@@ -1588,6 +1621,12 @@ Net.on('user:error', (d) => {
   toast(d.message);
 });
 
+Net.on('user:tokenExpired', () => {
+  // Token expired — silently clear and continue as guest
+  authToken = null;
+  localStorage.removeItem('poker_token');
+});
+
 Net.on('user:achievement', (d) => {
   showAchievementToast(d.achievement);
   // Update profile if loaded
@@ -1599,14 +1638,14 @@ Net.on('user:achievement', (d) => {
 function updateUserArea() {
   const area = $('userArea');
   if (!area) return;
-  if (isRegistered && userProfile) {
+  if (userProfile) {
     area.innerHTML = '<div class="user-badge" id="userBadgeClick"><span class="user-icon">👤</span>' + userProfile.username + ' · ' + userProfile.stats.handsWon + '胜</div>';
     $('userBadgeClick').addEventListener('click', () => {
       $('profileOverlay').classList.add('active');
       Net.send('user:profile');
     });
   } else {
-    area.innerHTML = '<div class="guest-badge"><span>👤</span> 游客模式</div>';
+    area.innerHTML = '';
   }
 }
 
@@ -1657,10 +1696,10 @@ async function attemptReconnect() {
     await new Promise(r => setTimeout(r, 2000 * (i + 1)));
     try {
       await Net.connect(getWsUrl());
-      await Net.auth(Net.playerName);
+      if (authToken) Net.send('user:tokenLogin', { token: authToken });
       $('connDot').className = 'connection-dot online';
       toast('重连成功');
-      if (roomCode) Net.send('room:join', { code: roomCode, name: Net.playerName });
+      if (roomCode && Net.playerName) Net.send('room:join', { code: roomCode, name: Net.playerName });
       return;
     } catch {}
   }
@@ -1674,10 +1713,10 @@ function getWsUrl() {
 }
 
 $('createRoomBtn').addEventListener('click', async () => {
-  const name = $('nameInput').value.trim() || '玩家';
+  if (!isLoggedIn) { showError('请先登录或注册'); return; }
+  const name = Net.playerName || '玩家';
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
-    if (!Net.playerId) await Net.auth(name);
     Net.send('room:create', { name, gameMode: selectedGameMode });
   } catch { showError('无法连接到服务器'); }
 });
@@ -1689,24 +1728,24 @@ $('botGameBtn').addEventListener('click', async () => {
     opts.style.display = 'flex';
     return;
   }
-  const name = $('nameInput').value.trim() || '玩家';
+  if (!isLoggedIn) { showError('请先登录或注册'); return; }
+  const name = Net.playerName || '玩家';
   const difficulty = $('botDifficulty').value;
   showError('');
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
-    if (!Net.playerId) await Net.auth(name);
     Net.send('room:botGame', { name, difficulty, gameMode: selectedGameMode });
   } catch { showError('无法连接到服务器'); }
 });
 
 $('joinRoomBtn').addEventListener('click', async () => {
-  const name = $('nameInput').value.trim() || '玩家';
+  if (!isLoggedIn) { showError('请先登录或注册'); return; }
+  const name = Net.playerName || '玩家';
   const code = $('codeInput').value.trim().toUpperCase();
   showError('');
   if (!code) { showError('请输入房间号'); return; }
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
-    if (!Net.playerId) await Net.auth(name);
     Net.send('room:join', { code, name });
   } catch { showError('无法连接到服务器'); }
 });
@@ -1777,23 +1816,32 @@ $('btnCheck').addEventListener('click', () => { hideActions(); SFX.btnClick(); N
 $('btnCall').addEventListener('click', () => { hideActions(); SFX.btnClick(); Net.send('game:action', { action: 'call' }); });
 $('btnAllin').addEventListener('click', () => { hideActions(); SFX.btnClick(); Net.send('game:action', { action: 'allin' }); });
 $('btnRaise').addEventListener('click', () => {
-  const amount = parseInt($('raiseRange').value);
+  const input = $('raiseRange');
+  const minVal = parseInt(input.min) || 0;
+  let amount = parseInt(input.value);
+  if (isNaN(amount) || amount < minVal) amount = minVal;
+  input.value = amount;
   hideActions(); SFX.btnClick();
   Net.send('game:action', { action: 'raise', amount });
 });
-$('raiseRange').addEventListener('input', (e) => { $('raiseValue').textContent = e.target.value; });
+$('raiseRange').addEventListener('change', (e) => {
+  const minVal = parseInt(e.target.min) || 0;
+  let v = parseInt(e.target.value);
+  if (isNaN(v) || v < minVal) v = minVal;
+  e.target.value = v;
+});
 
 // ===== SPECTATE BUTTON =====
 let isSpectator = false;
 
 $('spectateBtn').addEventListener('click', async () => {
-  const name = $('nameInput').value.trim() || '观众';
+  if (!isLoggedIn) { showError('请先登录或注册'); return; }
+  const name = Net.playerName || '观众';
   const code = $('codeInput').value.trim().toUpperCase();
   showError('');
   if (!code) { showError('请输入房间号'); return; }
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
-    if (!Net.playerId) await Net.auth(name);
     Net.send('room:spectate', { code, name });
   } catch { showError('无法连接到服务器'); }
 });
@@ -1879,19 +1927,21 @@ $('profileClose').addEventListener('click', () => {
   $('profileOverlay').classList.remove('active');
 });
 
+// Logout button
+$('logoutBtn').addEventListener('click', () => {
+  disableGameControls();
+  toast('已退出登录');
+});
+
 // Auto-connect and fetch room list on load
 (async () => {
   try {
     await Net.connect(getWsUrl());
-    // Try token login first
+    // Try token login — if it works, user:loggedIn handler will enable controls
+    // If token expired, user:tokenExpired handler silently clears token
     if (authToken) {
       Net.send('user:tokenLogin', { token: authToken });
     }
-    const name = $('nameInput').value.trim() || '玩家';
-    await Net.auth(name);
-    updateUserArea();
-    Net.send('room:list');
-    startRoomListRefresh();
   } catch {
     showError('服务器未启动。请先运行 npm start');
   }
@@ -1905,15 +1955,17 @@ document.addEventListener('visibilitychange', async () => {
       console.log('Page visible, reconnecting...');
       try {
         await Net.connect(getWsUrl());
-        const name = Net.playerName || $('nameInput').value.trim() || '玩家';
-        await Net.auth(name);
+        // Re-auth via token if available
+        if (authToken) {
+          Net.send('user:tokenLogin', { token: authToken });
+        }
         $('connDot').className = 'connection-dot online';
         
         // If we were in a room, rejoin it
-        if (roomCode) {
-          Net.send('room:join', { code: roomCode, name });
+        if (roomCode && Net.playerName) {
+          Net.send('room:join', { code: roomCode, name: Net.playerName });
           toast('已重新连接到房间');
-        } else {
+        } else if (isLoggedIn) {
           Net.send('room:list');
         }
       } catch (err) {

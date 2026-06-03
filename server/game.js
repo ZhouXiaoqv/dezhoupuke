@@ -554,7 +554,10 @@ class Game {
   }
 
   advancePhase() {
-    for (const p of this.players) p.bet = 0;
+    for (const p of this.players) {
+      p.bet = 0;
+      p.lastAction = '';
+    }
     this.roundBet = 0;
     this.actedCount = 0;
     this.lastRaise = this.bb;
