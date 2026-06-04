@@ -181,6 +181,9 @@ class Game {
       currentIdx: this.currentIdx,
       phase: this.phase,
       roundBet: this.roundBet,
+      minRaise: this.minRaise,
+      gameMode: this.gameMode,
+      allInOrFold: this.allInOrFold,
       handNum: this.handNum,
       winners: this.winners,
       refunds: this.refunds,
@@ -621,7 +624,15 @@ class Game {
     // If it's their turn, prompt
     if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle') {
       const toCall = this.roundBet - player.bet;
-      ws.send(JSON.stringify({ type: 'game:yourTurn', data: { playerId, toCall, minRaise: this.roundBet + this.minRaise, maxRaise: player.stack + player.bet, pot: this.pot }}));
+      ws.send(JSON.stringify({ type: 'game:yourTurn', data: {
+        playerId,
+        toCall,
+        minRaise: this.roundBet + this.minRaise,
+        maxRaise: player.stack + player.bet,
+        pot: this.pot,
+        gameMode: this.gameMode,
+        allInOrFold: this.allInOrFold,
+      }}));
     }
   }
 }

@@ -2315,7 +2315,7 @@
       }
       /* Push hand cards up when action panel is visible */
       #table-container.action-active .my-hand {
-        bottom: 110px;
+        bottom: max(110px, calc(var(--action-panel-height) + 14px));
       }
 
       .hand-rank-label {
@@ -2559,8 +2559,11 @@
         }
         /* Push hand up above action panel on mobile — extra room for raise presets grid */
         #table-container.action-active .my-hand {
-          bottom: calc(
-            var(--action-panel-height) + env(safe-area-inset-bottom) + 14px
+          bottom: max(
+            110px,
+            calc(
+              var(--action-panel-height) + env(safe-area-inset-bottom) + 14px
+            )
           );
         }
         /* Seat info — compact */
@@ -4175,12 +4178,18 @@
         return document.getElementById(id);
       }
       function showScreen(id) {
+        const shouldKeepActionOffset =
+          id === "table" && $("actionPanel")?.classList.contains("active");
         document
           .querySelectorAll(".screen")
           .forEach((s) => s.classList.remove("active"));
         $("table-container").classList.remove("active", "action-active");
         if (id === "table") {
           $("table-container").classList.add("active");
+          if (shouldKeepActionOffset) {
+            $("table-container").classList.add("action-active");
+            requestAnimationFrame(syncActionPanelOffset);
+          }
         } else {
           $(id).classList.add("active");
         }
@@ -5019,6 +5028,7 @@
       let prevPot = 0;
       let prevActions = {}; // playerId -> lastAction
       let prevMyHandIds = null; // track my hand cards to avoid re-animating
+      let lastTurnActionData = null;
 
       // ===== ACTION LOG =====
       let logPrevPhase = "";
@@ -5075,6 +5085,50 @@
         bar.textContent = winners
           .map((w) => `${w.name}「${w.hand || ""}」+${w.amount}`)
           .join("  ");
+      }
+
+      function isMyTurnState(state = gameState) {
+        if (!state || isSpectator || !Net.playerId) return false;
+        const me = state.players?.find((p) => p.id === Net.playerId);
+        const current = state.players?.[state.currentIdx];
+        return (
+          !!me &&
+          !me.folded &&
+          !me.allIn &&
+          !!current &&
+          current.id === Net.playerId &&
+          state.phase !== "showdown" &&
+          state.phase !== "idle"
+        );
+      }
+
+      function buildTurnActionDataFromState(state = gameState) {
+        if (!isMyTurnState(state)) return null;
+        const me = state.players.find((p) => p.id === Net.playerId);
+        const toCall = Math.max(0, (state.roundBet || 0) - (me.bet || 0));
+        return {
+          playerId: Net.playerId,
+          toCall,
+          minRaise: (state.roundBet || 0) + (state.minRaise || 0),
+          maxRaise: (me.stack || 0) + (me.bet || 0),
+          pot: state.pot || 0,
+          gameMode: state.gameMode || lastTurnActionData?.gameMode || "classic",
+          allInOrFold:
+            state.allInOrFold ?? lastTurnActionData?.allInOrFold ?? false,
+        };
+      }
+
+      function restoreActionPanelIfMyTurn({ notify = false } = {}) {
+        const actionData = buildTurnActionDataFromState();
+        if (!actionData) return false;
+        const wasActive = $("actionPanel").classList.contains("active");
+        lastTurnActionData = { ...lastTurnActionData, ...actionData };
+        showActions(lastTurnActionData);
+        if (notify && !wasActive) {
+          SFX.yourTurn();
+          if (navigator.vibrate) navigator.vibrate(60);
+        }
+        return true;
       }
 
       // Toggle logic
@@ -5196,19 +5250,18 @@
             .forEach((el) => el.remove());
         }
 
-        const me_ = state.players.find((p) => p.id === Net.playerId);
-        const isMyTurn =
-          me_ &&
-          state.currentIdx !== undefined &&
-          state.players[state.currentIdx] &&
-          state.players[state.currentIdx].id === Net.playerId &&
-          state.phase !== "showdown" &&
-          state.phase !== "idle";
+        const isMyTurn = isMyTurnState(state);
         if (isMyTurn) table.classList.add("table-your-turn");
         else table.classList.remove("table-your-turn");
         const turnLabel = $("turnLabel");
         if (isMyTurn) turnLabel.classList.add("visible");
         else turnLabel.classList.remove("visible");
+        if (!isMyTurn) {
+          lastTurnActionData = null;
+          if ($("actionPanel").classList.contains("active")) hideActions();
+        } else if (!$("actionPanel").classList.contains("active")) {
+          restoreActionPanelIfMyTurn();
+        }
 
         const me = state.players.find((p) => p.id === Net.playerId);
         // Detect if my hand cards actually changed (new deal vs re-render)
@@ -5564,7 +5617,9 @@
         const container = $("table-container");
         const panel = $("actionPanel");
         if (!container || !panel) return;
-        const height = panel.classList.contains("active")
+        const panelActive = panel.classList.contains("active");
+        container.classList.toggle("action-active", panelActive);
+        const height = panelActive
           ? Math.ceil(panel.getBoundingClientRect().height)
           : 0;
         container.style.setProperty("--action-panel-height", `${height}px`);
@@ -5574,6 +5629,7 @@
         const panel = $("actionPanel");
         const customInput = $("customRaiseInput");
         const customAmount = $("customRaiseAmount");
+        lastTurnActionData = { ...lastTurnActionData, ...data };
         if (data.allInOrFold) {
           $("btnCheck").style.display = "none";
           $("btnCall").style.display = "none";
@@ -5594,9 +5650,11 @@
         $("callAmount").textContent = data.toCall > 0 ? data.toCall : "";
         panel.classList.add("active");
         $("table-container").classList.add("action-active");
+        syncActionPanelOffset();
         requestAnimationFrame(() =>
           requestAnimationFrame(syncActionPanelOffset),
         );
+        setTimeout(syncActionPanelOffset, 350);
       }
 
       function hideActions() {
@@ -5817,12 +5875,14 @@
       Net.on("game:yourTurn", (d) => {
         if (isSpectator) return;
         if (d.playerId !== Net.playerId) return;
+        lastTurnActionData = d;
         showActions(d);
         SFX.yourTurn();
         if (navigator.vibrate) navigator.vibrate(100);
       });
 
       Net.on("game:handStart", (d) => {
+        lastTurnActionData = null;
         hideActions();
         toast(`第 ${d.handNum} 手开始`);
         // Deal sounds staggered
@@ -5840,6 +5900,7 @@
       });
 
       Net.on("game:showdown", (d) => {
+        lastTurnActionData = null;
         hideActions();
         const winners = d.winners
           .map((w) => `${w.name}「${w.hand}」+${w.amount}`)
@@ -5856,6 +5917,7 @@
       });
 
       Net.on("game:handEnd", (d) => {
+        lastTurnActionData = null;
         hideActions();
         hideNextHandBar();
         const winners = d.winners
@@ -6654,6 +6716,8 @@
             } catch (err) {
               console.error("Reconnect failed:", err);
             }
+          } else {
+            restoreActionPanelIfMyTurn({ notify: true });
           }
         }
       });
@@ -6858,6 +6922,9 @@
           const restored = await restoreAuthenticatedSession({ silent: true });
           if (restored) {
             $("connDot").className = "connection-dot online";
+            requestAnimationFrame(() =>
+              restoreActionPanelIfMyTurn({ notify: true }),
+            );
           }
         }
 
