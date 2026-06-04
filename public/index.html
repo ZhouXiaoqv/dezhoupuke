@@ -5087,6 +5087,60 @@
           .join("  ");
       }
 
+      function addLogPhaseIfNeeded(phase) {
+        if (!phase || phase === "idle" || phase === logPrevPhase) return;
+        const LOG_PHASE_NAMES = {
+          preflop: "\u7ffb\u724c\u524d",
+          flop: "\u7ffb\u724c",
+          turn: "\u8f6c\u724c",
+          river: "\u6cb3\u724c",
+          showdown: "\u644a\u724c",
+        };
+        if (LOG_PHASE_NAMES[phase]) addLogPhaseSeparator(LOG_PHASE_NAMES[phase]);
+        logPrevPhase = phase;
+      }
+
+      const ACTION_LOG_LABELS = {
+        smallBlind: "\u5c0f\u76f2",
+        bigBlind: "\u5927\u76f2",
+        fold: "\u5f03\u724c",
+        check: "\u8fc7\u724c",
+        call: "\u8ddf\u6ce8",
+        raise: "\u52a0\u6ce8",
+        allin: "ALL IN",
+        allinCall: "ALL IN(\u8ddf\u6ce8)",
+        allinRaise: "ALL IN(\u52a0\u6ce8)",
+      };
+
+      function playActionSound(action) {
+        if (action === "fold") SFX.fold();
+        else if (action === "check") SFX.check();
+        else if (action === "call") SFX.call();
+        else if (action === "raise") SFX.raise();
+        else if (
+          action === "allin" ||
+          action === "allinCall" ||
+          action === "allinRaise"
+        )
+          SFX.allin();
+      }
+
+      function handleActionLog(entry) {
+        if (!entry) return;
+        addLogPhaseIfNeeded(entry.phase);
+        playActionSound(entry.action);
+        addLogEntry(
+          entry.playerName || "",
+          ACTION_LOG_LABELS[entry.action] || entry.action || "",
+          entry.amount || 0,
+          entry.pot || 0,
+          entry.action === "allinCall" || entry.action === "allinRaise"
+            ? "allin"
+            : entry.action || "action",
+        );
+        if ((entry.amount || 0) > 0) bumpPot();
+      }
+
       function isMyTurnState(state = gameState) {
         if (!state || isSpectator || !Net.playerId) return false;
         const me = state.players?.find((p) => p.id === Net.playerId);
@@ -5147,9 +5201,10 @@
         const phaseChanged = state.phase !== prevPhase;
         const communityGrew = state.community.length > prevCommunityLen;
         const potGrew = state.pot > prevPot;
+        if (phaseChanged) addLogPhaseIfNeeded(state.phase);
 
         // Phase separator for action log (before actions, so order is correct)
-        if (phaseChanged && state.phase !== "idle") {
+        if (false && phaseChanged && state.phase !== "idle") {
           const LOG_PHASE_NAMES = {
             preflop: "— 翻牌前 —",
             flop: "— 翻牌 —",
@@ -5162,7 +5217,7 @@
         }
 
         // Action log: detect blind posts (SB/BB don't set lastAction on server)
-        if (logPrevPhase === "" && state.phase === "preflop" && state.pot > 0) {
+        if (false && logPrevPhase === "" && state.phase === "preflop" && state.pot > 0) {
           if (state.sbIdx !== undefined) {
             const sbP = state.players[state.sbIdx];
             if (sbP && sbP.bet > 0)
@@ -5184,7 +5239,7 @@
           allin: "ALL IN",
           winner: "🏆 赢家",
         };
-        for (const p of state.players) {
+        if (false) for (const p of state.players) {
           const prev = prevActions[p.id];
           if (p.lastAction && p.lastAction !== prev && p.lastAction !== "") {
             // Trigger sound based on action
@@ -5871,6 +5926,7 @@
       });
 
       Net.on("game:state", (state) => renderGame(state));
+      Net.on("game:actionLog", (entry) => handleActionLog(entry));
 
       Net.on("game:yourTurn", (d) => {
         if (isSpectator) return;

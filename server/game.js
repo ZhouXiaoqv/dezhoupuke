@@ -162,6 +162,23 @@ class Game {
     if (this.onBroadcast) this.onBroadcast(type, data);
   }
 
+  buildActionLogEntry(player, action, amount, extra = {}) {
+    return {
+      phase: this.phase,
+      playerId: player.id,
+      playerName: player.name,
+      action,
+      amount: amount || 0,
+      pot: this.pot,
+      bet: player.bet,
+      totalBet: player.totalBet,
+      stack: player.stack,
+      roundBet: this.roundBet,
+      time: Date.now(),
+      ...extra,
+    };
+  }
+
   getState() {
     return {
       players: this.players.map(p => ({
@@ -251,8 +268,10 @@ class Game {
     // Start logging this hand (before blinds so they get recorded)
     gameLogger.startHand(this);
 
-    this.postBlind(this.players[sbIdx], this.sb);
-    this.postBlind(this.players[bbIdx], this.bb);
+    const blindLogs = [
+      this.postBlind(this.players[sbIdx], this.sb),
+      this.postBlind(this.players[bbIdx], this.bb),
+    ];
 
     // Deal
     for (let i = 0; i < 2; i++) {
@@ -274,6 +293,7 @@ class Game {
     this.actedCount = 0;
 
     this.broadcast('game:handStart', { handNum: this.handNum });
+    for (const entry of blindLogs) this.broadcast('game:actionLog', entry);
     this.broadcastState();
 
     this.scheduleNextAction();
@@ -289,6 +309,11 @@ class Game {
     if (player.stack === 0) player.allIn = true;
     const blindType = amount === this.sb ? '小盲' : '大盲';
     gameLogger.logAction(this, player, blindType, actual);
+    return this.buildActionLogEntry(
+      player,
+      amount === this.sb ? 'smallBlind' : 'bigBlind',
+      actual,
+    );
   }
 
   broadcastState() {
@@ -348,6 +373,7 @@ class Game {
 
     const toCall = this.roundBet - player.bet;
     const { action, amount } = actionData;
+    let actionLogEntry = null;
 
     // All-in-or-fold mode: only fold, check, or allin allowed
     if (this.allInOrFold) {
@@ -361,12 +387,14 @@ class Game {
       case 'fold':
         player.folded = true;
         player.lastAction = 'fold';
+        actionLogEntry = this.buildActionLogEntry(player, 'fold', 0);
         gameLogger.logAction(this, player, '弃牌', 0);
         break;
 
       case 'check':
         if (toCall > 0) return this.scheduleNextAction(); // Invalid
         player.lastAction = 'check';
+        actionLogEntry = this.buildActionLogEntry(player, 'check', 0);
         gameLogger.logAction(this, player, '过牌', 0);
         break;
 
@@ -378,6 +406,11 @@ class Game {
         this.pot += actual;
         if (player.stack === 0) player.allIn = true;
         player.lastAction = player.allIn ? 'allin' : 'call';
+        actionLogEntry = this.buildActionLogEntry(
+          player,
+          player.allIn ? 'allinCall' : 'call',
+          actual,
+        );
         gameLogger.logAction(this, player, player.allIn ? 'ALL IN(跟注)' : '跟注', actual);
         break;
       }
@@ -395,6 +428,12 @@ class Game {
         this.roundBet = player.bet;
         if (player.stack === 0) { player.allIn = true; player.lastAction = 'allin'; }
         else player.lastAction = 'raise';
+        actionLogEntry = this.buildActionLogEntry(
+          player,
+          player.allIn ? 'allinRaise' : 'raise',
+          toPay,
+          { raiseTo: player.bet },
+        );
         this.actedCount = 0; // Others need to act again
         gameLogger.logAction(this, player, '加注', toPay, { raiseTo: player.bet });
         break;
@@ -412,6 +451,7 @@ class Game {
           this.roundBet = player.bet;
           this.actedCount = 0;
         }
+        actionLogEntry = this.buildActionLogEntry(player, 'allin', amt);
         gameLogger.logAction(this, player, 'ALL IN', amt);
         break;
       }
@@ -424,6 +464,7 @@ class Game {
 
     // Update current player first, then broadcast
     this.currentIdx = this.nextIdx(this.currentIdx);
+    if (actionLogEntry) this.broadcast('game:actionLog', actionLogEntry);
     this.broadcastState();
 
     const inHand = this.inHandPlayers();
