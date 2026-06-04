@@ -1,10 +1,11 @@
 /**
- * Room Manager — handles room lifecycle, player assignment, and game orchestration
+ * Room Manager - handles room lifecycle, player assignment, and game orchestration
  */
 
 const { Game, START_STACK } = require('./game');
 const crypto = require('crypto');
 
+const ROOM_RESUME_TTL = 30 * 60 * 1000;
 
 class Room {
   constructor(code, hostId, hostName, hostWs, options = {}) {
@@ -19,15 +20,14 @@ class Room {
     this.shortDeck = options.shortDeck || false;
     this.allInOrFold = options.allInOrFold || false;
 
-    this.players = new Map(); // id -> { id, name, ws, stack, ready }
-    this.spectators = new Map(); // id -> { id, name, ws }
+    this.players = new Map();
+    this.spectators = new Map();
     this.game = null;
     this.gameRunning = false;
     this.autoStartTimer = null;
     this.nextHandTimer = null;
-    this.destroyTimer = null; // Grace period timer for empty rooms
+    this.lastVacantAt = null;
 
-    // Add host
     this.addPlayer(hostId, hostName, hostWs);
   }
 
@@ -35,60 +35,68 @@ class Room {
     if (this.players.size >= this.maxPlayers) return false;
     if (this.players.has(id)) return false;
 
-    // Cancel destroy timer if room was empty
-    if (this.destroyTimer) {
-      clearTimeout(this.destroyTimer);
-      this.destroyTimer = null;
-    }
-
-    // If was spectator, remove from spectators
+    this.lastVacantAt = null;
     this.spectators.delete(id);
 
     this.players.set(id, {
-      id, name, ws,
+      id,
+      name,
+      ws,
       stack: this.startStack,
       ready: false,
       connected: true,
-      avatar: ws._playerAvatar || '🦊',
+      _username: ws._username || null,
+      avatar: ws._playerAvatar || 'A',
       avatarColor: ws._playerColor || null,
     });
 
     this.broadcast('room:playerJoined', {
-      playerId: id, name,
+      playerId: id,
+      name,
       playerCount: this.players.size,
       maxPlayers: this.maxPlayers,
     });
 
-    // Send current room state to the new player (fixes host rejoin bug)
     ws.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning }
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
     }));
 
     this.broadcastPlayerList();
     return true;
   }
 
-
   addSpectator(id, name, ws) {
+    this.lastVacantAt = null;
+
     if (this.spectators.has(id)) {
-      // Reconnect
       const spec = this.spectators.get(id);
+      if (spec.ws && spec.ws !== ws && spec.ws.readyState === 1) {
+        try { spec.ws.close(); } catch {}
+      }
       spec.ws = ws;
+      spec.name = name;
       spec.connected = true;
+      spec._username = ws._username || spec._username || null;
       this.sendSpectatorState(id, ws);
+      this.broadcastPlayerList();
       return true;
     }
 
-    this.spectators.set(id, { id, name, ws, connected: true });
+    this.spectators.set(id, {
+      id,
+      name,
+      ws,
+      connected: true,
+      _username: ws._username || null,
+    });
 
     this.broadcast('room:spectatorJoined', {
-      playerId: id, name,
+      playerId: id,
+      name,
       spectatorCount: this.spectators.size,
     });
     this.broadcastPlayerList();
-
-    // Send current state
     this.sendSpectatorState(id, ws);
     return true;
   }
@@ -98,37 +106,62 @@ class Room {
     if (!spec) return;
     this.spectators.delete(id);
     this.broadcast('room:spectatorLeft', {
-      playerId: id, name: spec.name,
+      playerId: id,
+      name: spec.name,
       spectatorCount: this.spectators.size,
     });
     this.broadcastPlayerList();
+    this._markVacantIfNeeded();
   }
 
   sendSpectatorState(id, ws) {
-    // Send room info
     ws.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, isSpectator: true }
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, isSpectator: true },
     }));
-    // Send player list
-    const players = [...this.players.values()].map(p => ({
-      id: p.id, name: p.name, stack: p.stack, ready: p.ready, connected: p.connected,
-      avatar: p.avatar || '🦊', avatarColor: p.avatarColor || null,
+
+    const players = [...this.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+      stack: p.stack,
+      ready: p.ready,
+      connected: p.connected,
+      avatar: p.avatar || 'A',
+      avatarColor: p.avatarColor || null,
     }));
-    const spectators = [...this.spectators.values()].map(s => ({ id: s.id, name: s.name }));
+    const spectators = [...this.spectators.values()].map((s) => ({ id: s.id, name: s.name }));
     ws.send(JSON.stringify({ type: 'room:players', data: { players, spectators, hostId: this.hostId } }));
-    // If game running, send spectator game state
+
     if (this.game && this.gameRunning) {
       const state = this.game.getStateForSpectator();
       ws.send(JSON.stringify({ type: 'game:state', data: state }));
     }
   }
 
-  removePlayer(id) {
+  disconnectPlayer(id) {
     const player = this.players.get(id);
-    if (!player) return;
+    if (!player) return false;
 
     player.connected = false;
+
+    if (this.game && this.gameRunning) {
+      this.game.handleDisconnect(id);
+    }
+
+    this.broadcast('room:playerDisconnected', {
+      playerId: id,
+      name: player.name,
+      playerCount: this.players.size,
+    });
+    this.broadcastPlayerList();
+    this._markVacantIfNeeded();
+    return true;
+  }
+
+  removePlayer(id) {
+    const player = this.players.get(id);
+    if (!player) return false;
+
     this.players.delete(id);
 
     if (this.game && this.gameRunning) {
@@ -136,39 +169,25 @@ class Room {
     }
 
     this.broadcast('room:playerLeft', {
-      playerId: id, name: player.name,
+      playerId: id,
+      name: player.name,
       playerCount: this.players.size,
     });
 
-    // Host reassignment MUST happen before broadcast and grace period check
     if (this.hostId === id && this.players.size > 0) {
       const first = this.players.values().next().value;
       this.hostId = first.id;
-      // Send hostChanged to all (including new host)
       this.broadcast('room:hostChanged', { hostId: this.hostId });
-      // Also send room:state to new host so their UI updates
       if (first.ws && first.ws.readyState === 1) {
         first.ws.send(JSON.stringify({
           type: 'room:state',
-          data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning }
+          data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
         }));
       }
     }
 
     this.broadcastPlayerList();
-
-    // Grace period: don't destroy immediately, wait 5 minutes for reconnection
-    if (this.players.size === 0 && this.spectators.size === 0) {
-      if (!this.destroyTimer) {
-        this.destroyTimer = setTimeout(() => {
-          if (this.players.size === 0 && this.spectators.size === 0) {
-            this.destroy();
-          }
-        }, 300000); // 5 minutes
-      }
-      return true;
-    }
-
+    this._markVacantIfNeeded();
     return true;
   }
 
@@ -176,22 +195,59 @@ class Room {
     const player = this.players.get(id);
     if (!player) return false;
 
+    if (player.ws && player.ws !== ws && player.ws.readyState === 1) {
+      try { player.ws.close(); } catch {}
+    }
+
     player.ws = ws;
     player.connected = true;
+    player.name = ws.playerName || player.name;
+    player._username = ws._username || player._username || null;
+    player.avatar = ws._playerAvatar || player.avatar;
+    player.avatarColor = ws._playerColor || player.avatarColor || null;
+    this.lastVacantAt = null;
 
-    // Send room state
     ws.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning }
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
     }));
     this.broadcastPlayerList();
 
-    // If game is running, reconnect to game
     if (this.game && this.gameRunning) {
       this.game.handleReconnect(id, ws);
     }
 
     return true;
+  }
+
+  restoreUserSession(username, ws) {
+    if (!username) return null;
+
+    for (const player of this.players.values()) {
+      if (player._username === username) {
+        this.handleReconnect(player.id, ws);
+        return {
+          room: this,
+          playerId: player.id,
+          name: player.name,
+          isSpectator: false,
+        };
+      }
+    }
+
+    for (const spectator of this.spectators.values()) {
+      if (spectator._username === username) {
+        this.addSpectator(spectator.id, spectator.name, ws);
+        return {
+          room: this,
+          playerId: spectator.id,
+          name: spectator.name,
+          isSpectator: true,
+        };
+      }
+    }
+
+    return null;
   }
 
   setReady(id, ready) {
@@ -205,55 +261,51 @@ class Room {
     if (this.gameRunning) return;
     if (starterId !== this.hostId) return;
 
-    const connected = [...this.players.values()].filter(p => p.connected);
+    const connected = [...this.players.values()].filter((p) => p.connected);
     if (connected.length < 2) {
-      this.sendTo(starterId, 'room:error', { message: '至少需要2名玩家' });
+      this.sendTo(starterId, 'room:error', { message: '至少需要 2 名玩家' });
       return;
     }
 
     this.gameRunning = true;
 
-    // Create game with connected players
-    const gamePlayers = connected.map(p => ({
+    const gamePlayers = connected.map((p) => ({
       id: p.id,
       name: p.name,
       stack: p.stack,
       connected: true,
-     
       _username: p._username || null,
-      avatar: p.avatar || '🦊',
+      avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
     }));
 
     this.game = new Game(gamePlayers, {
-      sb: this.sb, bb: this.bb, startStack: this.startStack,
-      shortDeck: this.shortDeck, allInOrFold: this.allInOrFold,
+      sb: this.sb,
+      bb: this.bb,
+      startStack: this.startStack,
+      shortDeck: this.shortDeck,
+      allInOrFold: this.allInOrFold,
       gameMode: this.gameMode,
     });
 
-    // Wire up game callbacks
     this.game.onBroadcast = (type, data) => {
-      // Broadcast to players (each gets their own filtered state for game:state)
-      if (type === 'game:state') return; // handled separately in broadcastState
+      if (type === 'game:state') return;
       this.broadcast(type, data);
     };
 
-    // Override broadcastState to include spectators
-    const origBroadcastState = this.game.broadcastState.bind(this.game);
     this.game.broadcastState = () => {
-      // Send filtered state to each player
       for (const p of this.game.players) {
         if (p._ws && p.connected && p._ws.readyState === 1) {
           const state = this.game.getStateForPlayer(p.id);
           p._ws.send(JSON.stringify({ type: 'game:state', data: state }));
         }
       }
-      // Send spectator state (no hole cards)
+
       if (this.spectators.size > 0) {
         const specState = this.game.getStateForSpectator();
         const msg = JSON.stringify({ type: 'game:state', data: specState });
-        for (const [, s] of this.spectators) {
-          if (s.ws && s.ws.readyState === 1) s.ws.send(msg);
+        for (const spectator of this.spectators.values()) {
+          if (spectator.ws && spectator.ws.readyState === 1) spectator.ws.send(msg);
         }
       }
     };
@@ -265,7 +317,6 @@ class Room {
       }
       this.gameRunning = false;
 
-      // Report stats
       if (this.game.winners.length > 0 && this.onStatsReport) {
         this.onStatsReport(this.game);
       }
@@ -276,7 +327,6 @@ class Room {
       }, 15000);
     };
 
-    // Wire up player websockets
     for (const gp of this.game.players) {
       const rp = this.players.get(gp.id);
       if (rp) gp._ws = rp.ws;
@@ -286,10 +336,8 @@ class Room {
     this.game.startHand();
   }
 
-
   handlePlayerAction(playerId, actionData) {
     if (!this.game || !this.gameRunning) return;
-    // Spectators cannot perform actions
     if (this.spectators.has(playerId)) return;
     this.game.handleAction(playerId, actionData);
   }
@@ -303,47 +351,59 @@ class Room {
 
   broadcast(type, data = {}) {
     const msg = JSON.stringify({ type, data });
-    for (const [, p] of this.players) {
-      if (p.ws && p.ws.readyState === 1) p.ws.send(msg);
+    for (const player of this.players.values()) {
+      if (player.ws && player.ws.readyState === 1) player.ws.send(msg);
     }
-    // Also broadcast to spectators
-    for (const [, s] of this.spectators) {
-      if (s.ws && s.ws.readyState === 1) s.ws.send(msg);
+    for (const spectator of this.spectators.values()) {
+      if (spectator.ws && spectator.ws.readyState === 1) spectator.ws.send(msg);
     }
   }
 
   broadcastPlayerList() {
-    const players = [...this.players.values()].map(p => ({
-      id: p.id, name: p.name, stack: p.stack, ready: p.ready, connected: p.connected,
-      avatar: p.avatar || '🦊', avatarColor: p.avatarColor || null,
+    const players = [...this.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+      stack: p.stack,
+      ready: p.ready,
+      connected: p.connected,
+      avatar: p.avatar || 'A',
+      avatarColor: p.avatarColor || null,
     }));
-    const spectators = [...this.spectators.values()].map(s => ({
-      id: s.id, name: s.name,
+    const spectators = [...this.spectators.values()].map((s) => ({
+      id: s.id,
+      name: s.name,
     }));
     this.broadcast('room:players', { players, spectators, hostId: this.hostId });
+  }
+
+  _markVacantIfNeeded() {
+    const hasConnectedPlayers = [...this.players.values()].some((p) => p.connected);
+    const hasConnectedSpectators = [...this.spectators.values()].some((s) => s.connected);
+    if (hasConnectedPlayers || hasConnectedSpectators) {
+      this.lastVacantAt = null;
+      return;
+    }
+    if (!this.lastVacantAt) this.lastVacantAt = Date.now();
   }
 
   destroy() {
     if (this.autoStartTimer) clearTimeout(this.autoStartTimer);
     if (this.nextHandTimer) clearTimeout(this.nextHandTimer);
-    if (this.destroyTimer) clearTimeout(this.destroyTimer);
     if (this.game && this.game.actionTimeout) clearTimeout(this.game.actionTimeout);
     this.broadcast('room:destroyed', {});
     this.players.clear();
     this.spectators.clear();
     this.game = null;
-    // Remove self from registry
     if (this._registry) {
       this._registry.rooms.delete(this.code);
     }
   }
 }
 
-// ===== Room Registry =====
 class RoomRegistry {
   constructor() {
-    this.rooms = new Map(); // code -> Room
-    this.playerRoom = new Map(); // playerId -> roomCode
+    this.rooms = new Map();
+    this.playerRoom = new Map();
   }
 
   generateCode() {
@@ -357,7 +417,7 @@ class RoomRegistry {
   createRoom(hostId, hostName, hostWs, options = {}) {
     const code = this.generateCode();
     const room = new Room(code, hostId, hostName, hostWs, options);
-    room._registry = this; // Allow room to clean itself from registry on destroy
+    room._registry = this;
     this.rooms.set(code, room);
     this.playerRoom.set(hostId, code);
     return room;
@@ -367,9 +427,9 @@ class RoomRegistry {
     const room = this.rooms.get(code);
     if (!room) return { error: '房间不存在' };
 
-    // Check if player is reconnecting
     if (room.players.has(playerId)) {
       room.handleReconnect(playerId, ws);
+      this.playerRoom.set(playerId, code);
       return { room };
     }
 
@@ -385,9 +445,9 @@ class RoomRegistry {
     const room = this.rooms.get(code);
     if (!room) return { error: '房间不存在' };
 
-    // Check if already a spectator (reconnect)
     if (room.spectators.has(playerId)) {
       room.addSpectator(playerId, playerName, ws);
+      this.playerRoom.set(playerId, code);
       return { room };
     }
 
@@ -397,22 +457,29 @@ class RoomRegistry {
     return { room };
   }
 
+  restoreUserSession(username, ws) {
+    for (const room of this.rooms.values()) {
+      const restored = room.restoreUserSession(username, ws);
+      if (restored) {
+        this.playerRoom.set(restored.playerId, room.code);
+        return restored;
+      }
+    }
+    return null;
+  }
+
   leaveRoom(playerId) {
     const code = this.playerRoom.get(playerId);
     if (!code) return;
     const room = this.rooms.get(code);
     if (room) {
-      // Check if spectator
       if (room.spectators.has(playerId)) {
         room.removeSpectator(playerId);
-        // Spectators don't trigger grace period — delete if empty
-        if (room.players.size === 0 && room.spectators.size === 0) {
-          this.rooms.delete(code);
-        }
       } else {
-        // removePlayer() starts the grace period timer if room becomes empty
-        // Don't delete from registry here — let the grace period handle it
         room.removePlayer(playerId);
+      }
+      if (room.players.size === 0 && room.spectators.size === 0) {
+        room.destroy();
       }
     }
     this.playerRoom.delete(playerId);
@@ -424,24 +491,33 @@ class RoomRegistry {
   }
 
   getRoomList() {
-    return [...this.rooms.values()].map(r => {
-      return {
-        code: r.code,
-        playerCount: r.players.size,
-        spectatorCount: r.spectators.size,
-        maxPlayers: r.maxPlayers,
-        gameRunning: r.gameRunning,
-        hostName: r.players.get(r.hostId)?.name || 'Unknown',
-        gameMode: r.gameMode || 'classic',
-      };
-    });
+    return [...this.rooms.values()].map((room) => ({
+      code: room.code,
+      playerCount: room.players.size,
+      spectatorCount: room.spectators.size,
+      maxPlayers: room.maxPlayers,
+      gameRunning: room.gameRunning,
+      hostName: room.players.get(room.hostId)?.name || 'Unknown',
+      gameMode: room.gameMode || 'classic',
+    }));
   }
 
-  // Cleanup stale rooms (called periodically)
   cleanup() {
     for (const [code, room] of this.rooms) {
-      const hasConnected = [...room.players.values()].some(p => p.connected);
-      if (!hasConnected) {
+      const hasConnectedPlayers = [...room.players.values()].some((p) => p.connected);
+      const hasConnectedSpectators = [...room.spectators.values()].some((s) => s.connected);
+
+      if (hasConnectedPlayers || hasConnectedSpectators) {
+        room.lastVacantAt = null;
+        continue;
+      }
+
+      if (!room.lastVacantAt) {
+        room.lastVacantAt = Date.now();
+        continue;
+      }
+
+      if (Date.now() - room.lastVacantAt >= ROOM_RESUME_TTL) {
         room.destroy();
         this.rooms.delete(code);
       }
@@ -449,4 +525,4 @@ class RoomRegistry {
   }
 }
 
-module.exports = { Room, RoomRegistry };
+module.exports = { Room, RoomRegistry, ROOM_RESUME_TTL };

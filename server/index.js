@@ -1,45 +1,5 @@
 /**
- * Texas Hold'em Online — WebSocket Server
- *
- * Protocol:
- *   Client → Server:
- *     { type: 'auth',         data: { playerId, name } }
- *     { type: 'user:register', data: { username, password } }
- *     { type: 'user:login',    data: { username, password } }
- *     { type: 'user:profile' }
- *     { type: 'user:guest',    data: { name } }
- *     { type: 'room:create',  data: { name, options } }
- *     { type: 'room:join',    data: { code, name } }
- *     { type: 'room:leave' }
- *     { type: 'room:start' }
- *     { type: 'room:ready',   data: { ready } }
- *     { type: 'room:list' }
- *     { type: 'game:action',  data: { action, amount } }
- *
- *   Server → Client:
- *     { type: 'auth:ok',           data: { playerId } }
- *     { type: 'user:registered',   data: { token, username, profile } }
- *     { type: 'user:loggedIn',     data: { token, username, profile } }
- *     { type: 'user:profile',      data: { profile } }
- *     { type: 'user:achievement',  data: { achievement } }
- *     { type: 'user:error',        data: { message } }
- *     { type: 'room:created',      data: { code } }
- *     { type: 'room:joined',       data: { code } }
- *     { type: 'room:state',        data: { code, hostId, gameRunning } }
- *     { type: 'room:players',      data: { players, hostId } }
- *     { type: 'room:playerJoined', data: { playerId, name, playerCount, maxPlayers } }
- *     { type: 'room:playerLeft',   data: { playerId, name, playerCount } }
- *     { type: 'room:hostChanged',  data: { hostId } }
- *     { type: 'room:gameStarted' }
- *     { type: 'room:list',         data: { rooms } }
- *     { type: 'room:error',        data: { message } }
- *     { type: 'room:destroyed' }
- *     { type: 'game:state',        data: { ...fullGameState } }
- *     { type: 'game:handStart',    data: { handNum } }
- *     { type: 'game:yourTurn',     data: { playerId, toCall, minRaise, maxRaise, pot } }
- *     { type: 'game:showdown',     data: { winners } }
- *     { type: 'game:handEnd',      data: { winners } }
- *     { type: 'error',             data: { message } }
+ * Texas Hold'em Online - WebSocket Server
  */
 
 const http = require('http');
@@ -51,14 +11,11 @@ const { RoomRegistry } = require('./room');
 const { evaluateHand: evaluateForStats } = require('./game');
 const { UserStore, ACHIEVEMENTS } = require('./userStore');
 
-// ===== Config =====
 const PORT = process.env.PORT || 3000;
 const STATIC_DIR = path.join(__dirname, '..', 'public');
 
-// ===== User Store =====
 const userStore = new UserStore();
 
-// ===== Leaderboard Stats (in-memory, backed by UserStore for registered users) =====
 class StatsTracker {
   constructor() {
     this.stats = new Map();
@@ -68,44 +25,53 @@ class StatsTracker {
     if (!this.stats.has(playerName)) {
       this.stats.set(playerName, {
         name: playerName,
-        handsPlayed: 0, handsWon: 0,
-        totalWon: 0, totalLost: 0,
-        biggestPot: 0, bestHand: '', bestHandRank: -1,
-        allIns: 0, firstSeen: Date.now(), lastSeen: Date.now(),
+        handsPlayed: 0,
+        handsWon: 0,
+        totalWon: 0,
+        totalLost: 0,
+        biggestPot: 0,
+        bestHand: '',
+        bestHandRank: -1,
+        allIns: 0,
+        firstSeen: Date.now(),
+        lastSeen: Date.now(),
       });
     }
-    const s = this.stats.get(playerName);
-    s.handsPlayed++;
-    s.lastSeen = Date.now();
+
+    const stats = this.stats.get(playerName);
+    stats.handsPlayed++;
+    stats.lastSeen = Date.now();
+
     if (data.won) {
-      s.handsWon++;
-      s.totalWon += data.amount;
-      if (data.amount > s.biggestPot) s.biggestPot = data.amount;
+      stats.handsWon++;
+      stats.totalWon += data.amount;
+      if (data.amount > stats.biggestPot) stats.biggestPot = data.amount;
     }
-    if (data.handRank > s.bestHandRank) {
-      s.bestHandRank = data.handRank;
-      s.bestHand = data.handName;
+
+    if (data.handRank > stats.bestHandRank) {
+      stats.bestHandRank = data.handRank;
+      stats.bestHand = data.handName;
     }
-    if (data.allIn) s.allIns++;
+
+    if (data.allIn) stats.allIns++;
   }
 
   getLeaderboard(sortBy = 'totalWon', limit = 20) {
-    // Merge in-memory stats with UserStore data for richer leaderboard
     const userBoard = userStore.getLeaderboard(sortBy, limit);
     if (userBoard.length > 0) return userBoard;
 
     const list = [...this.stats.values()];
     list.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
-    return list.slice(0, limit).map((s, i) => ({
-      rank: i + 1,
-      name: s.name,
-      handsPlayed: s.handsPlayed,
-      handsWon: s.handsWon,
-      winRate: s.handsPlayed > 0 ? Math.round(s.handsWon / s.handsPlayed * 100) : 0,
-      totalWon: s.totalWon,
-      biggestPot: s.biggestPot,
-      bestHand: s.bestHand || '-',
-      allIns: s.allIns,
+    return list.slice(0, limit).map((stats, index) => ({
+      rank: index + 1,
+      name: stats.name,
+      handsPlayed: stats.handsPlayed,
+      handsWon: stats.handsWon,
+      winRate: stats.handsPlayed > 0 ? Math.round(stats.handsWon / stats.handsPlayed * 100) : 0,
+      totalWon: stats.totalWon,
+      biggestPot: stats.biggestPot,
+      bestHand: stats.bestHand || '-',
+      allIns: stats.allIns,
       achievementCount: 0,
     }));
   }
@@ -113,16 +79,15 @@ class StatsTracker {
 
 const stats = new StatsTracker();
 
-// ===== HTTP Server (serves static files) =====
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
-  '.css':  'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
-  '.png':  'image/png',
-  '.jpg':  'image/jpeg',
-  '.svg':  'image/svg+xml',
-  '.ico':  'image/x-icon',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
 };
 
 const httpServer = http.createServer((req, res) => {
@@ -130,8 +95,6 @@ const httpServer = http.createServer((req, res) => {
   if (url === '/') url = '/index.html';
 
   const filePath = path.join(STATIC_DIR, url);
-
-  // Security: prevent directory traversal
   if (!filePath.startsWith(STATIC_DIR)) {
     res.writeHead(403);
     res.end('Forbidden');
@@ -152,27 +115,27 @@ const httpServer = http.createServer((req, res) => {
   });
 });
 
-// ===== WebSocket Server =====
 const wss = new WebSocketServer({ server: httpServer });
 const registry = new RoomRegistry();
-const playerSockets = new Map(); // playerId -> ws
+const playerSockets = new Map();
+const pendingDisconnects = new Map();
+const DISCONNECT_GRACE_MS = 15 * 60 * 1000;
 
-// Periodic cleanup of stale rooms
 setInterval(() => registry.cleanup(), 60000);
 
-// Helper: wire up stats reporting for a room
-function wireStatsReporting(room, ws) {
+function wireStatsReporting(room) {
   room.onStatsReport = (game) => {
-    const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
     for (const gp of game.players) {
-      const won = game.winners.some(w => w.id === gp.id);
-      const winData = game.winners.find(w => w.id === gp.id);
-      let handRank = -1, handName = '';
+      const won = game.winners.some((winner) => winner.id === gp.id);
+      const winData = game.winners.find((winner) => winner.id === gp.id);
+      let handRank = -1;
+      let handName = '';
+
       if (gp.hand.length === 2 && game.community.length >= 3 && !gp.folded) {
         try {
-          const ev = evaluateForStats([...gp.hand, ...game.community]);
-          handRank = ev.rank;
-          handName = ev.name;
+          const evaluated = evaluateForStats([...gp.hand, ...game.community]);
+          handRank = evaluated.rank;
+          handName = evaluated.name;
         } catch {}
       }
 
@@ -185,20 +148,17 @@ function wireStatsReporting(room, ws) {
         stackBefore: gp.stack - (won ? (winData?.amount || 0) : 0),
       };
 
-      // Record in-memory stats
       stats.record(gp.name, recordData);
 
-      // Record in UserStore if registered
       if (gp._username) {
         const result = userStore.recordGame(gp._username, recordData);
-        // Send achievement unlocks to the player
         if (result.newAchievements && result.newAchievements.length > 0) {
           const playerWs = playerSockets.get(gp.id);
           if (playerWs && playerWs.readyState === 1) {
             for (const ach of result.newAchievements) {
               playerWs.send(JSON.stringify({
                 type: 'user:achievement',
-                data: { achievement: ach }
+                data: { achievement: ach },
               }));
             }
           }
@@ -208,14 +168,101 @@ function wireStatsReporting(room, ws) {
   };
 }
 
+function clearPendingDisconnect(playerId) {
+  const pending = pendingDisconnects.get(playerId);
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  pendingDisconnects.delete(playerId);
+}
+
+function schedulePendingDisconnect(playerId, room, isSpectator, closingWs) {
+  if (!playerId || !room || pendingDisconnects.has(playerId)) return;
+  const timer = setTimeout(() => {
+    pendingDisconnects.delete(playerId);
+    if (playerSockets.get(playerId) && playerSockets.get(playerId) !== closingWs) {
+      return;
+    }
+    if (isSpectator) {
+      room.removeSpectator(playerId);
+      return;
+    }
+    room.disconnectPlayer(playerId);
+  }, DISCONNECT_GRACE_MS);
+
+  pendingDisconnects.set(playerId, {
+    timer,
+    roomCode: room.code,
+    isSpectator: !!isSpectator,
+    createdAt: Date.now(),
+  });
+}
+
 wss.on('connection', (ws) => {
   let playerId = null;
   let currentRoom = null;
-  let currentUser = null; // { username, token } for registered users
+  let currentUser = null;
+  ws.lastPongAt = Date.now();
+  ws.lastPingAt = 0;
 
-  // Send heartbeat
+  function requireLogin() {
+    if (currentUser) return true;
+    ws.send(JSON.stringify({ type: 'user:error', data: { message: '请先登录' } }));
+    return false;
+  }
+
+  function bindIdentity(nextPlayerId, nextPlayerName) {
+    playerId = nextPlayerId;
+    clearPendingDisconnect(nextPlayerId);
+    ws.playerId = nextPlayerId;
+    ws.playerName = nextPlayerName;
+    playerSockets.set(nextPlayerId, ws);
+  }
+
+  function buildResume(room, isSpectator) {
+    if (!room) return null;
+    return {
+      code: room.code,
+      isSpectator: !!isSpectator,
+      gameRunning: !!room.gameRunning,
+    };
+  }
+
+  function finalizeAuthenticatedSession(result, token, responseType) {
+    currentUser = { username: result.username, token };
+    ws._username = result.username;
+    ws._playerAvatar = result.profile.avatar || 'A';
+    ws._playerColor = result.profile.avatarColor || null;
+
+    const restored = registry.restoreUserSession(result.username, ws);
+    let resume = null;
+
+    if (restored) {
+      bindIdentity(restored.playerId, restored.name || result.username);
+      currentRoom = restored.room;
+      ws.isSpectator = !!restored.isSpectator;
+      resume = buildResume(restored.room, restored.isSpectator);
+    } else {
+      bindIdentity(playerId || crypto.randomUUID(), result.username);
+      ws.isSpectator = false;
+    }
+
+    ws.send(JSON.stringify({
+      type: responseType,
+      data: {
+        token,
+        username: result.username,
+        profile: result.profile,
+        playerId,
+        resume,
+      },
+    }));
+  }
+
   ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('pong', () => {
+    ws.isAlive = true;
+    ws.lastPongAt = Date.now();
+  });
 
   ws.on('message', (raw) => {
     let msg;
@@ -229,86 +276,46 @@ wss.on('connection', (ws) => {
     const { type, data = {} } = msg;
 
     switch (type) {
-      // ===== Authentication =====
       case 'auth': {
-        playerId = data.playerId || crypto.randomUUID();
-        const name = data.name || `玩家${playerId.slice(0, 4)}`;
-        playerSockets.set(playerId, ws);
-        ws.playerId = playerId;
-        ws.playerName = name;
-        ws.send(JSON.stringify({ type: 'auth:ok', data: { playerId, name } }));
+        ws.send(JSON.stringify({ type: 'error', data: { message: '请先登录账号' } }));
         break;
       }
 
-      // ===== User: Register =====
       case 'user:register': {
         const result = userStore.register(data.username, data.password);
         if (result.error) {
           ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
-        } else {
-          currentUser = { username: result.username, token: result.token };
-          playerId = playerId || crypto.randomUUID();
-          playerSockets.set(playerId, ws);
-          ws.playerId = playerId;
-          ws.playerName = result.username;
-          ws._playerAvatar = result.profile.avatar || '🦊';
-          ws._playerColor = result.profile.avatarColor || null;
-          ws.send(JSON.stringify({
-            type: 'user:registered',
-            data: { token: result.token, username: result.username, profile: result.profile, playerId }
-          }));
+          break;
         }
+        finalizeAuthenticatedSession(result, result.token, 'user:registered');
         break;
       }
 
-      // ===== User: Login =====
       case 'user:login': {
         const result = userStore.login(data.username, data.password);
         if (result.error) {
           ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
-        } else {
-          currentUser = { username: result.username, token: result.token };
-          playerId = playerId || crypto.randomUUID();
-          playerSockets.set(playerId, ws);
-          ws.playerId = playerId;
-          ws.playerName = result.username;
-          ws._playerAvatar = result.profile.avatar || '🦊';
-          ws._playerColor = result.profile.avatarColor || null;
-          ws.send(JSON.stringify({
-            type: 'user:loggedIn',
-            data: { token: result.token, username: result.username, profile: result.profile, playerId }
-          }));
+          break;
         }
+        finalizeAuthenticatedSession(result, result.token, 'user:loggedIn');
         break;
       }
 
-      // ===== User: Token Login (auto-login) =====
       case 'user:tokenLogin': {
         const result = userStore.validateToken(data.token);
         if (!result) {
-          ws.send(JSON.stringify({ type: 'user:error', data: { message: '登录已过期，请重新登录' } }));
-        } else {
-          currentUser = { username: result.username, token: data.token };
-          playerId = playerId || crypto.randomUUID();
-          playerSockets.set(playerId, ws);
-          ws.playerId = playerId;
-          ws.playerName = result.username;
-          ws._playerAvatar = result.profile.avatar || '🦊';
-          ws._playerColor = result.profile.avatarColor || null;
           ws.send(JSON.stringify({
-            type: 'user:loggedIn',
-            data: { token: data.token, username: result.username, profile: result.profile, playerId }
+            type: 'user:error',
+            data: { code: 'TOKEN_EXPIRED', message: '登录已过期，请重新登录' },
           }));
+          break;
         }
+        finalizeAuthenticatedSession(result, data.token, 'user:loggedIn');
         break;
       }
 
-      // ===== User: Profile =====
       case 'user:profile': {
-        if (!currentUser) {
-          ws.send(JSON.stringify({ type: 'user:error', data: { message: '请先登录' } }));
-          break;
-        }
+        if (!requireLogin()) break;
         const profile = userStore.getProfile(currentUser.username);
         if (profile) {
           ws.send(JSON.stringify({ type: 'user:profile', data: { profile } }));
@@ -316,19 +323,13 @@ wss.on('connection', (ws) => {
         break;
       }
 
-      // ===== User: Achievements List =====
       case 'user:achievements': {
         ws.send(JSON.stringify({ type: 'user:achievementsList', data: { achievements: ACHIEVEMENTS } }));
         break;
       }
 
-
-      // ===== User: Set Avatar =====
       case 'user:setAvatar': {
-        if (!currentUser) {
-          ws.send(JSON.stringify({ type: 'user:error', data: { message: '请先登录' } }));
-          break;
-        }
+        if (!requireLogin()) break;
         const result = userStore.updateAvatar(currentUser.username, data.avatar, data.color);
         if (result) {
           ws._playerAvatar = result.avatar;
@@ -338,132 +339,134 @@ wss.on('connection', (ws) => {
         break;
       }
 
-      // ===== Room: List =====
       case 'room:list': {
-        const rooms = registry.getRoomList();
-        ws.send(JSON.stringify({ type: 'room:list', data: { rooms } }));
+        if (!currentUser) {
+          ws.send(JSON.stringify({ type: 'room:list', data: { rooms: [] } }));
+          break;
+        }
+        ws.send(JSON.stringify({ type: 'room:list', data: { rooms: registry.getRoomList() } }));
         break;
       }
 
-      // ===== Room: Create =====
       case 'room:create': {
-        if (!playerId) { ws.send(JSON.stringify({ type: 'error', data: { message: '请先认证' } })); break; }
+        if (!requireLogin()) break;
 
         if (currentRoom) registry.leaveRoom(playerId);
 
-        const name = data.name || ws.playerName;
         const options = data.options || {};
-
-        // Game mode presets
         if (data.gameMode === 'turbo') {
-          options.sb = 20; options.bb = 40; options.startStack = 1500;
+          options.sb = 20;
+          options.bb = 40;
+          options.startStack = 1500;
         } else if (data.gameMode === 'shortdeck') {
-          options.sb = 10; options.bb = 20; options.startStack = 2000;
+          options.sb = 10;
+          options.bb = 20;
+          options.startStack = 2000;
           options.shortDeck = true;
         } else if (data.gameMode === 'highroller') {
-          options.sb = 50; options.bb = 100; options.startStack = 10000;
+          options.sb = 50;
+          options.bb = 100;
+          options.startStack = 10000;
         } else if (data.gameMode === 'allinfold') {
-          options.sb = 10; options.bb = 20; options.startStack = 2000;
+          options.sb = 10;
+          options.bb = 20;
+          options.startStack = 2000;
           options.allInOrFold = true;
         }
 
-        const room = registry.createRoom(playerId, name, ws, options);
+        const room = registry.createRoom(playerId, currentUser.username, ws, options);
         currentRoom = room;
+        ws.isSpectator = false;
 
-        // Tag username on player for stats
-        if (currentUser) {
-          const rp = room.players.get(playerId);
-          if (rp) rp._username = currentUser.username;
-        }
+        const roomPlayer = room.players.get(playerId);
+        if (roomPlayer) roomPlayer._username = currentUser.username;
 
-        wireStatsReporting(room, ws);
-
-        ws.send(JSON.stringify({ type: 'room:created', data: { code: room.code, gameMode: data.gameMode || 'classic' } }));
+        wireStatsReporting(room);
+        ws.send(JSON.stringify({
+          type: 'room:created',
+          data: { code: room.code, gameMode: data.gameMode || 'classic' },
+        }));
         room.broadcastPlayerList();
         break;
       }
 
-      // ===== Room: Join =====
       case 'room:join': {
-        if (!playerId) { ws.send(JSON.stringify({ type: 'error', data: { message: '请先认证' } })); break; }
+        if (!requireLogin()) break;
 
         const code = (data.code || '').toUpperCase().trim();
-        if (!code) { ws.send(JSON.stringify({ type: 'room:error', data: { message: '请输入房间号' } })); break; }
+        if (!code) {
+          ws.send(JSON.stringify({ type: 'room:error', data: { message: '请输入房间号' } }));
+          break;
+        }
 
-        // Leave current room if any
         if (currentRoom) registry.leaveRoom(playerId);
 
-        const name = data.name || ws.playerName;
-        const result = registry.joinRoom(code, playerId, name, ws);
-
+        const result = registry.joinRoom(code, playerId, currentUser.username, ws);
         if (result.error) {
           ws.send(JSON.stringify({ type: 'room:error', data: { message: result.error } }));
-        } else {
-          currentRoom = result.room;
-          // Tag username
-          if (currentUser) {
-            const rp = currentRoom.players.get(playerId);
-            if (rp) rp._username = currentUser.username;
-          }
-          // Send room state on join (fixes host rejoin bug)
-          ws.send(JSON.stringify({
-            type: 'room:state',
-            data: { code: currentRoom.code, hostId: currentRoom.hostId, gameRunning: currentRoom.gameRunning }
-          }));
-          ws.send(JSON.stringify({ type: 'room:joined', data: { code } }));
+          break;
         }
+
+        currentRoom = result.room;
+        ws.isSpectator = false;
+        const roomPlayer = currentRoom.players.get(playerId);
+        if (roomPlayer) roomPlayer._username = currentUser.username;
+        ws.send(JSON.stringify({ type: 'room:joined', data: { code } }));
         break;
       }
 
-      // ===== Room: Spectate =====
       case 'room:spectate': {
-        if (!playerId) { ws.send(JSON.stringify({ type: 'error', data: { message: '请先认证' } })); break; }
+        if (!requireLogin()) break;
 
         const code = (data.code || '').toUpperCase().trim();
-        if (!code) { ws.send(JSON.stringify({ type: 'room:error', data: { message: '请输入房间号' } })); break; }
+        if (!code) {
+          ws.send(JSON.stringify({ type: 'room:error', data: { message: '请输入房间号' } }));
+          break;
+        }
 
         if (currentRoom) registry.leaveRoom(playerId);
 
-        const name = data.name || ws.playerName;
-        const result = registry.spectateRoom(code, playerId, name, ws);
-
+        const result = registry.spectateRoom(code, playerId, currentUser.username, ws);
         if (result.error) {
           ws.send(JSON.stringify({ type: 'room:error', data: { message: result.error } }));
-        } else {
-          currentRoom = result.room;
-          ws.isSpectator = true;
-          ws.send(JSON.stringify({ type: 'room:joined', data: { code, isSpectator: true } }));
+          break;
         }
+
+        currentRoom = result.room;
+        ws.isSpectator = true;
+        const spectator = currentRoom.spectators.get(playerId);
+        if (spectator) spectator._username = currentUser.username;
+        ws.send(JSON.stringify({ type: 'room:joined', data: { code, isSpectator: true } }));
         break;
       }
 
-      // ===== Stats: Get Leaderboard =====
       case 'stats:get': {
         const sortBy = data.sortBy || 'totalWon';
         const limit = data.limit || 20;
-        const leaderboard = stats.getLeaderboard(sortBy, limit);
-        ws.send(JSON.stringify({ type: 'stats:leaderboard', data: { leaderboard, sortBy } }));
+        ws.send(JSON.stringify({
+          type: 'stats:leaderboard',
+          data: { leaderboard: stats.getLeaderboard(sortBy, limit), sortBy },
+        }));
         break;
       }
 
-      // ===== Room: Leave =====
       case 'room:leave': {
         if (playerId && currentRoom) {
+          clearPendingDisconnect(playerId);
           registry.leaveRoom(playerId);
           currentRoom = null;
+          ws.isSpectator = false;
           ws.send(JSON.stringify({ type: 'room:left', data: {} }));
         }
         break;
       }
 
-      // ===== Room: Start =====
       case 'room:start': {
         if (!currentRoom) break;
         currentRoom.startGame(playerId);
         break;
       }
 
-      // ===== Game: Next Hand (host skips wait) =====
       case 'game:nextHand': {
         if (!currentRoom || currentRoom.hostId !== playerId) break;
         if (currentRoom.nextHandTimer) {
@@ -474,30 +477,31 @@ wss.on('connection', (ws) => {
         break;
       }
 
-
-      // ===== Room: Ready =====
       case 'room:ready': {
         if (!currentRoom) break;
         currentRoom.setReady(playerId, !!data.ready);
         break;
       }
 
-      // ===== Game: Action =====
       case 'game:action': {
         if (!currentRoom) break;
         currentRoom.handlePlayerAction(playerId, data);
         break;
       }
 
-      // ===== Player Interaction (gifts/emojis) =====
       case 'room:interact': {
         if (!currentRoom) break;
         const targetWs = playerSockets.get(data.targetId);
         if (targetWs && targetWs.readyState === 1) {
-          targetWs.send(JSON.stringify({ type: 'room:interact', data: { fromId: playerId, gift: data.gift } }));
+          targetWs.send(JSON.stringify({
+            type: 'room:interact',
+            data: { fromId: playerId, gift: data.gift },
+          }));
         }
-        // Also broadcast to sender for confirmation
-        ws.send(JSON.stringify({ type: 'room:interact', data: { fromId: playerId, toId: data.targetId, gift: data.gift, self: true } }));
+        ws.send(JSON.stringify({
+          type: 'room:interact',
+          data: { fromId: playerId, toId: data.targetId, gift: data.gift, self: true },
+        }));
         break;
       }
 
@@ -507,16 +511,16 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    if (playerId) {
-      playerSockets.delete(playerId);
-      if (currentRoom) {
-        if (ws.isSpectator) {
-          currentRoom.removeSpectator(playerId);
-        } else {
-          // removePlayer handles: game disconnect, broadcast, host reassignment, grace period
-          currentRoom.removePlayer(playerId);
-        }
-      }
+    if (!playerId) return;
+    playerSockets.delete(playerId);
+    if (!currentRoom) return;
+
+    if (ws.isSpectator) {
+      schedulePendingDisconnect(playerId, currentRoom, true, ws);
+    } else if (currentUser) {
+      schedulePendingDisconnect(playerId, currentRoom, false, ws);
+    } else {
+      currentRoom.removePlayer(playerId);
     }
   });
 
@@ -525,35 +529,31 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Heartbeat: detect dead connections
+const HEARTBEAT_INTERVAL_MS = 30000;
+const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000;
+
 const heartbeatInterval = setInterval(() => {
   wss.clients.forEach((ws) => {
-    if (!ws.isAlive) {
+    if (Date.now() - (ws.lastPongAt || 0) > HEARTBEAT_TIMEOUT_MS) {
       console.log(`Terminating dead connection: ${ws.playerId}`);
       ws.terminate();
       return;
     }
+
+    if (ws.readyState !== 1) return;
     ws.isAlive = false;
+    ws.lastPingAt = Date.now();
     ws.ping();
   });
-}, 30000);
+}, HEARTBEAT_INTERVAL_MS);
 
 wss.on('close', () => clearInterval(heartbeatInterval));
 
-// ===== Start =====
 httpServer.listen(PORT, () => {
   console.log(`
-  ┌─────────────────────────────────────────────┐
-  │                                             │
-  │   🃏  德州扑克 Online Server               │
-  │                                             │
-  │   HTTP:  http://localhost:${PORT}             │
-  │   WS:    ws://localhost:${PORT}              │
-  │                                             │
-  │   Static files: ${STATIC_DIR}
-  │   User data:    ${path.join(__dirname, '..', 'data')}
-  │                                             │
-  └─────────────────────────────────────────────┘
+Server listening on http://localhost:${PORT}
+Static files: ${STATIC_DIR}
+User data: ${path.join(__dirname, '..', 'data')}
   `);
 });
 

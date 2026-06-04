@@ -37,7 +37,6 @@ class UserStore {
   constructor() {
     this.users = new Map();  // username -> userData
     this.tokens = new Map(); // token -> username
-    this.guestStats = new Map(); // guestId -> stats (in-memory only)
     this._load();
   }
 
@@ -48,6 +47,7 @@ class UserStore {
         const raw = fs.readFileSync(DATA_FILE, 'utf-8');
         const data = JSON.parse(raw);
         for (const u of data) {
+          if (u.sessionToken) this.tokens.set(u.sessionToken, u.username);
           this.users.set(u.username, u);
         }
         console.log(`[UserStore] Loaded ${this.users.size} users`);
@@ -94,6 +94,8 @@ class UserStore {
       passwordHash: this._hashPassword(password),
       createdAt: Date.now(),
       lastLogin: Date.now(),
+      sessionToken: null,
+      sessionIssuedAt: null,
       avatar: 'A',  // Selected avatar emoji
       avatarColor: '#4fc3f7',  // Selected color
       stats: {
@@ -114,8 +116,7 @@ class UserStore {
     };
 
     this.users.set(username, user);
-    const token = this._generateToken();
-    this.tokens.set(token, username);
+    const token = this._issueSession(user);
     this._save();
 
     return { token, username, profile: this._sanitize(user) };
@@ -131,8 +132,7 @@ class UserStore {
     }
 
     user.lastLogin = Date.now();
-    const token = this._generateToken();
-    this.tokens.set(token, username);
+    const token = this._issueSession(user);
     this._save();
 
     return { token, username, profile: this._sanitize(user) };
@@ -144,23 +144,12 @@ class UserStore {
     const username = this.tokens.get(token);
     if (!username) return null;
     const user = this.users.get(username);
-    if (!user) return null;
+    if (!user || user.sessionToken !== token) return null;
+    user.lastLogin = Date.now();
+    user.sessionIssuedAt = Date.now();
+    this.tokens.set(token, username);
+    this._save();
     return { username, profile: this._sanitize(user) };
-  }
-
-  // ===== Guest Mode =====
-  createGuest(name) {
-    const id = 'guest_' + crypto.randomBytes(4).toString('hex');
-    const guest = {
-      id,
-      name: (name || 'Guest').slice(0, 12),
-      isGuest: true,
-      stats: {
-        handsPlayed: 0, handsWon: 0, totalWon: 0,
-      },
-    };
-    this.guestStats.set(id, guest);
-    return guest;
   }
 
   // ===== Record Game Result =====
@@ -307,6 +296,15 @@ class UserStore {
   // Get all achievement definitions
   static getAllAchievements() {
     return ACHIEVEMENTS;
+  }
+
+  _issueSession(user) {
+    if (user.sessionToken) this.tokens.delete(user.sessionToken);
+    const token = this._generateToken();
+    user.sessionToken = token;
+    user.sessionIssuedAt = Date.now();
+    this.tokens.set(token, user.username);
+    return token;
   }
 }
 
