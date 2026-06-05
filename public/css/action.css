@@ -1,0 +1,145 @@
+/* ===== SOUND TOGGLE ===== */
+.sound-toggle {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.3s;
+  backdrop-filter: blur(8px);
+}
+.sound-toggle:hover {
+  border-color: var(--gold-dim);
+}
+
+/* Chip flying animation */
+.flying-chip {
+  position: fixed;
+  z-index: 400;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: chipFly 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+@keyframes chipFly {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.8) translateY(-40px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.4) translateY(-80px) translateX(var(--fly-x, 0px));
+  }
+}
+.flying-gift {
+  position: fixed;
+  z-index: 400;
+  font-size: 28px;
+  pointer-events: none;
+  animation: giftFloat 2s ease-out forwards;
+}
+@keyframes giftFloat {
+  0% {
+    opacity: 1;
+    transform: scale(0.5) translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2) translateY(-20px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1) translateY(-100px);
+  }
+}
+
+/* Player interaction panel */
+.interact-panel {
+  position: absolute;
+  z-index: 350;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid #1a1a1a;
+  border-radius: 12px;
+  padding: 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.interact-panel.active {
+  display: flex;
+}
+.interact-btn {
+  background: none;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  font-family: "Noto Sans SC", sans-serif;
+}
+.interact-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.interact-trigger {
+  position: absolute;
+  z-index: 200;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.interact-trigger:hover {
+  background: rgba(212, 168, 64, 0.2);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ===== SPECTATOR BADGE ===== */
+.spectator-badge {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  z-index: 60;
+  background: rgba(212, 168, 64, 0.15);
+  border: 1px solid rgba(212, 168, 64, 0.3);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+.spectator-badge.visible {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.spectator-badge .eye {
+  font-size: 14px;
+}

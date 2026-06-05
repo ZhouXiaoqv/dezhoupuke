@@ -1,0 +1,56 @@
+@import url("https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap");
+
+:root {
+  --felt: #1a6b3c;
+  --felt-dark: #0f4d2a;
+  --wood: #3a2210;
+  --wood-light: #5a3a1a;
+  --gold: #d4a840;
+  --gold-dim: #8a7030;
+  --red: #cc3333;
+  --white: #f0ece4;
+  --dim: #7a7a6a;
+  --card-back: #1a3a6a;
+  --card-back2: #2a4a8a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  background: #0a0a0a;
+  font-family: "Noto Sans SC", sans-serif;
+  color: var(--white);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+  -webkit-user-select: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ===== SCREENS ===== */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  background: #0a0a0a;
+}
+.screen.active {
+  display: flex;
+}
+#lobbyScreen {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
+  padding: 32px 0 40px;
+}
+#lobbyScreen.active {
+  display: flex;
+}

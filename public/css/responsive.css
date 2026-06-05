@@ -1,0 +1,424 @@
+@media (max-width: 700px) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .table {
+    width: 92vw;
+    height: 32vh;
+    border-width: 6px;
+  }
+  .table::before {
+    inset: 4px;
+  }
+  /* Cards — smaller on mobile */
+  .card {
+    width: 28px;
+    height: 40px;
+    border-radius: 4px;
+  }
+  .card .rank {
+    font-size: 9px;
+  }
+  .card .suit {
+    font-size: 10px;
+  }
+  .card-front {
+    padding: 3px 4px;
+  }
+  .card-front .rank-br {
+    font-size: 8px;
+  }
+  .card-back::after {
+    font-size: 12px;
+  }
+  /* Other players' cards — compact */
+  .seat-cards .card {
+    width: 24px;
+    height: 34px;
+  }
+  .seat-cards .card .rank {
+    font-size: 8px;
+  }
+  .seat-cards .card .suit {
+    font-size: 9px;
+  }
+  .seat-cards .card .rank-br {
+    display: none;
+  }
+  /* My hand — always above browser nav bar */
+  .my-hand {
+    bottom: max(64px, calc(env(safe-area-inset-bottom) + 60px));
+    gap: 4px;
+  }
+  .my-hand .card {
+    width: 40px;
+    height: 56px;
+  }
+  .my-hand .card .rank {
+    font-size: 14px;
+  }
+  .my-hand .card .suit {
+    font-size: 16px;
+  }
+  .my-hand .card .rank-br {
+    font-size: 10px;
+  }
+  .my-hand .card:hover {
+    transform: translateY(-4px);
+  }
+  /* Push hand up above action panel on mobile — extra room for raise presets grid */
+  #table-container.action-active .my-hand {
+    bottom: max(
+      110px,
+      calc(
+        var(--action-panel-height) + env(safe-area-inset-bottom) + 14px
+      )
+    );
+  }
+  /* Seat info — compact */
+  .seat-info {
+    padding: 3px 8px;
+    min-width: 60px;
+    border-radius: 6px;
+  }
+  .seat-name {
+    font-size: 10px;
+  }
+  .seat-stack {
+    font-size: 9px;
+  }
+  .seat-action {
+    font-size: 8px;
+    min-height: 10px;
+  }
+  .seat {
+    gap: 2px;
+  }
+  .seat-cards {
+    gap: 2px;
+  }
+  .seat:not(.seat-0) {
+    width: 18vw;
+    max-width: 72px;
+  }
+  /* Community cards */
+  .community {
+    gap: 3px;
+  }
+  .pot-amount {
+    font-size: 16px;
+  }
+  .pot-label {
+    font-size: 9px;
+  }
+  /* Action panel — compact with safe area */
+  .action-panel {
+    padding: 8px 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+  .action-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+    min-width: 50px;
+  }
+  .raise-amount {
+    font-size: 11px;
+    min-width: 40px;
+  }
+  /* Status bar */
+  .status-bar {
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+  /* Hand rank label */
+  .hand-rank-label {
+    bottom: 128px;
+    font-size: 11px;
+    padding: 3px 10px;
+    max-width: 72vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #table-container.action-active .hand-rank-label {
+    bottom: calc(
+      var(--action-panel-height) + env(safe-area-inset-bottom) + 78px
+    );
+  }
+  /* Dealer button */
+  .dealer-btn {
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+  }
+  .blind-btn {
+    width: 14px;
+    height: 14px;
+    font-size: 6px;
+  }
+  /* Room */
+  .room-code-big {
+    font-size: 32px;
+  }
+  /* Bet */
+  .seat-bet {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+  /* Sound toggles */
+  .sound-toggle {
+    padding: 4px 10px;
+    font-size: 13px;
+  }
+  /* Seat repositions for mobile */
+  .seat-0 {
+    bottom: 0;
+  }
+  .seat-1 {
+    left: 1%;
+    top: 44%;
+    transform: translateY(-50%);
+  }
+  .seat-1 .seat-bet {
+    right: -28px;
+    top: 50%;
+  }
+  .seat-2 {
+    left: 14%;
+    top: -6px;
+  }
+  .seat-3 {
+    left: 50%;
+    top: -12px;
+    transform: translateX(-50%);
+  }
+  .seat-4 {
+    right: 14%;
+    top: -6px;
+  }
+  .seat-4 .seat-bet {
+    bottom: -20px;
+  }
+  .seat-5 {
+    right: 1%;
+    top: 44%;
+    transform: translateY(-50%);
+  }
+  .seat-5 .seat-bet {
+    left: -28px;
+    top: 50%;
+  }
+  .turn-label {
+    font-size: 14px;
+    padding: 4px 14px;
+    top: calc(50% - 16vh - 34px);
+  }
+  /* Mobile lobby */
+  .action-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 94vw;
+  }
+  .action-card {
+    padding: 18px 8px 14px;
+    border-radius: 12px;
+  }
+  .action-card-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  .action-card-title {
+    font-size: 13px;
+  }
+  .action-card-desc {
+    font-size: 9px;
+  }
+  .join-bar {
+    width: 94vw;
+    flex-wrap: wrap;
+  }
+  .join-bar .input-group {
+    min-width: 0;
+  }
+  .join-bar-btn {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  .settings-trigger,
+  .settings-panel {
+    width: 94vw;
+  }
+  .settings-inner {
+    padding: 14px;
+  }
+  .auth-section {
+    width: 94vw;
+    padding: 12px;
+  }
+  .create-screen-inner {
+    width: 94vw;
+  }
+  .create-actions {
+    flex-direction: column;
+  }
+  .create-actions .btn {
+    padding: 12px;
+  }
+  .lobby-title {
+    font-size: 28px;
+    letter-spacing: 2px;
+  }
+  .lobby-sub {
+    font-size: 9px;
+    letter-spacing: 3px;
+  }
+  .lobby-suits {
+    font-size: 14px;
+  }
+  .lobby-top-bar {
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .lobby-top-btn {
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+  .lobby-hero {
+    margin-bottom: 20px;
+  }
+  /* Keep old selectors for compatibility */
+  .lobby-box {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .seat:not(.seat-0) {
+    width: 17vw;
+    max-width: 68px;
+  }
+  .seat-cards .card {
+    width: 18px;
+    height: 28px;
+  }
+  .seat-info {
+    min-width: 52px;
+    padding: 3px 5px;
+  }
+  .seat-name {
+    font-size: 9px;
+  }
+  .seat-stack {
+    font-size: 8px;
+  }
+  .seat-action {
+    font-size: 7px;
+    min-height: 9px;
+  }
+  .seat-1 {
+    left: 0.5%;
+    top: 45%;
+  }
+  .seat-2 {
+    left: 13%;
+    top: -4px;
+  }
+  .seat-3 {
+    right: 13%;
+    top: -4px;
+  }
+  .seat-4 {
+    right: 0.5%;
+    top: 45%;
+  }
+  .seat-5 {
+    top: -10px;
+  }
+}
+/* Landscape mode for mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  #lobbyScreen {
+    padding: 12px 0 20px;
+  }
+  .lobby-hero {
+    margin-bottom: 8px;
+  }
+  .lobby-title {
+    font-size: 22px;
+  }
+  .lobby-sub {
+    font-size: 8px;
+  }
+  .lobby-suits {
+    font-size: 10px;
+  }
+  .lobby-top-bar {
+    margin-bottom: 8px;
+  }
+  .action-grid {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .action-card {
+    padding: 10px 6px 8px;
+  }
+  .action-card-icon {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+  .action-card-title {
+    font-size: 11px;
+  }
+  .action-card-desc {
+    display: none;
+  }
+  .join-bar {
+    margin-bottom: 6px;
+  }
+  .auth-section {
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+  #table-container .table {
+    width: 80vw;
+    height: 45vh;
+  }
+  .seat {
+    transform: scale(0.85);
+  }
+  .action-panel {
+    padding: 6px;
+  }
+  .action-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .custom-raise-input {
+    width: 100%;
+  }
+  .custom-raise-amount {
+    width: min(38vw, 140px);
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+  .turn-timer {
+    width: 36px;
+    height: 36px;
+  }
+  .turn-timer-ring {
+    width: 36px;
+    height: 36px;
+  }
+  .turn-timer-num {
+    font-size: 12px;
+  }
+  .game-exit-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .next-hand-bar {
+    bottom: 50px;
+    padding: 8px 16px;
+  }
+}
