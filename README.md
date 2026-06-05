@@ -98,6 +98,7 @@ dezhoupuke/
 | `room:list` | - | 获取在线房间列表 |
 | `room:interact` | `{ targetId, gift }` | 玩家互动 |
 | `game:action` | `{ action, amount }` | 执行操作（fold/check/call/raise/allin） |
+| `game:showHand` | `{ show }` | 非摊牌获胜后选择是否展示手牌 |
 | `game:nextHand` | - | 跳过等待，立即开始下一手 |
 | `stats:get` | `{ sortBy, limit }` | 获取排行榜 |
 
@@ -126,6 +127,8 @@ dezhoupuke/
 | `game:actionLog` | 操作记录 |
 | `game:handStart` | 新一手开始 |
 | `game:showdown` | 摊牌 |
+| `game:showHandOption` | 非摊牌获胜者可选择是否展示手牌 |
+| `game:handShown` | 玩家选择展示手牌 |
 | `game:handEnd` | 本手结束 |
 | `game:waitingForNext` | 等待下一手 |
 | `stats:leaderboard` | 排行榜数据 |

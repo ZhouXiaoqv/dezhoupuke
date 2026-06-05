@@ -8,6 +8,11 @@ function card(rankStr, suit = 0) {
 }
 
 function run() {
+  testSidePotRefund();
+  testFoldWinnerShowHandChoice();
+}
+
+function testSidePotRefund() {
   const game = new Game([
     { id: 'short', name: 'Short', stack: 1000, connected: true },
     { id: 'big', name: 'Big', stack: 1000, connected: true },
@@ -63,6 +68,50 @@ function run() {
   assert.deepStrictEqual(showdownEvent.data.refunds, game.refunds);
 
   console.log('PASS side-pot unmatched bet refund is not shown as winner');
+}
+
+function testFoldWinnerShowHandChoice() {
+  const game = new Game([
+    { id: 'winner', name: 'Winner', stack: 1000, connected: true },
+    { id: 'folder', name: 'Folder', stack: 1000, connected: true },
+  ]);
+
+  const events = [];
+  game.onBroadcast = (type, data) => events.push({ type, data });
+  game.broadcastState = () => {};
+
+  const winner = game.players[0];
+  const folder = game.players[1];
+  winner.hand = [card('A', 1), card('K', 2)];
+  folder.hand = [card('2', 1), card('3', 2)];
+  folder.folded = true;
+  game.phase = 'flop';
+  game.pot = 120;
+
+  const originalSetTimeout = global.setTimeout;
+  global.setTimeout = () => 0;
+  try {
+    game.endHand();
+
+    const hiddenForFolder = game.getStateForPlayer('folder').players.find(p => p.id === 'winner').hand;
+    const hiddenForSpectator = game.getStateForSpectator().players.find(p => p.id === 'winner').hand;
+    assert.deepStrictEqual(hiddenForFolder, [null, null]);
+    assert.deepStrictEqual(hiddenForSpectator, [null, null]);
+
+    game.handleShowHandChoice('winner', true);
+  } finally {
+    global.setTimeout = originalSetTimeout;
+  }
+
+  const shownForFolder = game.getStateForPlayer('folder').players.find(p => p.id === 'winner').hand;
+  const shownForSpectator = game.getStateForSpectator().players.find(p => p.id === 'winner').hand;
+  assert.deepStrictEqual(shownForFolder, winner.hand);
+  assert.deepStrictEqual(shownForSpectator, winner.hand);
+  assert.ok(events.some(e => e.type === 'game:handShown'), 'hand shown event is emitted');
+  assert.strictEqual(game.winners[0].id, 'winner');
+  assert.strictEqual(game.winners[0].amount, 120);
+
+  console.log('PASS fold winner can choose to reveal hole cards');
 }
 
 run();

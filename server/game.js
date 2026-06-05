@@ -138,6 +138,9 @@ class Game {
     this.handNum = 0;
     this.winners = [];
     this.refunds = [];
+    this.revealedHands = new Set();
+    this.showHandPending = null;
+    this.showHandTimeout = null;
     this.actionTimeout = null;
     this.onBroadcast = null; // callback(type, data)
     this.onGameEnd = null;
@@ -212,7 +215,7 @@ class Game {
     const state = this.getState();
     state.players = state.players.map(p => ({
       ...p,
-      hand: p.id === playerId ? p.hand : (p.hand.length > 0 && this.phase === 'showdown' && !p.folded ? p.hand : p.hand.map(() => null)),
+      hand: p.id === playerId ? p.hand : (p.hand.length > 0 && !p.folded && (this.phase === 'showdown' || this.revealedHands.has(p.id)) ? p.hand : p.hand.map(() => null)),
     }));
     return state;
   }
@@ -223,7 +226,7 @@ class Game {
     state.isSpectatorView = true;
     state.players = state.players.map(p => ({
       ...p,
-      hand: (this.phase === 'showdown' && !p.folded) ? p.hand : p.hand.map(() => null),
+      hand: (p.hand.length > 0 && !p.folded && (this.phase === 'showdown' || this.revealedHands.has(p.id))) ? p.hand : p.hand.map(() => null),
     }));
     return state;
   }
@@ -238,6 +241,12 @@ class Game {
     this.pot = 0;
     this.winners = [];
     this.refunds = [];
+    this.revealedHands = new Set();
+    this.showHandPending = null;
+    if (this.showHandTimeout) {
+      clearTimeout(this.showHandTimeout);
+      this.showHandTimeout = null;
+    }
     this.phase = 'preflop';
     this.lastRaise = this.bb;
     this.minRaise = this.bb;
@@ -632,12 +641,58 @@ class Game {
       winner.stack += this.pot;
       winner.lastAction = 'winner';
       this.winners = [{ id: winner.id, name: winner.name, hand: '其他人弃牌', amount: this.pot }];
-
+      this.phase = 'show_choice';
+      this.currentIdx = winner.seatIdx;
+      this.showHandPending = { playerId: winner.id, settled: false };
       this.broadcastState();
-      this.broadcast('game:handEnd', { winners: this.winners });
       gameLogger.logResult(this, this.winners);
-      if (this.onGameEnd) this.onGameEnd();
+
+      if (winner._ws && winner.connected && winner._ws.readyState === 1) {
+        winner._ws.send(JSON.stringify({
+          type: 'game:showHandOption',
+          data: { playerId: winner.id, timeout: 8 },
+        }));
+      }
+
+      this.showHandTimeout = setTimeout(() => {
+        this.handleShowHandChoice(winner.id, false);
+      }, 8000);
     }
+  }
+
+  handleShowHandChoice(playerId, show) {
+    if (!this.showHandPending || this.showHandPending.settled) return;
+    if (this.showHandPending.playerId !== playerId) return;
+
+    if (this.showHandTimeout) {
+      clearTimeout(this.showHandTimeout);
+      this.showHandTimeout = null;
+    }
+
+    this.showHandPending.settled = true;
+    if (show) {
+      this.revealedHands.add(playerId);
+      this.broadcastState();
+      const player = this.players.find(p => p.id === playerId);
+      this.broadcast('game:handShown', {
+        playerId,
+        name: player ? player.name : '',
+      });
+    }
+
+    const finish = () => {
+      this.showHandPending = null;
+      this.phase = 'idle';
+      this.broadcast('game:handEnd', {
+        winners: this.winners,
+        showedHand: !!show,
+        showedPlayerId: show ? playerId : null,
+      });
+      if (this.onGameEnd) this.onGameEnd();
+    };
+
+    if (show) setTimeout(finish, 1500);
+    else finish();
   }
 
   // Player disconnected
@@ -647,7 +702,7 @@ class Game {
     player.connected = false;
 
     // If it's their turn, auto-fold
-    if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle') {
+    if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle' && this.phase !== 'show_choice') {
       this.handleAction(playerId, { action: 'fold' });
     }
   }
@@ -662,8 +717,15 @@ class Game {
     const state = this.getStateForPlayer(playerId);
     ws.send(JSON.stringify({ type: 'game:state', data: state }));
 
+    if (this.showHandPending?.playerId === playerId && !this.showHandPending.settled) {
+      ws.send(JSON.stringify({
+        type: 'game:showHandOption',
+        data: { playerId, timeout: 8 },
+      }));
+    }
+
     // If it's their turn, prompt
-    if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle') {
+    if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle' && this.phase !== 'show_choice') {
       const toCall = this.roundBet - player.bet;
       ws.send(JSON.stringify({ type: 'game:yourTurn', data: {
         playerId,

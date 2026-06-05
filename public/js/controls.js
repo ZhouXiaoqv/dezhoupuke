@@ -37,6 +37,7 @@ $("leaveRoomBtn").addEventListener("click", () => {
   showScreen("lobbyScreen");
   $("table-container").classList.remove("action-active");
   hideActions();
+  hideShowHandBar();
   $("actionLogToggle").classList.remove("visible");
   $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
@@ -192,6 +193,44 @@ function showSettlement(winners) {
 }
 $("settlementClose").addEventListener("click", () => {
   $("settlementOverlay").classList.remove("active");
+});
+
+// ===== SHOW HAND CHOICE BAR =====
+let showHandCountdown = null;
+function showShowHandBar(timeout) {
+  const bar = $("showHandBar");
+  if (!bar) return;
+  hideShowHandBar();
+  bar.classList.add("active");
+  let remaining = timeout || 8;
+  const text = $("showHandText");
+  if (text) text.textContent = "要展示手牌吗? " + remaining + "s";
+  showHandCountdown = setInterval(() => {
+    remaining--;
+    if (text) {
+      text.textContent =
+        remaining > 0 ? "要展示手牌吗? " + remaining + "s" : "默认不展示...";
+    }
+    if (remaining <= 0) hideShowHandBar();
+  }, 1000);
+}
+function hideShowHandBar() {
+  if (showHandCountdown) {
+    clearInterval(showHandCountdown);
+    showHandCountdown = null;
+  }
+  const bar = $("showHandBar");
+  if (bar) bar.classList.remove("active");
+}
+$("showHandYes").addEventListener("click", () => {
+  hideShowHandBar();
+  SFX.btnClick();
+  Net.send("game:showHand", { show: true });
+});
+$("showHandNo").addEventListener("click", () => {
+  hideShowHandBar();
+  SFX.btnClick();
+  Net.send("game:showHand", { show: false });
 });
 
 // ===== NEXT HAND BAR =====

@@ -367,6 +367,12 @@ class Room {
     this.game.handleAction(playerId, actionData);
   }
 
+  handleShowHandChoice(playerId, show) {
+    if (!this.game || !this.gameRunning) return;
+    if (this.spectators.has(playerId)) return;
+    this.game.handleShowHandChoice(playerId, !!show);
+  }
+
   sendTo(playerId, type, data) {
     const player = this.players.get(playerId);
     if (player && player.ws && player.ws.readyState === 1) {
@@ -425,6 +431,7 @@ class Room {
     if (this.autoStartTimer) clearTimeout(this.autoStartTimer);
     if (this.nextHandTimer) clearTimeout(this.nextHandTimer);
     if (this.game && this.game.actionTimeout) clearTimeout(this.game.actionTimeout);
+    if (this.game && this.game.showHandTimeout) clearTimeout(this.game.showHandTimeout);
     this.broadcast('room:destroyed', {});
     this.players.clear();
     this.spectators.clear();

@@ -208,6 +208,7 @@ Net.on("game:yourTurn", (d) => {
 Net.on("game:handStart", (d) => {
   lastTurnActionData = null;
   hideActions();
+  hideShowHandBar();
   toast(`第 ${d.handNum} 手开始`);
   // Deal sounds staggered
   for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
@@ -227,6 +228,7 @@ Net.on("game:handStart", (d) => {
 Net.on("game:showdown", (d) => {
   lastTurnActionData = null;
   hideActions();
+  hideShowHandBar();
   const winners = d.winners
     .map((w) => `${w.name}「${w.hand}」+${w.amount}`)
     .join(", ");
@@ -244,6 +246,7 @@ Net.on("game:showdown", (d) => {
 Net.on("game:handEnd", (d) => {
   lastTurnActionData = null;
   hideActions();
+  hideShowHandBar();
   hideNextHandBar();
   const winners = d.winners
     .map((w) => `${w.name} +${w.amount}`)
@@ -267,7 +270,20 @@ Net.on("game:handEnd", (d) => {
   }
 });
 
+Net.on("game:showHandOption", (d) => {
+  if (isSpectator) return;
+  if (d.playerId !== Net.playerId) return;
+  hideActions();
+  showShowHandBar(d.timeout || 8);
+  if (navigator.vibrate) navigator.vibrate(60);
+});
+
+Net.on("game:handShown", (d) => {
+  toast(`${d.name || "玩家"} 展示了手牌`);
+});
+
 Net.on("game:waitingForNext", (d) => {
+  hideShowHandBar();
   $("settlementOverlay").classList.remove("active");
   showNextHandBar(d.nextHandDelay || 15);
 });

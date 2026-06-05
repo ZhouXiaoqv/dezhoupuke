@@ -638,6 +638,7 @@ function renderGame(state) {
     turn: "转牌",
     river: "河牌",
     showdown: "摊牌",
+    show_choice: "亮牌选择",
   };
   $("statusBar").innerHTML =
     `<span class="connection-dot ${Net.connected ? "online" : "offline"}"></span>第 ${state.handNum} 手 · ${phaseNames[state.phase] || state.phase}`;
