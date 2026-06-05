@@ -1,6 +1,43 @@
+# Dependencies
 node_modules/
-npm-debug.log
+
+# Runtime data
+data/
+*.jsonl
+
+# Environment
 .env
-.DS_Store
+.env.*
+
+# Logs
 *.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test coverage & artifacts
+coverage/
+tests/screenshots/
+
+# Build artifacts
+dist/
+build/
+*.tgz
+
+# SSL certs
+*.pem
+*.key
+*.crt
+nginx/ssl/
+
+# Claude Code
 .claude/

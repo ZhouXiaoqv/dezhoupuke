@@ -5,7 +5,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "test": "node tests/unit/test-sidepot-refund.js && node tests/integration/test-all-scenarios.js && node tests/unit/test-room.js && node tests/unit/test-bugs-unit.js && node tests/integration/test-turn.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
