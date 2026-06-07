@@ -237,11 +237,264 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 .card-back::after {
   content: "♠";
   font-size: 22px;
   color: rgba(255, 255, 255, 0.15);
+}
+.card-back-preview {
+  width: 42px;
+  height: 60px;
+  border-radius: 6px;
+  position: relative;
+  flex-shrink: 0;
+}
+.card-back::before,
+.card-back::after,
+.card-back-preview::before,
+.card-back-preview::after {
+  pointer-events: none;
+}
+.card-back-default-blue {
+  background: linear-gradient(135deg, #1a3a6a 0%, #2a4a8a 100%);
+  border-color: #3a5a9a;
+}
+.card-back-solid-white {
+  background: #f4f1e8;
+  border-color: #d8d2c2;
+}
+.card-back-solid-white::after {
+  color: rgba(20, 20, 20, 0.22);
+}
+.card-back-solid-purple {
+  background: #6a2bd1;
+  border-color: #8d66e8;
+}
+.card-back-solid-pink {
+  background: #f06aa8;
+  border-color: #ff9ac4;
+}
+.card-back-solid-yellow {
+  background: #f1cd3f;
+  border-color: #ffe58a;
+}
+.card-back-solid-yellow::after,
+.card-back-solid-beige::after {
+  color: rgba(40, 30, 10, 0.28);
+}
+.card-back-solid-magenta {
+  background: #d70f7d;
+  border-color: #f263b4;
+}
+.card-back-solid-black {
+  background: #080808;
+  border-color: #3a3a3a;
+}
+.card-back-solid-beige {
+  background: #d9c79e;
+  border-color: #efe0b7;
+}
+.card-back-flag-us {
+  background:
+    linear-gradient(90deg, #24438f 0 42%, transparent 42%),
+    repeating-linear-gradient(
+      to bottom,
+      #bf1f2f 0 7px,
+      #f7f7f7 7px 14px
+    );
+  border-color: #f7f7f7;
+}
+.card-back-flag-us::after {
+  content: "★";
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  font-size: 13px;
+  color: #fff;
+}
+.card-back-flag-cn {
+  background: #d61f2c;
+  border-color: #ffde59;
+}
+.card-back-flag-cn::after {
+  content: "★";
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  font-size: 20px;
+  color: #ffde59;
+}
+.card-back-flag-jp {
+  background: radial-gradient(circle at center, #c91f37 0 24%, #f8f4ea 25%);
+  border-color: #e6dfcf;
+}
+.card-back-flag-jp::after,
+.card-back-flag-uk::after,
+.card-back-pattern-stripes::after,
+.card-back-pattern-blocks::after,
+.card-back-pattern-checker::after {
+  content: "";
+}
+.card-back-flag-uk {
+  background:
+    linear-gradient(30deg, transparent 0 42%, #fff 43% 48%, #c8102e 49% 54%, #fff 55% 60%, transparent 61%),
+    linear-gradient(150deg, transparent 0 42%, #fff 43% 48%, #c8102e 49% 54%, #fff 55% 60%, transparent 61%),
+    linear-gradient(90deg, transparent 0 38%, #fff 39% 44%, #c8102e 45% 55%, #fff 56% 61%, transparent 62%),
+    linear-gradient(0deg, transparent 0 38%, #fff 39% 44%, #c8102e 45% 55%, #fff 56% 61%, transparent 62%),
+    #012169;
+  border-color: #fff;
+}
+.card-back-flag-us,
+.card-back-flag-cn,
+.card-back-flag-jp,
+.card-back-flag-uk {
+  background: #111;
+  border-color: #ffffff;
+  padding: 0;
+  overflow: hidden;
+}
+.card-back-flag-us::after,
+.card-back-flag-cn::after,
+.card-back-flag-jp::after,
+.card-back-flag-uk::after {
+  content: "";
+}
+.flag-face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 100%;
+  width: calc(100% * var(--flag-ratio));
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.flag-star {
+  position: absolute;
+  display: block;
+  aspect-ratio: 1;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+.flag-face-us {
+  --flag-ratio: 1.9;
+  background:
+    linear-gradient(#002868 0 0) 0 0 / 40% calc(700% / 13) no-repeat,
+    repeating-linear-gradient(
+      to bottom,
+      #bf0a30 0 calc(100% / 13),
+      #ffffff calc(100% / 13) calc(200% / 13)
+    );
+}
+.flag-star-us {
+  width: 3.242%;
+  height: 6.16%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+}
+.flag-face-cn {
+  --flag-ratio: 1.5;
+  background: #de2910;
+}
+.flag-star-cn {
+  background: #ffde00;
+}
+.flag-star-cn.large {
+  width: 20%;
+  height: 30%;
+}
+.flag-star-cn.small {
+  width: 6.667%;
+  height: 10%;
+}
+.flag-face-jp {
+  --flag-ratio: 1.5;
+  background: radial-gradient(circle at center, #bc002d 0 30%, #ffffff 30%);
+}
+.flag-face-uk {
+  --flag-ratio: 2;
+  background:
+    linear-gradient(to right, transparent 0 45%, #c8102e 45% 55%, transparent 55%),
+    linear-gradient(to bottom, transparent 0 40%, #c8102e 40% 60%, transparent 60%),
+    linear-gradient(to right, transparent 0 40%, #ffffff 40% 60%, transparent 60%),
+    linear-gradient(to bottom, transparent 0 30%, #ffffff 30% 70%, transparent 70%),
+    linear-gradient(26.565deg, transparent 0 43.2%, #c8102e 43.2% 46.7%, transparent 46.7%),
+    linear-gradient(26.565deg, transparent 0 53.3%, #c8102e 53.3% 56.8%, transparent 56.8%),
+    linear-gradient(153.435deg, transparent 0 43.2%, #c8102e 43.2% 46.7%, transparent 46.7%),
+    linear-gradient(153.435deg, transparent 0 53.3%, #c8102e 53.3% 56.8%, transparent 56.8%),
+    linear-gradient(26.565deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
+    linear-gradient(153.435deg, transparent 0 38%, #ffffff 38% 62%, transparent 62%),
+    #012169;
+}
+.card-back-pattern-stripes {
+  background: repeating-linear-gradient(
+    135deg,
+    #111 0 8px,
+    #f0d860 8px 16px,
+    #32b8ff 16px 24px,
+    #f04a8a 24px 32px
+  );
+  border-color: #f0d860;
+}
+.card-back-pattern-blocks {
+  background:
+    linear-gradient(90deg, #ff3d7f 50%, transparent 50%) 0 0 / 18px 18px,
+    linear-gradient(90deg, transparent 50%, #33e0b0 50%) 0 9px / 18px 18px,
+    #2525c8;
+  border-color: #33e0b0;
+}
+.card-back-pattern-checker {
+  background:
+    linear-gradient(45deg, #111 25%, transparent 25% 75%, #111 75%),
+    linear-gradient(45deg, #111 25%, #f7f7f7 25% 75%, #111 75%);
+  background-position: 0 0, 9px 9px;
+  background-size: 18px 18px;
+  border-color: #f7f7f7;
+}
+.card-back-pattern-star {
+  background: radial-gradient(circle, #25115c 0%, #120727 100%);
+  border-color: #ffcf40;
+}
+.card-back-pattern-star::after {
+  content: "★";
+  font-size: 26px;
+  color: #ffcf40;
+  text-shadow:
+    -18px -16px 0 #35d8ff,
+    18px 15px 0 #ff4f9a;
+}
+.card-back-pattern-burst {
+  background:
+    conic-gradient(
+      from 12deg,
+      #ff4b4b,
+      #f6d84a,
+      #32d6a0,
+      #3878ff,
+      #b84dff,
+      #ff4b4b
+    );
+  border-color: #fff;
+}
+.card-back-pattern-burst::after {
+  content: "";
+  width: 55%;
+  height: 55%;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
 }
 .card-placeholder {
   background: rgba(255, 255, 255, 0.04);

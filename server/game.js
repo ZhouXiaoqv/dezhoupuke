@@ -124,6 +124,7 @@ class Game {
       _username: p._username || null,
       avatar: p.avatar || '🦊',
       avatarColor: p.avatarColor || null,
+      cardBack: p.cardBack || 'default-blue',
     }));
     this.deck = [];
     this.community = [];
@@ -189,7 +190,9 @@ class Game {
         stack: p.stack, bet: p.bet, totalBet: p.totalBet,
         folded: p.folded, allIn: p.allIn, lastAction: p.lastAction,
         connected: p.connected,
-        avatar: p.avatar || '🦊', avatarColor: p.avatarColor || null,
+        avatar: p.avatar || '🦊',
+        avatarColor: p.avatarColor || null,
+        cardBack: p.cardBack || 'default-blue',
         // Only send hand cards to the owning player (handled per-client)
         hand: p.hand,
       })),

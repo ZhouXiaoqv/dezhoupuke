@@ -48,7 +48,7 @@ All messages are JSON: `{ type: string, data: object }`. Client sends actions (e
 
 ### Data Persistence
 
-User data stored in `data/users.json`. Game logs in `data/*.jsonl`. The `data/` directory is gitignored.
+User data stored in `data/users.json`, including account profile, stats, achievements, coins, daily check-in state, owned card backs, and equipped card back. Game logs in `data/*.jsonl`. The `data/` directory is gitignored.
 
 ## Conventions
 

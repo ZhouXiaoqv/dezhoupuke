@@ -89,6 +89,8 @@ dezhoupuke/
 | `user:tokenLogin` | `{ token }` | Token 登录 |
 | `user:profile` | - | 获取个人资料 |
 | `user:setAvatar` | `{ avatar, color }` | 设置头像 |
+| `user:setCardBack` | `{ id }` | 装备已拥有牌背 |
+| `shop:buyCardBack` | `{ id }` | 使用金币购买牌背 |
 | `room:create` | `{ gameMode }` | 创建房间 |
 | `room:join` | `{ code }` | 加入房间 |
 | `room:spectate` | `{ code }` | 观战 |
@@ -105,10 +107,13 @@ dezhoupuke/
 **Server → Client:**
 | 消息类型 | 说明 |
 |---------|------|
+| `user:loggedIn.dailyCheckIn` | Optional daily check-in reward payload on the first account login of each day |
 | `user:registered` | 注册成功 |
 | `user:loggedIn` | 登录成功 |
 | `user:profile` | 个人资料 |
 | `user:avatarUpdated` | 头像已更新 |
+| `user:cardBackUpdated` | 牌背已更新 |
+| `shop:purchaseResult` | 牌背购买成功 |
 | `user:achievement` | 成就解锁 |
 | `user:error` | 用户错误 |
 | `room:created` | 房间创建成功 |

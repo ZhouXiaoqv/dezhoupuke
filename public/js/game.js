@@ -140,6 +140,9 @@ function isMyTurnState(state = gameState) {
 function buildTurnActionDataFromState(state = gameState) {
   if (!isMyTurnState(state)) return null;
   const me = state.players.find((p) => p.id === Net.playerId);
+  const viewerCardBack = isSpectator
+    ? DEFAULT_CARD_BACK
+    : getEquippedCardBack(userProfile);
   const toCall = Math.max(0, (state.roundBet || 0) - (me.bet || 0));
   return {
     playerId: Net.playerId,
@@ -386,7 +389,7 @@ function renderGame(state) {
             .map((c) => c.suit + "-" + c.rank)
             .join(",");
       } else if (!p.folded && state.phase !== "idle") {
-        otherCardSig = "b:2";
+        otherCardSig = "b:2:" + (p.cardBack || DEFAULT_CARD_BACK);
       } else {
         otherCardSig = "e";
       }
@@ -415,7 +418,9 @@ function renderGame(state) {
       } else if (p.hand && p.hand[0]) {
         const isNew = !cardsDiv;
         for (const card of p.hand) {
-          const el = card ? createCardEl(card) : createCardBackEl();
+          const el = card
+            ? createCardEl(card)
+            : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
           if (isNew || otherCardsChanged)
             el.classList.add("card-flip-in");
           cardsEl.appendChild(el);
@@ -423,7 +428,7 @@ function renderGame(state) {
       } else if (!p.folded && state.phase !== "idle") {
         const isNew = !cardsDiv;
         for (let j = 0; j < 2; j++) {
-          const el = createCardBackEl();
+          const el = createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
           if (isNew || otherCardsChanged) {
             el.classList.add("seat-card-deal");
             el.style.animationDelay = `${j * 0.15}s`;
@@ -621,9 +626,7 @@ function renderGame(state) {
       }
       comm.appendChild(el);
     } else {
-      const ph = document.createElement("div");
-      ph.className = "card card-placeholder";
-      comm.appendChild(ph);
+      comm.appendChild(createCardBackEl(viewerCardBack));
     }
   }
 

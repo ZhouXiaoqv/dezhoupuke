@@ -3,7 +3,7 @@
  */
 
 const crypto = require('crypto');
-const { ACHIEVEMENTS } = require('../userStore');
+const { ACHIEVEMENTS, DEFAULT_CARD_BACK } = require('../userStore');
 
 function register(ws, ctx) {
   const { userStore, registry, wsManager, playerSockets } = ctx;
@@ -32,10 +32,14 @@ function register(ws, ctx) {
   }
 
   function finalizeAuthenticatedSession(result, token, responseType) {
+    const checkIn = userStore.applyDailyCheckIn(result.username);
+    if (checkIn && checkIn.profile) result.profile = checkIn.profile;
+
     ws._currentUser = { username: result.username, token };
     ws._username = result.username;
     ws._playerAvatar = result.profile.avatar || 'A';
     ws._playerColor = result.profile.avatarColor || null;
+    ws._playerCardBack = result.profile.equippedCardBack || DEFAULT_CARD_BACK;
 
     const restored = registry.restoreUserSession(result.username, ws);
     let resume = null;
@@ -58,6 +62,19 @@ function register(ws, ctx) {
         profile: result.profile,
         playerId: ws._playerId,
         resume,
+        dailyCheckIn: checkIn
+          ? {
+              date: checkIn.date,
+              weekday: checkIn.weekday,
+              dailyReward: checkIn.dailyReward,
+              bonus: checkIn.bonus,
+              totalReward: checkIn.totalReward,
+              coins: checkIn.coins,
+              weekStart: checkIn.weekStart,
+              checkedDays: checkIn.checkedDays,
+              fullWeek: checkIn.fullWeek,
+            }
+          : null,
       },
     }));
   }
@@ -123,6 +140,44 @@ function register(ws, ctx) {
       ws._playerColor = result.avatarColor;
       ws.send(JSON.stringify({ type: 'user:avatarUpdated', data: result }));
     }
+  });
+
+  ws._on('shop:buyCardBack', (data) => {
+    if (!requireLogin()) return;
+    const result = userStore.buyCardBack(ws._currentUser.username, data && data.id);
+    if (result.error) {
+      ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
+      return;
+    }
+    ws.send(JSON.stringify({
+      type: 'shop:purchaseResult',
+      data: {
+        id: result.id,
+        price: result.price,
+        profile: result.profile,
+      },
+    }));
+  });
+
+  ws._on('user:setCardBack', (data) => {
+    if (!requireLogin()) return;
+    const result = userStore.updateCardBack(ws._currentUser.username, data && data.id);
+    if (result.error) {
+      ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
+      return;
+    }
+    ws._playerCardBack = result.equippedCardBack || DEFAULT_CARD_BACK;
+    if (ws._currentRoom && ws._playerId) {
+      ws._currentRoom.updatePlayerCardBack(ws._playerId, ws._playerCardBack);
+    }
+    ws.send(JSON.stringify({
+      type: 'user:cardBackUpdated',
+      data: {
+        equippedCardBack: result.equippedCardBack,
+        ownedCardBacks: result.ownedCardBacks,
+        profile: result.profile,
+      },
+    }));
   });
 }
 

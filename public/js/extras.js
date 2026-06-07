@@ -310,9 +310,11 @@ function createCardEl(card) {
   return el;
 }
 
-function createCardBackEl() {
+function createCardBackEl(cardBackId = DEFAULT_CARD_BACK) {
   const el = document.createElement("div");
-  el.className = "card card-back";
+  el.className = "card card-back " + getCardBackClass(cardBackId);
+  el.dataset.cardBack = getCardBackDef(cardBackId).id;
+  decorateCardBack(el, cardBackId);
   return el;
 }
 

@@ -8,6 +8,30 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
+const CHECKIN_TIME_ZONE = 'Asia/Shanghai';
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DAILY_CHECKIN_REWARDS = [50, 50, 50, 50, 50, 100, 100];
+const FULL_WEEK_BONUS = 200;
+const DEFAULT_CARD_BACK = 'default-blue';
+const CARD_BACK_SHOP = [
+  { id: 'solid-white', price: 200 },
+  { id: 'solid-purple', price: 200 },
+  { id: 'solid-pink', price: 200 },
+  { id: 'solid-yellow', price: 200 },
+  { id: 'solid-magenta', price: 200 },
+  { id: 'solid-black', price: 200 },
+  { id: 'solid-beige', price: 200 },
+  { id: 'flag-us', price: 600 },
+  { id: 'flag-cn', price: 600 },
+  { id: 'flag-jp', price: 600 },
+  { id: 'flag-uk', price: 600 },
+  { id: 'pattern-stripes', price: 400 },
+  { id: 'pattern-blocks', price: 400 },
+  { id: 'pattern-checker', price: 400 },
+  { id: 'pattern-star', price: 400 },
+  { id: 'pattern-burst', price: 400 },
+];
+const CARD_BACK_IDS = new Set([DEFAULT_CARD_BACK, ...CARD_BACK_SHOP.map((item) => item.id)]);
 
 // ===== Achievement Definitions =====
 const ACHIEVEMENTS = {
@@ -76,6 +100,66 @@ class UserStore {
     return crypto.randomBytes(24).toString('hex');
   }
 
+  _getCheckInDay(now = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: CHECKIN_TIME_ZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+    }).formatToParts(now);
+    const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    const date = `${map.year}-${map.month}-${map.day}`;
+    const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+    return { date, weekday: weekdayMap[map.weekday] || 1 };
+  }
+
+  _dateFromKey(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  _getWeekStart(dateKey, weekday) {
+    const date = this._dateFromKey(dateKey);
+    date.setUTCDate(date.getUTCDate() - (weekday - 1));
+    return date.toISOString().slice(0, 10);
+  }
+
+  _ensureCheckIn(user) {
+    if (typeof user.coins !== 'number') user.coins = 0;
+    if (!user.checkIn || typeof user.checkIn !== 'object') {
+      user.checkIn = {
+        lastDate: '',
+        weekStart: '',
+        days: [],
+        fullWeekBonusWeek: '',
+      };
+    }
+    if (!Array.isArray(user.checkIn.days)) user.checkIn.days = [];
+    user.checkIn.fullWeekBonusWeek = user.checkIn.fullWeekBonusWeek || '';
+  }
+
+  _ensureCardBacks(user) {
+    if (!Array.isArray(user.ownedCardBacks)) user.ownedCardBacks = [];
+    if (!user.ownedCardBacks.includes(DEFAULT_CARD_BACK)) {
+      user.ownedCardBacks.unshift(DEFAULT_CARD_BACK);
+    }
+    user.ownedCardBacks = [...new Set(user.ownedCardBacks)].filter((id) =>
+      CARD_BACK_IDS.has(id),
+    );
+    if (!CARD_BACK_IDS.has(user.equippedCardBack)) {
+      user.equippedCardBack = DEFAULT_CARD_BACK;
+    }
+    if (!user.ownedCardBacks.includes(user.equippedCardBack)) {
+      user.equippedCardBack = DEFAULT_CARD_BACK;
+    }
+  }
+
+  _ensureAccountState(user) {
+    this._ensureCheckIn(user);
+    this._ensureCardBacks(user);
+  }
+
   // ===== Registration =====
   register(username, password) {
     username = (username || '').trim();
@@ -98,6 +182,15 @@ class UserStore {
       sessionIssuedAt: null,
       avatar: 'A',  // Selected avatar emoji
       avatarColor: '#4fc3f7',  // Selected color
+      coins: 0,
+      ownedCardBacks: [DEFAULT_CARD_BACK],
+      equippedCardBack: DEFAULT_CARD_BACK,
+      checkIn: {
+        lastDate: '',
+        weekStart: '',
+        days: [],
+        fullWeekBonusWeek: '',
+      },
       stats: {
         handsPlayed: 0,
         handsWon: 0,
@@ -131,6 +224,7 @@ class UserStore {
       return { error: 'Incorrect password' };
     }
 
+    this._ensureAccountState(user);
     user.lastLogin = Date.now();
     const token = this._issueSession(user);
     this._save();
@@ -145,11 +239,64 @@ class UserStore {
     if (!username) return null;
     const user = this.users.get(username);
     if (!user || user.sessionToken !== token) return null;
+    this._ensureAccountState(user);
     user.lastLogin = Date.now();
     user.sessionIssuedAt = Date.now();
     this.tokens.set(token, username);
     this._save();
     return { username, profile: this._sanitize(user) };
+  }
+
+  // ===== Daily Check-in =====
+  applyDailyCheckIn(username) {
+    const user = this.users.get(username);
+    if (!user) return null;
+    this._ensureAccountState(user);
+
+    const today = this._getCheckInDay();
+    const weekStart = this._getWeekStart(today.date, today.weekday);
+    if (user.checkIn.lastDate === today.date) {
+      return null;
+    }
+
+    if (user.checkIn.weekStart !== weekStart) {
+      user.checkIn.weekStart = weekStart;
+      user.checkIn.days = [];
+      user.checkIn.fullWeekBonusWeek = '';
+    }
+
+    if (!user.checkIn.days.includes(today.date)) {
+      user.checkIn.days.push(today.date);
+      user.checkIn.days.sort();
+    }
+    user.checkIn.lastDate = today.date;
+
+    const dailyReward = DAILY_CHECKIN_REWARDS[today.weekday - 1] || 50;
+    let bonus = 0;
+    if (
+      user.checkIn.days.length >= 7 &&
+      user.checkIn.fullWeekBonusWeek !== weekStart
+    ) {
+      bonus = FULL_WEEK_BONUS;
+      user.checkIn.fullWeekBonusWeek = weekStart;
+    }
+
+    const totalReward = dailyReward + bonus;
+    user.coins += totalReward;
+    this._save();
+
+    return {
+      date: today.date,
+      weekday: today.weekday,
+      dailyReward,
+      bonus,
+      totalReward,
+      coins: user.coins,
+      weekStart,
+      checkedDays: [...user.checkIn.days],
+      fullWeek: bonus > 0,
+      profile: this._sanitize(user),
+    };
   }
 
   // ===== Record Game Result =====
@@ -199,6 +346,48 @@ class UserStore {
     if (color) user.avatarColor = color;
     this._save();
     return { avatar: user.avatar, avatarColor: user.avatarColor };
+  }
+
+  buyCardBack(username, cardBackId) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+
+    const item = CARD_BACK_SHOP.find((entry) => entry.id === cardBackId);
+    if (!item) return { error: 'Card back not found' };
+    if (user.ownedCardBacks.includes(cardBackId)) {
+      return { error: 'Card back already owned' };
+    }
+    if (user.coins < item.price) {
+      return { error: 'Not enough coins' };
+    }
+
+    user.coins -= item.price;
+    user.ownedCardBacks.push(cardBackId);
+    this._save();
+    return {
+      id: cardBackId,
+      price: item.price,
+      profile: this._sanitize(user),
+    };
+  }
+
+  updateCardBack(username, cardBackId) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    const nextId = cardBackId || DEFAULT_CARD_BACK;
+    if (!CARD_BACK_IDS.has(nextId)) return { error: 'Card back not found' };
+    if (!user.ownedCardBacks.includes(nextId)) {
+      return { error: 'Card back not owned' };
+    }
+    user.equippedCardBack = nextId;
+    this._save();
+    return {
+      equippedCardBack: user.equippedCardBack,
+      ownedCardBacks: [...user.ownedCardBacks],
+      profile: this._sanitize(user),
+    };
   }
 
   // ===== Achievement Checking =====
@@ -258,6 +447,7 @@ class UserStore {
   getProfile(username) {
     const user = this.users.get(username);
     if (!user) return null;
+    this._ensureAccountState(user);
     return this._sanitize(user);
   }
 
@@ -281,12 +471,24 @@ class UserStore {
 
   // Remove private fields
   _sanitize(user) {
+    this._ensureAccountState(user);
     return {
       username: user.username,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       avatar: user.avatar || 'A',
       avatarColor: user.avatarColor || '#4fc3f7',
+      coins: typeof user.coins === 'number' ? user.coins : 0,
+      ownedCardBacks: [...user.ownedCardBacks],
+      equippedCardBack: user.equippedCardBack || DEFAULT_CARD_BACK,
+      checkIn: user.checkIn
+        ? {
+            lastDate: user.checkIn.lastDate || '',
+            weekStart: user.checkIn.weekStart || '',
+            days: Array.isArray(user.checkIn.days) ? [...user.checkIn.days] : [],
+            fullWeekBonusWeek: user.checkIn.fullWeekBonusWeek || '',
+          }
+        : { lastDate: '', weekStart: '', days: [], fullWeekBonusWeek: '' },
       stats: { ...user.stats },
       achievements: user.achievements.map(id => ({ id, ...ACHIEVEMENTS[id] })),
       gamesPlayed: user.gamesPlayed || 0,
@@ -308,4 +510,9 @@ class UserStore {
   }
 }
 
-module.exports = { UserStore, ACHIEVEMENTS };
+module.exports = {
+  UserStore,
+  ACHIEVEMENTS,
+  CARD_BACK_SHOP,
+  DEFAULT_CARD_BACK,
+};

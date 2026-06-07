@@ -307,6 +307,7 @@ Net.on("user:registered", (d) => {
   Net.playerName = d.username;
   updateUserArea();
   showAvatarBtn(true);
+  showDailyCheckIn(d.dailyCheckIn);
   Net.send("room:list");
   startRoomListRefresh();
   toast("注册成功！欢迎 " + d.username);
@@ -321,6 +322,7 @@ Net.on("user:loggedIn", (d) => {
   Net.playerName = d.username;
   updateUserArea();
   showAvatarBtn(true);
+  showDailyCheckIn(d.dailyCheckIn);
   Net.send("room:list");
   startRoomListRefresh();
   toast("登录成功！欢迎回来 " + d.username);
@@ -354,6 +356,22 @@ function updateUserArea() {
       " · " +
       userProfile.stats.handsWon +
       '胜</div><button class="logout-btn" id="logoutBtn" type="button">登出</button></div>';
+    const panel = area.querySelector(".user-panel");
+    if (panel) {
+      const coinBadge = document.createElement("div");
+      coinBadge.className = "coin-badge";
+      coinBadge.textContent = (userProfile.coins || 0) + " 金币";
+      panel.insertBefore(coinBadge, $("logoutBtn"));
+      coinBadge.addEventListener("click", () => {
+        showDailyCheckIn(buildCheckInFromProfile(), { claimed: true });
+      });
+      const shopBtn = document.createElement("button");
+      shopBtn.className = "shop-entry-btn";
+      shopBtn.type = "button";
+      shopBtn.textContent = "商城";
+      panel.insertBefore(shopBtn, $("logoutBtn"));
+      shopBtn.addEventListener("click", openShopModal);
+    }
     $("userBadgeClick").addEventListener("click", () => {
       $("profileOverlay").classList.add("active");
       Net.send("user:profile");
@@ -370,6 +388,7 @@ function updateUserArea() {
 function renderProfile(profile) {
   const s = profile.stats;
   $("profileStats").innerHTML = `
+    <div class="stat-card"><div class="stat-value">${profile.coins || 0}</div><div class="stat-label">金币</div></div>
     <div class="stat-card"><div class="stat-value">${s.handsPlayed}</div><div class="stat-label">总场次</div></div>
     <div class="stat-card"><div class="stat-value">${s.handsWon}</div><div class="stat-label">胜场</div></div>
     <div class="stat-card"><div class="stat-value">${s.handsPlayed > 0 ? Math.round((s.handsWon / s.handsPlayed) * 100) : 0}%</div><div class="stat-label">胜率</div></div>
@@ -433,6 +452,126 @@ function renderProfile(profile) {
       "</div></div>";
   }
   $("achievementsGrid").innerHTML = html;
+}
+
+function buildCheckInFromProfile() {
+  if (!userProfile || !userProfile.checkIn || !userProfile.checkIn.weekStart) {
+    return null;
+  }
+  const checkIn = userProfile.checkIn;
+  const lastDate = checkIn.lastDate || "";
+  const weekStart = checkIn.weekStart;
+  const start = new Date(weekStart + "T00:00:00Z");
+  const last = new Date(lastDate + "T00:00:00Z");
+  const weekday = Number.isNaN(last.getTime())
+    ? 1
+    : Math.max(1, Math.min(7, Math.floor((last - start) / 86400000) + 1));
+  const dailyReward = [50, 50, 50, 50, 50, 100, 100][weekday - 1];
+  const checkedDays = Array.isArray(checkIn.days) ? checkIn.days : [];
+  const bonus =
+    checkIn.fullWeekBonusWeek === weekStart && checkedDays.length >= 7
+      ? 200
+      : 0;
+
+  return {
+    date: lastDate,
+    weekday,
+    dailyReward,
+    bonus,
+    totalReward: dailyReward + bonus,
+    coins: userProfile.coins || 0,
+    weekStart,
+    checkedDays,
+    fullWeek: bonus > 0,
+  };
+}
+
+function showDailyCheckIn(checkIn, options = {}) {
+  if (!checkIn) return;
+  if (userProfile) {
+    userProfile.coins = checkIn.coins;
+    userProfile.checkIn = {
+      ...(userProfile.checkIn || {}),
+      lastDate: checkIn.date || userProfile.checkIn?.lastDate || "",
+      weekStart: checkIn.weekStart || userProfile.checkIn?.weekStart || "",
+      days: checkIn.checkedDays || userProfile.checkIn?.days || [],
+      fullWeekBonusWeek:
+        checkIn.fullWeek && checkIn.weekStart
+          ? checkIn.weekStart
+          : userProfile.checkIn?.fullWeekBonusWeek || "",
+    };
+    updateUserArea();
+  }
+
+  const overlay = $("checkinOverlay");
+  const amount = $("checkinAmount");
+  const sub = $("checkinSub");
+  const week = $("checkinWeek");
+  const bonus = $("checkinBonus");
+  const closeBtn = $("checkinClose");
+  if (!overlay || !amount || !sub || !week || !bonus || !closeBtn) return;
+
+  const names = [
+    "\u5468\u4e00",
+    "\u5468\u4e8c",
+    "\u5468\u4e09",
+    "\u5468\u56db",
+    "\u5468\u4e94",
+    "\u5468\u516d",
+    "\u5468\u65e5",
+  ];
+  const rewards = [50, 50, 50, 50, 50, 100, 100];
+  const checked = new Set(checkIn.checkedDays || []);
+  const weekStart = new Date(checkIn.weekStart + "T00:00:00Z");
+
+  amount.textContent = "+" + checkIn.totalReward;
+  sub.textContent = options.claimed
+    ? "\u4eca\u65e5\u5df2\u7b7e\u5230\uff0c\u5f53\u524d\u91d1\u5e01\uff1a" +
+      checkIn.coins
+    : "\u4eca\u65e5\u7b7e\u5230\u6210\u529f\uff0c\u5f53\u524d\u91d1\u5e01\uff1a" +
+      checkIn.coins;
+  closeBtn.textContent = options.claimed
+    ? "\u5df2\u7b7e\u5230"
+    : "\u6536\u4e0b";
+  closeBtn.classList.toggle("claimed", !!options.claimed);
+  week.innerHTML = "";
+
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(weekStart);
+    day.setUTCDate(weekStart.getUTCDate() + i);
+    const key = day.toISOString().slice(0, 10);
+    const item = document.createElement("div");
+    item.className =
+      "checkin-day" +
+      (checked.has(key) ? " checked" : "") +
+      (checkIn.weekday === i + 1 ? " today" : "");
+    item.innerHTML =
+      '<div class="checkin-day-name">' +
+      names[i] +
+      '</div><div class="checkin-day-reward">+' +
+      rewards[i] +
+      "</div>";
+    week.appendChild(item);
+  }
+
+  if (checkIn.bonus > 0) {
+    bonus.textContent =
+      "\u672c\u5468\u6ee1\u52e4\uff0c\u989d\u5916\u5956\u52b1 +" +
+      checkIn.bonus +
+      " \u91d1\u5e01";
+    bonus.classList.add("active");
+  } else {
+    const remain = Math.max(0, 7 - checked.size);
+    bonus.textContent =
+      remain === 0
+        ? "\u672c\u5468\u5df2\u6ee1\u52e4"
+        : "\u672c\u5468\u518d\u7b7e\u5230 " +
+          remain +
+          " \u5929\uff0c\u53ef\u62ff\u6ee1\u52e4\u989d\u5916 200 \u91d1\u5e01";
+    bonus.classList.remove("active");
+  }
+
+  overlay.classList.add("active");
 }
 
 function showAchievementToast(ach) {

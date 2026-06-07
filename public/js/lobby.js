@@ -129,6 +129,7 @@ const COLOR_OPTIONS = [
 ];
 let selectedAvatar = "🦊";
 let selectedColor = "#4fc3f7";
+let selectedCardBack = DEFAULT_CARD_BACK;
 
 function initAvatarSelector() {
   const avatarGrid = $("avatarGrid");
@@ -173,6 +174,7 @@ function initAvatarSelector() {
   });
 
   updateAvatarPreview();
+  renderOwnedCardBacks();
 }
 
 function updateAvatarPreview() {
@@ -191,6 +193,7 @@ function openAvatarModal() {
   if (userProfile) {
     selectedAvatar = userProfile.avatar || "🦊";
     selectedColor = userProfile.avatarColor || "#4fc3f7";
+    selectedCardBack = getEquippedCardBack(userProfile);
   }
   initAvatarSelector();
   modal.classList.add("active");
@@ -214,12 +217,16 @@ if ($("avatarModal")) {
 }
 if ($("avatarSaveBtn")) {
   $("avatarSaveBtn").addEventListener("click", () => {
+    const cardBackChanged =
+      selectedCardBack !== getEquippedCardBack(userProfile);
     Net.send("user:setAvatar", {
       avatar: selectedAvatar,
       color: selectedColor,
     });
+    if (cardBackChanged) Net.send("user:setCardBack", { id: selectedCardBack });
     userProfile.avatar = selectedAvatar;
     userProfile.avatarColor = selectedColor;
+    userProfile.equippedCardBack = selectedCardBack;
     const ab = $("avatarBtn");
     if (ab) ab.textContent = selectedAvatar + " 换装";
     closeAvatarModal();
@@ -236,6 +243,94 @@ Net.on("user:avatarUpdated", (d) => {
   selectedAvatar = d.avatar;
   selectedColor = d.avatarColor;
 });
+
+Net.on("user:cardBackUpdated", (d) => {
+  if (userProfile && d.profile) {
+    userProfile = d.profile;
+  } else if (userProfile) {
+    userProfile.equippedCardBack =
+      d.equippedCardBack || userProfile.equippedCardBack || DEFAULT_CARD_BACK;
+    userProfile.ownedCardBacks =
+      d.ownedCardBacks || userProfile.ownedCardBacks || [DEFAULT_CARD_BACK];
+  }
+  selectedCardBack = getEquippedCardBack(userProfile);
+  renderOwnedCardBacks();
+  toast("牌背已保存");
+});
+
+Net.on("shop:purchaseResult", (d) => {
+  if (userProfile && d.profile) userProfile = d.profile;
+  renderShop();
+  renderOwnedCardBacks();
+  updateUserArea();
+  toast("购买成功");
+});
+
+function renderOwnedCardBacks() {
+  const grid = $("cardBackGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const owned = getOwnedCardBacks(userProfile);
+  selectedCardBack = owned.includes(selectedCardBack)
+    ? selectedCardBack
+    : getEquippedCardBack(userProfile);
+
+  owned.forEach((id) => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className =
+      "cardback-option" + (id === selectedCardBack ? " selected" : "");
+    opt.appendChild(createCardBackPreview(id));
+    opt.addEventListener("click", () => {
+      selectedCardBack = id;
+      renderOwnedCardBacks();
+    });
+    grid.appendChild(opt);
+  });
+}
+
+function renderShop() {
+  const grid = $("shopGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const owned = new Set(getOwnedCardBacks(userProfile));
+  CARD_BACK_SHOP.forEach((item) => {
+    const opt = document.createElement("div");
+    opt.className = "shop-option" + (owned.has(item.id) ? " owned" : "");
+    opt.appendChild(createCardBackPreview(item.id));
+    const buyBtn = document.createElement("button");
+    buyBtn.type = "button";
+    buyBtn.className = "shop-buy-btn";
+    buyBtn.textContent = owned.has(item.id)
+      ? "\u5df2\u8d2d\u4e70"
+      : "\u8d2d\u4e70 " + item.price + "\u91d1\u5e01";
+    buyBtn.disabled = owned.has(item.id);
+    opt.appendChild(buyBtn);
+    buyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Net.send("shop:buyCardBack", { id: item.id });
+    });
+    grid.appendChild(opt);
+  });
+}
+
+function openShopModal() {
+  renderShop();
+  const modal = $("shopModal");
+  if (modal) modal.classList.add("active");
+}
+
+function closeShopModal() {
+  const modal = $("shopModal");
+  if (modal) modal.classList.remove("active");
+}
+
+if ($("shopClose")) $("shopClose").addEventListener("click", closeShopModal);
+if ($("shopModal")) {
+  $("shopModal").addEventListener("click", (e) => {
+    if (e.target === $("shopModal")) closeShopModal();
+  });
+}
 
 // Show avatar button when logged in
 function showAvatarBtn(show) {

@@ -2,6 +2,18 @@
 $("profileClose").addEventListener("click", () => {
   $("profileOverlay").classList.remove("active");
 });
+if ($("checkinClose")) {
+  $("checkinClose").addEventListener("click", () => {
+    $("checkinOverlay").classList.remove("active");
+  });
+}
+if ($("checkinOverlay")) {
+  $("checkinOverlay").addEventListener("click", (e) => {
+    if (e.target === $("checkinOverlay")) {
+      $("checkinOverlay").classList.remove("active");
+    }
+  });
+}
 
 // Auto-connect and fetch room list on load
 (async () => {
@@ -96,6 +108,7 @@ document.addEventListener("visibilitychange", async () => {
     $("codeInput").value = "";
     $("spectatorBadge").classList.remove("visible");
     $("profileOverlay").classList.remove("active");
+    $("checkinOverlay").classList.remove("active");
     activateAuthTab("login");
     showScreen("lobbyScreen");
     showError("");

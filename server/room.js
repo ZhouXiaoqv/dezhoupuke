@@ -51,6 +51,7 @@ class Room {
       _username: ws._username || null,
       avatar: ws._playerAvatar || 'A',
       avatarColor: ws._playerColor || null,
+      cardBack: ws._playerCardBack || 'default-blue',
     });
     if (!this.scoreboard.has(id)) {
       this.scoreboard.set(id, { id, name, score: 0 });
@@ -139,6 +140,7 @@ class Room {
       connected: p.connected,
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
+      cardBack: p.cardBack || 'default-blue',
     }));
     const spectators = [...this.spectators.values()].map((s) => ({ id: s.id, name: s.name }));
     ws.send(JSON.stringify({ type: 'room:players', data: { players, spectators, hostId: this.hostId } }));
@@ -216,6 +218,7 @@ class Room {
     player._username = ws._username || player._username || null;
     player.avatar = ws._playerAvatar || player.avatar;
     player.avatarColor = ws._playerColor || player.avatarColor || null;
+    player.cardBack = ws._playerCardBack || player.cardBack || 'default-blue';
     this.lastVacantAt = null;
 
     ws.send(JSON.stringify({
@@ -289,6 +292,7 @@ class Room {
       _username: p._username || null,
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
+      cardBack: p.cardBack || 'default-blue',
     }));
 
     this.game = new Game(gamePlayers, {
@@ -380,6 +384,22 @@ class Room {
     }
   }
 
+  updatePlayerCardBack(playerId, cardBack) {
+    const nextCardBack = cardBack || 'default-blue';
+    const player = this.players.get(playerId);
+    if (player) player.cardBack = nextCardBack;
+
+    if (this.game && this.game.players) {
+      const gp = this.game.players.find((p) => p.id === playerId);
+      if (gp) gp.cardBack = nextCardBack;
+      if (this.gameRunning && this.game.broadcastState) {
+        this.game.broadcastState();
+      }
+    }
+
+    this.broadcastPlayerList();
+  }
+
   broadcast(type, data = {}) {
     const msg = JSON.stringify({ type, data });
     for (const player of this.players.values()) {
@@ -399,6 +419,7 @@ class Room {
       connected: p.connected,
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
+      cardBack: p.cardBack || 'default-blue',
     }));
     const spectators = [...this.spectators.values()].map((s) => ({
       id: s.id,
