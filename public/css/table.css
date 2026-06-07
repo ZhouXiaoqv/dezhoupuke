@@ -101,6 +101,9 @@
   position: relative;
   width: min(90vw, 900px);
   height: min(55vh, 450px);
+  --community-top: 52%;
+  --community-card-half: 37px;
+  --pot-gap-above-community: 16px;
   background: radial-gradient(
     ellipse at center,
     var(--felt) 0%,
@@ -150,7 +153,10 @@
 
 .pot-display {
   position: absolute;
-  top: 38%;
+  top: calc(
+    var(--community-top) - var(--community-card-half) -
+      var(--pot-gap-above-community)
+  );
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
@@ -172,7 +178,7 @@
 
 .community {
   position: absolute;
-  top: 52%;
+  top: var(--community-top);
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;

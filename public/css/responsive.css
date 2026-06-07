@@ -6,6 +6,8 @@
     width: 92vw;
     height: 32vh;
     border-width: 6px;
+    --community-card-half: 20px;
+    --pot-gap-above-community: 18px;
   }
   .table::before {
     inset: 4px;
@@ -34,6 +36,9 @@
     width: 24px;
     height: auto;
     aspect-ratio: 7 / 10;
+  }
+  .seat-cards .card-back {
+    border-width: 1px;
   }
   .seat-cards .card .rank {
     font-size: 8px;
@@ -301,6 +306,9 @@
     width: 18px;
     height: auto;
     aspect-ratio: 7 / 10;
+  }
+  .seat-cards .card-back {
+    border-width: 0.75px;
   }
   .seat-info {
     min-width: 52px;
