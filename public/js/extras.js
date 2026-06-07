@@ -73,6 +73,15 @@ const TABLE_SCENES = [
 ];
 
 let currentScene = "classic";
+let customTableImage = localStorage.getItem("poker_custom_table_image") || "";
+
+function refreshSceneSelection() {
+  const grid = $("sceneGrid");
+  if (!grid) return;
+  grid.querySelectorAll(".scene-option").forEach((opt) => {
+    opt.classList.toggle("selected", opt.dataset.sceneId === currentScene);
+  });
+}
 
 function initSceneSelector() {
   const grid = $("sceneGrid");
@@ -82,6 +91,7 @@ function initSceneSelector() {
     const opt = document.createElement("div");
     opt.className =
       "scene-option" + (scene.id === currentScene ? " selected" : "");
+    opt.dataset.sceneId = scene.id;
     opt.innerHTML = `
 <div class="scene-preview" style="background:${scene.preview}"></div>
 <div class="scene-name">${scene.name}</div>
@@ -89,13 +99,11 @@ function initSceneSelector() {
     `;
     opt.addEventListener("click", () => {
       selectScene(scene.id);
-      grid
-        .querySelectorAll(".scene-option")
-        .forEach((o) => o.classList.remove("selected"));
-      opt.classList.add("selected");
+      refreshSceneSelection();
     });
     grid.appendChild(opt);
   });
+  updateCustomScenePreview();
 }
 
 function selectScene(sceneId) {
@@ -104,9 +112,83 @@ function selectScene(sceneId) {
   if (!container) return;
   // Remove all scene classes
   TABLE_SCENES.forEach((s) => container.classList.remove(s.cls));
+  container.classList.remove("scene-custom-image");
   // Apply selected scene
   const scene = TABLE_SCENES.find((s) => s.id === sceneId);
   if (scene) container.classList.add(scene.cls);
+  applyCustomTableImage(sceneId === "custom" ? customTableImage : "");
+}
+
+function applyCustomTableImage(imageData) {
+  const table = $("table");
+  if (!table) return;
+  if (imageData) {
+    table.style.setProperty("--custom-table-image", `url("${imageData}")`);
+    $("table-container")?.classList.add("scene-custom-image");
+  } else {
+    table.style.removeProperty("--custom-table-image");
+    $("table-container")?.classList.remove("scene-custom-image");
+  }
+}
+
+function updateCustomScenePreview() {
+  const panel = document.querySelector(".custom-scene-panel");
+  const preview = $("customScenePreview");
+  const clearBtn = $("customSceneClear");
+  if (panel) panel.classList.toggle("selected", currentScene === "custom");
+  if (preview) {
+    preview.style.background = customTableImage
+      ? `center / cover url("${customTableImage}")`
+      : "linear-gradient(135deg,#242424,#101010)";
+  }
+  if (clearBtn) clearBtn.disabled = !customTableImage;
+}
+
+function selectCustomTableImage(imageData) {
+  try {
+    localStorage.setItem("poker_custom_table_image", imageData);
+  } catch (_) {
+    toast("图片太大，保存失败");
+    return;
+  }
+  customTableImage = imageData;
+  currentScene = "custom";
+  TABLE_SCENES.forEach((s) => $("table-container")?.classList.remove(s.cls));
+  applyCustomTableImage(customTableImage);
+  refreshSceneSelection();
+  updateCustomScenePreview();
+  toast("自定义桌面已保存");
+}
+
+function clearCustomTableImage() {
+  customTableImage = "";
+  localStorage.removeItem("poker_custom_table_image");
+  if (currentScene === "custom") selectScene("classic");
+  updateCustomScenePreview();
+  refreshSceneSelection();
+  toast("自定义桌面已清除");
+}
+
+function resizeTableImage(file, done) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1600;
+      const maxH = 1000;
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      done(canvas.toDataURL("image/jpeg", 0.86));
+    };
+    img.onerror = () => toast("图片读取失败");
+    img.src = reader.result;
+  };
+  reader.onerror = () => toast("图片读取失败");
+  reader.readAsDataURL(file);
 }
 
 function openSceneModal() {
@@ -128,6 +210,24 @@ if ($("sceneModal"))
   $("sceneModal").addEventListener("click", (e) => {
     if (e.target === $("sceneModal")) closeSceneModal();
   });
+if ($("customSceneUpload"))
+  $("customSceneUpload").addEventListener("click", () => {
+    $("customSceneInput")?.click();
+  });
+if ($("customSceneInput"))
+  $("customSceneInput").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("请选择图片文件");
+      return;
+    }
+    resizeTableImage(file, selectCustomTableImage);
+  });
+if ($("customSceneClear"))
+  $("customSceneClear").addEventListener("click", clearCustomTableImage);
+if (customTableImage) selectScene("custom");
 
 // ===== WIN PARTICLES =====
 function spawnWinParticles(targetEl) {
