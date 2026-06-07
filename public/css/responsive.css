@@ -13,7 +13,8 @@
   /* Cards — smaller on mobile */
   .card {
     width: 28px;
-    height: 40px;
+    height: auto;
+    aspect-ratio: 7 / 10;
     border-radius: 4px;
   }
   .card .rank {
@@ -28,13 +29,11 @@
   .card-front .rank-br {
     font-size: 8px;
   }
-  .card-back::after {
-    font-size: 12px;
-  }
   /* Other players' cards — compact */
   .seat-cards .card {
     width: 24px;
-    height: 34px;
+    height: auto;
+    aspect-ratio: 7 / 10;
   }
   .seat-cards .card .rank {
     font-size: 8px;
@@ -52,7 +51,8 @@
   }
   .my-hand .card {
     width: 40px;
-    height: 56px;
+    height: auto;
+    aspect-ratio: 7 / 10;
   }
   .my-hand .card .rank {
     font-size: 14px;
@@ -299,7 +299,8 @@
   }
   .seat-cards .card {
     width: 18px;
-    height: 28px;
+    height: auto;
+    aspect-ratio: 7 / 10;
   }
   .seat-info {
     min-width: 52px;

@@ -294,20 +294,30 @@ function renderShop() {
   if (!grid) return;
   grid.innerHTML = "";
   const owned = new Set(getOwnedCardBacks(userProfile));
-  CARD_BACK_SHOP.forEach((item) => {
+  const coins = userProfile?.coins || 0;
+  const items = [...CARD_BACK_SHOP].sort((a, b) => a.price - b.price);
+  items.forEach((item) => {
+    const isOwned = owned.has(item.id);
+    const canBuy = coins >= item.price;
     const opt = document.createElement("div");
-    opt.className = "shop-option" + (owned.has(item.id) ? " owned" : "");
+    opt.className =
+      "shop-option" +
+      (isOwned ? " owned" : "") +
+      (!isOwned && !canBuy ? " unaffordable" : "");
     opt.appendChild(createCardBackPreview(item.id));
+    const price = document.createElement("div");
+    price.className = "shop-price";
+    price.textContent = item.price + "\u91d1\u5e01";
+    opt.appendChild(price);
     const buyBtn = document.createElement("button");
     buyBtn.type = "button";
     buyBtn.className = "shop-buy-btn";
-    buyBtn.textContent = owned.has(item.id)
-      ? "\u5df2\u8d2d\u4e70"
-      : "\u8d2d\u4e70 " + item.price + "\u91d1\u5e01";
-    buyBtn.disabled = owned.has(item.id);
+    buyBtn.textContent = isOwned ? "\u5df2\u8d2d\u4e70" : "\u8d2d\u4e70";
+    buyBtn.disabled = isOwned || !canBuy;
     opt.appendChild(buyBtn);
     buyBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (isOwned || !canBuy) return;
       Net.send("shop:buyCardBack", { id: item.id });
     });
     grid.appendChild(opt);

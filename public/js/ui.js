@@ -39,11 +39,31 @@ const CARD_BACK_SHOP = [
   { id: "flag-cn", price: 600 },
   { id: "flag-jp", price: 600 },
   { id: "flag-uk", price: 600 },
-  { id: "pattern-stripes", price: 400 },
-  { id: "pattern-blocks", price: 400 },
-  { id: "pattern-checker", price: 400 },
-  { id: "pattern-star", price: 400 },
-  { id: "pattern-burst", price: 400 },
+  { id: "flag-br", price: 600 },
+  { id: "flag-ru", price: 600 },
+  { id: "flag-fr", price: 600 },
+  { id: "flag-de", price: 600 },
+  { id: "pattern-diagonal-pop", price: 400 },
+  { id: "pattern-diagonal-lime", price: 400 },
+  { id: "pattern-vertical-candy", price: 400 },
+  { id: "pattern-vertical-ocean", price: 400 },
+  { id: "pattern-diagonal-peach", price: 400 },
+  { id: "pattern-diagonal-coral", price: 400 },
+  { id: "pattern-vertical-electric", price: 400 },
+  { id: "pattern-vertical-caramel", price: 400 },
+  { id: "pattern-night-stars", price: 400 },
+  { id: "pattern-geo-party", price: 400 },
+  { id: "pattern-geo-retro", price: 400 },
+  { id: "pattern-checker-beige", price: 400 },
+  { id: "pattern-checker-red", price: 400 },
+  { id: "pattern-checker-brick", price: 400 },
+  { id: "pattern-checker-lava", price: 400 },
+  { id: "pattern-checker-peach", price: 400 },
+  { id: "pattern-checker-coral", price: 400 },
+  { id: "pattern-checker-electric", price: 400 },
+  { id: "pattern-checker-caramel", price: 400 },
+  { id: "pattern-checker-classic-beige", price: 400 },
+  { id: "pattern-checker-classic-red", price: 400 },
 ];
 const CARD_BACK_CATALOG = [
   { id: DEFAULT_CARD_BACK, price: 0 },
@@ -87,50 +107,49 @@ function createCardBackPreview(id) {
 
 function decorateCardBack(el, id) {
   const cardBackId = getCardBackDef(id).id;
-  if (!cardBackId.startsWith("flag-")) return;
-
-  const face = document.createElement("div");
-  face.className = "flag-face flag-face-" + cardBackId.slice(5);
-  el.appendChild(face);
-
-  if (cardBackId === "flag-us") addUsFlagStars(face);
-  if (cardBackId === "flag-cn") addChinaFlagStars(face);
-}
-
-function addUsFlagStars(face) {
-  for (let row = 0; row < 9; row++) {
-    const count = row % 2 === 0 ? 6 : 5;
-    for (let col = 0; col < count; col++) {
-      const star = document.createElement("span");
-      star.className = "flag-star flag-star-us";
-      const x =
-        count === 6
-          ? ((col + 0.5) / 6) * 40
-          : ((col + 1) / 6) * 40;
-      const y = ((row + 0.5) / 9) * (7 / 13) * 100;
-      star.style.left = x + "%";
-      star.style.top = y + "%";
-      face.appendChild(star);
-    }
+  if (cardBackId.startsWith("flag-")) {
+    const face = document.createElement("div");
+    face.className = "flag-face flag-face-" + cardBackId.slice(5);
+    el.appendChild(face);
+  }
+  if (cardBackId === "pattern-night-stars") {
+    addPatternShapes(el, [
+      ["star", 20, 22, 18],
+      ["star", 64, 18, 12],
+      ["star", 78, 42, 15],
+      ["star", 36, 57, 11],
+      ["star", 60, 72, 18],
+    ]);
+  }
+  if (cardBackId === "pattern-geo-party") {
+    addPatternShapes(el, [
+      ["circle", 18, 22, 22],
+      ["triangle", 68, 18, 24],
+      ["square", 42, 48, 20],
+      ["circle", 78, 66, 18],
+      ["triangle", 24, 76, 20],
+    ]);
+  }
+  if (cardBackId === "pattern-geo-retro") {
+    addPatternShapes(el, [
+      ["square", 18, 20, 24],
+      ["circle", 72, 26, 20],
+      ["triangle", 48, 48, 26],
+      ["square", 76, 72, 18],
+      ["circle", 24, 76, 18],
+    ]);
   }
 }
 
-function addChinaFlagStars(face) {
-  const stars = [
-    { size: "large", x: 100 / 15, y: 10, rotate: 0 },
-    { size: "small", x: 400 / 15, y: 20, rotate: -22.5 },
-    { size: "small", x: 600 / 15, y: 40, rotate: -45 },
-    { size: "small", x: 700 / 15, y: 70, rotate: -67.5 },
-    { size: "small", x: 800 / 15, y: 90, rotate: -90 },
-  ];
-  stars.forEach((cfg) => {
-    const star = document.createElement("span");
-    star.className = "flag-star flag-star-cn " + cfg.size;
-    star.style.left = cfg.x + "%";
-    star.style.top = cfg.y + "%";
-    star.style.transform =
-      "translate(-50%, -50%) rotate(" + cfg.rotate + "deg)";
-    face.appendChild(star);
+function addPatternShapes(el, shapes) {
+  shapes.forEach(([type, x, y, size], index) => {
+    const shape = document.createElement("span");
+    shape.className = "pattern-shape pattern-shape-" + type;
+    shape.style.left = x + "%";
+    shape.style.top = y + "%";
+    shape.style.width = size + "%";
+    shape.style.setProperty("--shape-index", index);
+    el.appendChild(shape);
   });
 }
 

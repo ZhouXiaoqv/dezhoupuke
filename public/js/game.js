@@ -329,6 +329,9 @@ function renderGame(state) {
   }
 
   const me = state.players.find((p) => p.id === Net.playerId);
+  const viewerCardBack = isSpectator
+    ? DEFAULT_CARD_BACK
+    : getEquippedCardBack(userProfile);
   // Detect if my hand cards actually changed (new deal vs re-render)
   const currentHandIds =
     me?.hand

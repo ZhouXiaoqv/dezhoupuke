@@ -290,6 +290,16 @@
   border-color: rgba(96, 208, 128, 0.45);
   opacity: 0.72;
 }
+.shop-option.unaffordable {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+.shop-price {
+  min-height: 16px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
 .shop-buy-btn {
   min-width: 68px;
   border-radius: 999px;
@@ -307,10 +317,15 @@
   background: rgba(212, 168, 64, 0.18);
 }
 .shop-buy-btn:disabled {
+  color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: default;
+}
+.shop-option.owned .shop-buy-btn:disabled {
   color: #60d080;
   border-color: rgba(96, 208, 128, 0.35);
   background: rgba(96, 208, 128, 0.08);
-  cursor: default;
 }
 
 /* ===== DAILY CHECK-IN ===== */
@@ -1066,7 +1081,8 @@
 }
 .seat-cards .card {
   width: 34px;
-  height: 48px;
+  height: auto;
+  aspect-ratio: 7 / 10;
 }
 .seat-cards .card .rank {
   font-size: 11px;
@@ -1197,7 +1213,8 @@
 }
 .my-hand .card {
   width: 56px;
-  height: 80px;
+  height: auto;
+  aspect-ratio: 7 / 10;
 }
 .my-hand .card:hover {
   transform: translateY(-6px);
