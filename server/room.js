@@ -21,6 +21,7 @@ class Room {
     this.gameMode = options.gameMode || 'classic';
     this.shortDeck = options.shortDeck || false;
     this.allInOrFold = options.allInOrFold || false;
+    this.userStore = options.userStore || null;
 
     this.players = new Map();
     this.spectators = new Map();
@@ -54,6 +55,7 @@ class Room {
       avatar: ws._playerAvatar || 'A',
       avatarColor: ws._playerColor || null,
       cardBack: ws._playerCardBack || 'default-blue',
+      publicProfile: this.getPublicProfileForUsername(ws._username),
     });
     if (!this.scoreboard.has(id)) {
       this.scoreboard.set(id, { id, name, score: 0 });
@@ -143,6 +145,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
     const spectators = [...this.spectators.values()].map((s) => ({ id: s.id, name: s.name }));
     ws.send(JSON.stringify({ type: 'room:players', data: { players, spectators, hostId: this.hostId } }));
@@ -221,6 +224,7 @@ class Room {
     player.avatar = ws._playerAvatar || player.avatar;
     player.avatarColor = ws._playerColor || player.avatarColor || null;
     player.cardBack = ws._playerCardBack || player.cardBack || 'default-blue';
+    player.publicProfile = this.getPublicProfileForUsername(player._username);
     this.lastVacantAt = null;
 
     ws.send(JSON.stringify({
@@ -295,6 +299,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
 
     this.game = new Game(gamePlayers, {
@@ -402,6 +407,29 @@ class Room {
     this.broadcastPlayerList();
   }
 
+  updatePlayerPublicProfile(playerId, publicProfile, options = {}) {
+    const player = this.players.get(playerId);
+    if (player && publicProfile) {
+      player.publicProfile = publicProfile;
+      player.avatar = publicProfile.avatar || player.avatar;
+      player.avatarColor = publicProfile.avatarColor || player.avatarColor || null;
+    }
+
+    if (this.game && this.game.players) {
+      const gp = this.game.players.find((p) => p.id === playerId);
+      if (gp && publicProfile) {
+        gp.publicProfile = publicProfile;
+        gp.avatar = publicProfile.avatar || gp.avatar;
+        gp.avatarColor = publicProfile.avatarColor || gp.avatarColor || null;
+      }
+      if (!options.silent && this.gameRunning && this.game.broadcastState) {
+        this.game.broadcastState();
+      }
+    }
+
+    if (!options.silent) this.broadcastPlayerList();
+  }
+
   broadcast(type, data = {}) {
     const msg = JSON.stringify({ type, data });
     for (const player of this.players.values()) {
@@ -422,6 +450,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
     const spectators = [...this.spectators.values()].map((s) => ({
       id: s.id,
@@ -438,6 +467,11 @@ class Room {
 
   broadcastScoreboard() {
     this.broadcast('room:scoreboard', { scores: this.getScoreboard() });
+  }
+
+  getPublicProfileForUsername(username) {
+    if (!this.userStore || !username) return null;
+    return this.userStore.getPublicProfile(username);
   }
 
   _markVacantIfNeeded() {
@@ -466,9 +500,10 @@ class Room {
 }
 
 class RoomRegistry {
-  constructor() {
+  constructor(userStore = null) {
     this.rooms = new Map();
     this.playerRoom = new Map();
+    this.userStore = userStore;
   }
 
   generateCode() {
@@ -481,7 +516,10 @@ class RoomRegistry {
 
   createRoom(hostId, hostName, hostWs, options = {}) {
     const code = this.generateCode();
-    const room = new Room(code, hostId, hostName, hostWs, options);
+    const room = new Room(code, hostId, hostName, hostWs, {
+      ...options,
+      userStore: this.userStore,
+    });
     room._registry = this;
     this.rooms.set(code, room);
     this.playerRoom.set(hostId, code);

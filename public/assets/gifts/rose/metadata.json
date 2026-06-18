@@ -1,0 +1,32 @@
+{
+  "slug": "rose",
+  "displayName": "送玫瑰花",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "sheet": "rose-sheet.png",
+  "preview": "rose-preview.gif",
+  "frames": [
+    "frames/rose-01.png",
+    "frames/rose-02.png",
+    "frames/rose-03.png",
+    "frames/rose-04.png",
+    "frames/rose-05.png",
+    "frames/rose-06.png",
+    "frames/rose-07.png",
+    "frames/rose-08.png",
+    "frames/rose-09.png",
+    "frames/rose-10.png",
+    "frames/rose-11.png",
+    "frames/rose-12.png",
+    "frames/rose-13.png",
+    "frames/rose-14.png",
+    "frames/rose-15.png",
+    "frames/rose-16.png"
+  ],
+  "prompt": "Clean HD 2D casual game gift animation, 4x4 sequence: a red rose flies in, blooms, heart-like petals sparkle, then settles and fades. Transparent final output, centered, no text.",
+  "note": "Generated as transparent PNG frame animation assets for the poker gift UI."
+}

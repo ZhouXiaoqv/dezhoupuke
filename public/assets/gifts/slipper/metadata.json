@@ -1,0 +1,32 @@
+{
+  "slug": "slipper",
+  "displayName": "丢拖鞋",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "sheet": "slipper-sheet.png",
+  "preview": "slipper-preview.gif",
+  "frames": [
+    "frames/slipper-01.png",
+    "frames/slipper-02.png",
+    "frames/slipper-03.png",
+    "frames/slipper-04.png",
+    "frames/slipper-05.png",
+    "frames/slipper-06.png",
+    "frames/slipper-07.png",
+    "frames/slipper-08.png",
+    "frames/slipper-09.png",
+    "frames/slipper-10.png",
+    "frames/slipper-11.png",
+    "frames/slipper-12.png",
+    "frames/slipper-13.png",
+    "frames/slipper-14.png",
+    "frames/slipper-15.png",
+    "frames/slipper-16.png"
+  ],
+  "prompt": "Clean HD 2D casual game gift animation, 4x4 sequence: a blue slipper spins through the air, hits with a comic impact flash, then fades. Transparent final output, centered, no text.",
+  "note": "Generated as transparent PNG frame animation assets for the poker gift UI."
+}

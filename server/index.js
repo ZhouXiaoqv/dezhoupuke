@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 3000;
 // === Shared state ===
 const userStore = new UserStore();
 const stats = new StatsTracker(userStore);
-const registry = new RoomRegistry();
+const registry = new RoomRegistry(userStore);
 const wsManager = new WebSocketManager(httpServer);
 
 setInterval(() => registry.cleanup(), 60000);

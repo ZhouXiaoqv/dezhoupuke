@@ -1,0 +1,32 @@
+{
+  "slug": "coffee",
+  "displayName": "倒咖啡",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "sheet": "coffee-sheet.png",
+  "preview": "coffee-preview.gif",
+  "frames": [
+    "frames/coffee-01.png",
+    "frames/coffee-02.png",
+    "frames/coffee-03.png",
+    "frames/coffee-04.png",
+    "frames/coffee-05.png",
+    "frames/coffee-06.png",
+    "frames/coffee-07.png",
+    "frames/coffee-08.png",
+    "frames/coffee-09.png",
+    "frames/coffee-10.png",
+    "frames/coffee-11.png",
+    "frames/coffee-12.png",
+    "frames/coffee-13.png",
+    "frames/coffee-14.png",
+    "frames/coffee-15.png",
+    "frames/coffee-16.png"
+  ],
+  "prompt": "Clean HD 2D casual game gift animation, 4x4 sequence: a white coffee cup tilts, pours brown coffee into a splash, then fades. Transparent final output, centered, no text.",
+  "note": "Generated as transparent PNG frame animation assets for the poker gift UI."
+}

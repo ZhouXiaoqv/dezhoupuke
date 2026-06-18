@@ -3,7 +3,7 @@
  */
 
 function register(ws, ctx) {
-  const { registry, wsManager, wireStatsReporting, playerSockets } = ctx;
+  const { registry, wsManager, wireStatsReporting, userStore } = ctx;
 
   ws._on('room:list', () => {
     if (!ws._currentUser) {
@@ -113,21 +113,57 @@ function register(ws, ctx) {
   });
 
   ws._on('room:interact', (data) => {
+    if (!ws._requireLogin()) return;
     if (!ws._currentRoom) return;
     const room = ws._currentRoom;
-    const inRoom = room.players.has(data.targetId) || room.spectators.has(data.targetId);
-    if (!inRoom) return;
-    const targetWs = playerSockets.get(data.targetId);
-    if (targetWs && targetWs.readyState === 1) {
-      targetWs.send(JSON.stringify({
-        type: 'room:interact',
-        data: { fromId: ws._playerId, gift: data.gift },
+    const targetId = data && data.targetId;
+    const emotionId = data && data.emotionId;
+    if (!targetId || targetId === ws._playerId) {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: '不能给自己发表情' } }));
+      return;
+    }
+
+    const sender = room.players.get(ws._playerId);
+    const target = room.players.get(targetId);
+    if (!sender || !target || !sender._username || !target._username) {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: '只能给本局玩家发表情' } }));
+      return;
+    }
+
+    const result = userStore.sendEmotion(sender._username, target._username, emotionId);
+    if (result.error) {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: result.error } }));
+      return;
+    }
+
+    if (typeof room.updatePlayerPublicProfile === 'function') {
+      room.updatePlayerPublicProfile(ws._playerId, result.senderPublic, { silent: true });
+      room.updatePlayerPublicProfile(targetId, result.targetPublic, { silent: true });
+    }
+
+    room.broadcast('room:interact', {
+      fromId: ws._playerId,
+      toId: targetId,
+      emotion: result.emotion,
+      usedInventory: result.usedInventory,
+      purchased: result.purchased,
+      senderPublic: result.senderPublic,
+      targetPublic: result.targetPublic,
+    });
+
+    ws.send(JSON.stringify({
+      type: 'user:profileUpdated',
+      data: { profile: result.senderProfile },
+    }));
+    if (target.ws && target.ws.readyState === 1) {
+      target.ws.send(JSON.stringify({
+        type: 'user:profileUpdated',
+        data: { profile: result.targetProfile },
       }));
     }
-    ws.send(JSON.stringify({
-      type: 'room:interact',
-      data: { fromId: ws._playerId, toId: data.targetId, gift: data.gift, self: true },
-    }));
+
+    if (typeof room.broadcastPlayerList === 'function') room.broadcastPlayerList();
+    if (room.gameRunning && room.game && room.game.broadcastState) room.game.broadcastState();
   });
 }
 

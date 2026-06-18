@@ -11,11 +11,33 @@ function syncActionPanelOffset() {
   container.style.setProperty("--action-panel-height", `${height}px`);
 }
 
+function syncAutoCallControls(data = {}) {
+  const input = $("autoCallAmount");
+  const toggle = $("autoCallToggle");
+  if (!input || !toggle) return;
+  const toCall = Number(data.toCall || 0);
+  const max = Number(data.maxRaise || 0);
+  input.placeholder = "\u6700\u5927\u81ea\u52a8\u8ddf\u6ce8\u989d\u5ea6";
+  input.max = max > 0 ? String(max) : "";
+  input.disabled = false;
+  toggle.classList.toggle("active", !!window.autoCallEnabled);
+  toggle.textContent = window.autoCallEnabled
+    ? "\u5173\u95ed\u81ea\u52a8\u8ddf\u6ce8"
+    : "\u5f00\u542f\u81ea\u52a8\u8ddf\u6ce8";
+  toggle.disabled = false;
+  if (toCall <= 0) return;
+  input.title = `\u5f53\u524d\u8ddf\u6ce8 ${toCall}`;
+}
+
 function showActions(data) {
   const panel = $("actionPanel");
   const customInput = $("customRaiseInput");
   const customAmount = $("customRaiseAmount");
   lastTurnActionData = { ...lastTurnActionData, ...data };
+  syncAutoCallControls(lastTurnActionData);
+  if (typeof maybeAutoCall === "function" && maybeAutoCall(lastTurnActionData)) {
+    return;
+  }
   if (data.allInOrFold) {
     $("btnCheck").style.display = "none";
     $("btnCall").style.display = "none";

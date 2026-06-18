@@ -13,6 +13,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_CHECKIN_REWARDS = [50, 50, 50, 50, 50, 100, 100];
 const FULL_WEEK_BONUS = 200;
 const DEFAULT_CARD_BACK = 'default-blue';
+const EMOTION_CATALOG = [
+  { id: 'coffee', emoji: '\u2615', animationSlug: 'coffee', cost: 10, charmDelta: 2 },
+  { id: 'rose', emoji: '\uD83C\uDF39', animationSlug: 'rose', cost: 5, charmDelta: 1 },
+  { id: 'laugh', emoji: '\uD83D\uDE02', animationSlug: 'laugh-cry', cost: 0, charmDelta: 0, unlimited: true },
+  { id: 'egg', emoji: '\uD83E\uDD5A', animationSlug: 'egg', cost: 5, charmDelta: -1 },
+  { id: 'slipper', emoji: '\uD83E\uDE74', animationSlug: 'slipper', cost: 10, charmDelta: -2 },
+];
+const EMOTION_BY_ID = new Map(EMOTION_CATALOG.map((item) => [item.id, item]));
+const STOCKED_EMOTION_IDS = EMOTION_CATALOG
+  .filter((item) => !item.unlimited)
+  .map((item) => item.id);
 const CARD_BACK_SHOP = [
   { id: 'solid-white', price: 200 },
   { id: 'solid-purple', price: 200 },
@@ -175,9 +186,54 @@ class UserStore {
     }
   }
 
+  _ensureEmotions(user) {
+    if (typeof user.charm !== 'number') user.charm = 0;
+    if (!user.emotionInventory || typeof user.emotionInventory !== 'object') {
+      user.emotionInventory = {};
+    }
+    for (const id of STOCKED_EMOTION_IDS) {
+      const count = Number(user.emotionInventory[id]);
+      user.emotionInventory[id] = Number.isFinite(count) && count > 0
+        ? Math.floor(count)
+        : 0;
+    }
+    for (const id of Object.keys(user.emotionInventory)) {
+      if (!STOCKED_EMOTION_IDS.includes(id)) delete user.emotionInventory[id];
+    }
+  }
+
+  _ensureStats(user) {
+    if (!user.stats || typeof user.stats !== 'object') user.stats = {};
+    const defaults = {
+      handsPlayed: 0,
+      handsWon: 0,
+      totalWon: 0,
+      totalLost: 0,
+      biggestPot: 0,
+      bestHand: '',
+      bestHandRank: -1,
+      allIns: 0,
+      winStreak: 0,
+      bestWinStreak: 0,
+      currentStreak: 0,
+    };
+    for (const [key, value] of Object.entries(defaults)) {
+      if (typeof value === 'number') {
+        if (typeof user.stats[key] !== 'number') user.stats[key] = value;
+      } else if (typeof user.stats[key] !== 'string') {
+        user.stats[key] = value;
+      }
+    }
+    if (typeof user.stats.totalProfit !== 'number') {
+      user.stats.totalProfit = (user.stats.totalWon || 0) - (user.stats.totalLost || 0);
+    }
+  }
+
   _ensureAccountState(user) {
     this._ensureCheckIn(user);
     this._ensureCardBacks(user);
+    this._ensureEmotions(user);
+    this._ensureStats(user);
   }
 
   // ===== Registration =====
@@ -203,6 +259,8 @@ class UserStore {
       avatar: 'A',  // Selected avatar emoji
       avatarColor: '#4fc3f7',  // Selected color
       coins: 0,
+      charm: 0,
+      emotionInventory: Object.fromEntries(STOCKED_EMOTION_IDS.map((id) => [id, 0])),
       ownedCardBacks: [DEFAULT_CARD_BACK],
       equippedCardBack: DEFAULT_CARD_BACK,
       checkIn: {
@@ -216,6 +274,7 @@ class UserStore {
         handsWon: 0,
         totalWon: 0,
         totalLost: 0,
+        totalProfit: 0,
         biggestPot: 0,
         bestHand: '',
         bestHandRank: -1,
@@ -303,6 +362,11 @@ class UserStore {
 
     const totalReward = dailyReward + bonus;
     user.coins += totalReward;
+    const emotionRewards = {};
+    for (const id of STOCKED_EMOTION_IDS) {
+      user.emotionInventory[id] += 1;
+      emotionRewards[id] = 1;
+    }
     this._save();
 
     return {
@@ -312,6 +376,8 @@ class UserStore {
       bonus,
       totalReward,
       coins: user.coins,
+      emotionRewards,
+      emotionInventory: { ...user.emotionInventory },
       weekStart,
       checkedDays: [...user.checkIn.days],
       fullWeek: bonus > 0,
@@ -323,23 +389,31 @@ class UserStore {
   recordGame(username, data) {
     const user = this.users.get(username);
     if (!user) return { newAchievements: [] };
+    this._ensureAccountState(user);
 
     const s = user.stats;
+    const amount = Number(data.amount || 0);
+    const net = Number.isFinite(Number(data.net))
+      ? Number(data.net)
+      : data.won
+        ? amount
+        : -Number(data.amount || 0);
     s.handsPlayed++;
     user.gamesPlayed = (user.gamesPlayed || 0) + 1;
+    s.totalProfit += net;
+    if (net < 0) s.totalLost += Math.abs(net);
 
     if (data.won) {
       s.handsWon++;
-      s.totalWon += data.amount || 0;
+      s.totalWon += amount;
       s.currentStreak = (s.currentStreak || 0) + 1;
       if (s.currentStreak > (s.bestWinStreak || 0)) {
         s.bestWinStreak = s.currentStreak;
       }
-      if ((data.amount || 0) > s.biggestPot) {
-        s.biggestPot = data.amount || 0;
+      if (amount > s.biggestPot) {
+        s.biggestPot = amount;
       }
     } else {
-      s.totalLost += data.amount || 0;
       s.currentStreak = 0;
     }
 
@@ -410,6 +484,45 @@ class UserStore {
     };
   }
 
+  sendEmotion(fromUsername, toUsername, emotionId) {
+    const sender = this.users.get(fromUsername);
+    const target = this.users.get(toUsername);
+    if (!sender || !target) return { error: 'User not found' };
+    if (fromUsername === toUsername) return { error: 'Cannot send emotion to yourself' };
+
+    this._ensureAccountState(sender);
+    this._ensureAccountState(target);
+
+    const emotion = EMOTION_BY_ID.get(emotionId);
+    if (!emotion) return { error: 'Emotion not found' };
+
+    let usedInventory = false;
+    let purchased = false;
+    if (!emotion.unlimited) {
+      if ((sender.emotionInventory[emotion.id] || 0) > 0) {
+        sender.emotionInventory[emotion.id] -= 1;
+        usedInventory = true;
+      } else {
+        if (sender.coins < emotion.cost) return { error: 'Not enough coins' };
+        sender.coins -= emotion.cost;
+        purchased = true;
+      }
+    }
+
+    target.charm += emotion.charmDelta || 0;
+    this._save();
+
+    return {
+      emotion: { ...emotion },
+      usedInventory,
+      purchased,
+      senderProfile: this._sanitize(sender),
+      targetProfile: this._sanitize(target),
+      senderPublic: this._publicProfile(sender),
+      targetPublic: this._publicProfile(target),
+    };
+  }
+
   // ===== Achievement Checking =====
   _checkAchievements(user, data) {
     const s = user.stats;
@@ -471,17 +584,28 @@ class UserStore {
     return this._sanitize(user);
   }
 
+  getPublicProfile(username) {
+    const user = this.users.get(username);
+    if (!user) return null;
+    this._ensureAccountState(user);
+    return this._publicProfile(user);
+  }
+
   // ===== Leaderboard =====
   getLeaderboard(sortBy = 'totalWon', limit = 20) {
     const list = [...this.users.values()];
-    list.sort((a, b) => (b.stats[sortBy] || 0) - (a.stats[sortBy] || 0));
+    for (const user of list) this._ensureAccountState(user);
+    const statKey = sortBy === 'totalWon' ? 'totalProfit' : sortBy;
+    list.sort((a, b) => (b.stats[statKey] || 0) - (a.stats[statKey] || 0));
     return list.slice(0, limit).map((u, i) => ({
       rank: i + 1,
       name: u.username,
       handsPlayed: u.stats.handsPlayed,
       handsWon: u.stats.handsWon,
       winRate: u.stats.handsPlayed > 0 ? Math.round(u.stats.handsWon / u.stats.handsPlayed * 100) : 0,
-      totalWon: u.stats.totalWon,
+      totalWon: u.stats.totalProfit,
+      totalProfit: u.stats.totalProfit,
+      charm: u.charm || 0,
       biggestPot: u.stats.biggestPot,
       bestHand: u.stats.bestHand || '-',
       allIns: u.stats.allIns || 0,
@@ -499,6 +623,8 @@ class UserStore {
       avatar: user.avatar || 'A',
       avatarColor: user.avatarColor || '#4fc3f7',
       coins: typeof user.coins === 'number' ? user.coins : 0,
+      charm: typeof user.charm === 'number' ? user.charm : 0,
+      emotionInventory: { ...user.emotionInventory },
       ownedCardBacks: [...user.ownedCardBacks],
       equippedCardBack: user.equippedCardBack || DEFAULT_CARD_BACK,
       checkIn: user.checkIn
@@ -512,6 +638,23 @@ class UserStore {
       stats: { ...user.stats },
       achievements: user.achievements.map(id => ({ id, ...ACHIEVEMENTS[id] })),
       gamesPlayed: user.gamesPlayed || 0,
+    };
+  }
+
+  _publicProfile(user) {
+    this._ensureAccountState(user);
+    const s = user.stats;
+    return {
+      username: user.username,
+      avatar: user.avatar || 'A',
+      avatarColor: user.avatarColor || '#4fc3f7',
+      charm: user.charm || 0,
+      stats: {
+        handsPlayed: s.handsPlayed || 0,
+        handsWon: s.handsWon || 0,
+        winRate: s.handsPlayed > 0 ? Math.round((s.handsWon / s.handsPlayed) * 100) : 0,
+        totalProfit: s.totalProfit || 0,
+      },
     };
   }
 
@@ -535,4 +678,5 @@ module.exports = {
   ACHIEVEMENTS,
   CARD_BACK_SHOP,
   DEFAULT_CARD_BACK,
+  EMOTION_CATALOG,
 };

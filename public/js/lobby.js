@@ -22,46 +22,10 @@ function spawnChipFly(fromEl, color) {
   setTimeout(() => chip.remove(), 700);
 }
 
-function spawnGiftFly(targetEl, emoji) {
-  if (!targetEl) return;
-  const rect = targetEl.getBoundingClientRect();
-  const gift = document.createElement("div");
-  gift.className = "flying-gift";
-  gift.textContent = emoji;
-  gift.style.left = rect.left + rect.width / 2 - 14 + "px";
-  gift.style.top = rect.top + "px";
-  document.body.appendChild(gift);
-  setTimeout(() => gift.remove(), 2200);
-}
-
 // ===== PLAYER INTERACTION =====
 let interactTarget = null;
 const interactPanel = $("interactPanel");
-
-function showInteractPanel(playerId, seatEl) {
-  if (!interactPanel || !seatEl) return;
-  interactTarget = playerId;
-  const rect = seatEl.getBoundingClientRect();
-  interactPanel.style.left =
-    Math.min(rect.right + 8, window.innerWidth - 140) + "px";
-  interactPanel.style.top = Math.max(rect.top - 20, 8) + "px";
-  interactPanel.classList.add("active");
-}
-
-function hideInteractPanel() {
-  if (interactPanel) interactPanel.classList.remove("active");
-  interactTarget = null;
-}
-
-if (interactPanel) {
-  interactPanel.addEventListener("click", (e) => {
-    const btn = e.target.closest(".interact-btn");
-    if (!btn || !interactTarget) return;
-    const gift = btn.dataset.gift;
-    Net.send("room:interact", { targetId: interactTarget, gift });
-    hideInteractPanel();
-  });
-}
+window.lastSeatCenters = window.lastSeatCenters || Object.create(null);
 
 // Close interact panel on outside click
 document.addEventListener("click", (e) => {
@@ -69,27 +33,379 @@ document.addEventListener("click", (e) => {
     interactPanel &&
     interactPanel.classList.contains("active") &&
     !interactPanel.contains(e.target) &&
-    !e.target.closest(".interact-trigger")
+    !e.target.closest(".interact-trigger") &&
+    !e.target.closest(".seat-info")
   ) {
     hideInteractPanel();
   }
 });
 
-// Receive interaction from other players
-Net.on("room:interact", (d) => {
-  if (d.self) {
-    // Sender confirmation: animate gift flying toward target
-    const targetEl = document.querySelector(
-      `[data-player-id="${d.toId}"]`,
-    );
-    if (targetEl) spawnGiftFly(targetEl, d.gift || "🌹");
-  } else {
-    // From another player: animate gift flying from sender
-    const seatEl = document.querySelector(
-      `[data-player-id="${d.fromId}"]`,
-    );
-    if (seatEl) spawnGiftFly(seatEl, d.gift || "🌹");
+function getSeatElByPlayerId(playerId) {
+  return [...document.querySelectorAll(".seat")].find(
+    (seat) => seat.dataset.playerId === String(playerId),
+  );
+}
+
+function getSeatCenterByPlayerId(playerId) {
+  const key = String(playerId);
+  const seatEl = getSeatElByPlayerId(playerId);
+  if (seatEl) {
+    const rect = seatEl.getBoundingClientRect();
+    if (rect.width || rect.height) {
+      const center = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+      window.lastSeatCenters[key] = center;
+      return center;
+    }
   }
+  return window.lastSeatCenters[key] || null;
+}
+
+const GIFT_ANIMATION_BASE = "assets/gifts";
+const GIFT_ANIMATION_FRAME_COUNT = 16;
+const GIFT_ANIMATION_FPS = 12;
+const GIFT_ANIMATION_COLS = 4;
+const GIFT_ANIMATION_ROWS = 4;
+
+function getEmotionAnimationSlug(emotion) {
+  if (!emotion || typeof emotion === "string") return null;
+  return (
+    emotion.animationSlug ||
+    EMOTION_BY_ID[emotion.id]?.animationSlug ||
+    null
+  );
+}
+
+function getGiftSpriteUrl(slug) {
+  return `${GIFT_ANIMATION_BASE}/${slug}/${slug}-sheet.png`;
+}
+
+function setGiftSpriteFrame(el, frameIndex) {
+  const frame = Math.max(
+    0,
+    Math.min(GIFT_ANIMATION_FRAME_COUNT - 1, Number(frameIndex) || 0),
+  );
+  const col = frame % GIFT_ANIMATION_COLS;
+  const row = Math.floor(frame / GIFT_ANIMATION_COLS);
+  const x = (col / (GIFT_ANIMATION_COLS - 1)) * 100;
+  const y = (row / (GIFT_ANIMATION_ROWS - 1)) * 100;
+  el.style.backgroundPosition = `${x}% ${y}%`;
+}
+
+function createGiftSpriteEl(emotion, className) {
+  const sprite = document.createElement("div");
+  sprite.className = className || "gift-sprite";
+  const slug = getEmotionAnimationSlug(emotion);
+  if (slug) {
+    sprite.classList.add("gift-sprite");
+    sprite.style.backgroundImage = `url("${getGiftSpriteUrl(slug)}")`;
+    setGiftSpriteFrame(sprite, 0);
+    return sprite;
+  }
+
+  sprite.classList.add("gift-sprite-fallback");
+  sprite.textContent =
+    typeof emotion === "string" ? emotion : emotion?.emoji || "\ud83c\udf39";
+  return sprite;
+}
+
+function playGiftSprite(sprite) {
+  if (!sprite || !sprite.classList.contains("gift-sprite")) return () => {};
+  const frameMs = 1000 / GIFT_ANIMATION_FPS;
+  const start = performance.now();
+  let rafId = 0;
+
+  function tick(now) {
+    const frame = Math.min(
+      GIFT_ANIMATION_FRAME_COUNT - 1,
+      Math.floor((now - start) / frameMs),
+    );
+    setGiftSpriteFrame(sprite, frame);
+    if (frame < GIFT_ANIMATION_FRAME_COUNT - 1) {
+      rafId = requestAnimationFrame(tick);
+    }
+  }
+
+  rafId = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(rafId);
+}
+
+function spawnEmotionFlyByIds(fromId, toId, emotion) {
+  const from = getSeatCenterByPlayerId(fromId);
+  const to = getSeatCenterByPlayerId(toId);
+  if (!from || !to) return;
+  const startX = from.x;
+  const startY = from.y;
+  const endX = to.x;
+  const endY = to.y;
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const distance = Math.hypot(dx, dy);
+  const duration = Math.max(680, Math.min(1180, Math.round(distance * 1.55)));
+  const animationDuration =
+    (GIFT_ANIMATION_FRAME_COUNT / GIFT_ANIMATION_FPS) * 1000;
+
+  const gift = document.createElement("div");
+  gift.className = "flying-gift";
+  gift.style.left = startX + "px";
+  gift.style.top = startY + "px";
+  gift.style.setProperty("--fly-duration", duration + "ms");
+  gift.style.transform = "translate(-50%, -50%) translate(0, 0) scale(1)";
+  const sprite = createGiftSpriteEl(emotion, "flying-gift-sprite");
+  gift.appendChild(sprite);
+  document.body.appendChild(gift);
+  const stopSprite = playGiftSprite(sprite);
+
+  requestAnimationFrame(() => {
+    gift.style.transform =
+      `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(1)`;
+  });
+  setTimeout(() => {
+    gift.classList.add("arrived");
+    gift.style.transform =
+      `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(1)`;
+  }, Math.max(duration, animationDuration));
+  setTimeout(() => {
+    stopSprite();
+    gift.remove();
+  }, Math.max(duration, animationDuration) + 300);
+}
+
+function formatSignedNumber(value) {
+  const n = Number(value || 0);
+  return n > 0 ? "+" + n : String(n);
+}
+
+let interactAnchor = null;
+let interactPlayer = null;
+
+function getPanelPlayer(playerId, fallback = null) {
+  if (fallback) return fallback;
+  return gameState?.players?.find((p) => p.id === playerId) || null;
+}
+
+function getPlayerPanelProfile(playerId, player = null) {
+  const p = getPanelPlayer(playerId, player);
+  if (playerId === Net.playerId && userProfile) {
+    const s = userProfile.stats || {};
+    return {
+      username: userProfile.username || p?.name || "",
+      avatar: userProfile.avatar || p?.avatar || "",
+      avatarColor: userProfile.avatarColor || p?.avatarColor || "",
+      charm: userProfile.charm || 0,
+      stats: {
+        handsPlayed: s.handsPlayed || 0,
+        handsWon: s.handsWon || 0,
+        winRate:
+          s.handsPlayed > 0
+            ? Math.round(((s.handsWon || 0) / s.handsPlayed) * 100)
+            : 0,
+        totalProfit: s.totalProfit ?? s.totalWon ?? 0,
+      },
+    };
+  }
+
+  const pub = p?.publicProfile || {};
+  const s = pub.stats || {};
+  return {
+    username: pub.username || p?.name || "",
+    avatar: pub.avatar || p?.avatar || "",
+    avatarColor: pub.avatarColor || p?.avatarColor || "",
+    charm: pub.charm || 0,
+    stats: {
+      handsPlayed: s.handsPlayed || 0,
+      handsWon: s.handsWon || 0,
+      winRate:
+        s.winRate ??
+        (s.handsPlayed > 0
+          ? Math.round(((s.handsWon || 0) / s.handsPlayed) * 100)
+          : 0),
+      totalProfit: s.totalProfit ?? s.totalWon ?? 0,
+    },
+  };
+}
+
+function applyPublicProfileToState(playerId, publicProfile) {
+  if (!publicProfile || !gameState?.players) return;
+  const player = gameState.players.find((p) => p.id === playerId);
+  if (!player) return;
+  player.publicProfile = publicProfile;
+  player.avatar = publicProfile.avatar || player.avatar;
+  player.avatarColor = publicProfile.avatarColor || player.avatarColor;
+}
+
+function positionInteractPanel() {
+  if (!interactPanel || !interactAnchor) return;
+  const rect = interactAnchor.getBoundingClientRect();
+  const panelRect = interactPanel.getBoundingClientRect();
+  const gap = 10;
+  const maxLeft = Math.max(gap, window.innerWidth - panelRect.width - gap);
+  const maxTop = Math.max(gap, window.innerHeight - panelRect.height - gap);
+  const preferRight = rect.left + rect.width / 2 < window.innerWidth / 2;
+  let left = preferRight ? rect.right + gap : rect.left - panelRect.width - gap;
+  let top = rect.top + rect.height / 2 - panelRect.height / 2;
+  left = Math.max(gap, Math.min(left, maxLeft));
+  top = Math.max(gap, Math.min(top, maxTop));
+  interactPanel.style.left = left + "px";
+  interactPanel.style.top = top + "px";
+}
+
+function renderInteractPanel() {
+  if (!interactPanel || !interactTarget) return;
+  const profile = getPlayerPanelProfile(interactTarget, interactPlayer);
+  const stats = profile.stats || {};
+  const isSelf = interactTarget === Net.playerId;
+  const canSend =
+    !isSelf &&
+    !isSpectator &&
+    !(typeof isLayoutTestRoom !== "undefined" && isLayoutTestRoom) &&
+    !!userProfile &&
+    !!Net.playerId;
+  const inventory = userProfile?.emotionInventory || {};
+  const coins = userProfile?.coins || 0;
+
+  interactPanel.innerHTML = "";
+  const header = document.createElement("div");
+  header.className = "interact-profile";
+
+  const avatar = document.createElement("div");
+  avatar.className = "interact-avatar";
+  avatar.textContent = profile.avatar || "\ud83d\udc64";
+  if (profile.avatarColor) {
+    avatar.style.borderColor = profile.avatarColor;
+    avatar.style.boxShadow = `0 0 18px ${profile.avatarColor}44`;
+  }
+  header.appendChild(avatar);
+
+  const meta = document.createElement("div");
+  meta.className = "interact-meta";
+  const name = document.createElement("div");
+  name.className = "interact-name";
+  name.textContent =
+    (profile.username || "\u73a9\u5bb6") + (isSelf ? " (\u4f60)" : "");
+  const statLine = document.createElement("div");
+  statLine.className = "interact-stats";
+  const totalProfit = Number(stats.totalProfit || 0);
+  statLine.textContent =
+    `\u80dc\u7387 ${stats.winRate || 0}% · ` +
+    `\u624b\u6570 ${stats.handsPlayed || 0} · ` +
+    `\u603b\u76c8\u5229 ${totalProfit > 0 ? "+" : ""}${totalProfit} · ` +
+    `\u9b45\u529b ${profile.charm || 0}`;
+  meta.appendChild(name);
+  meta.appendChild(statLine);
+  header.appendChild(meta);
+  interactPanel.appendChild(header);
+
+  const row = document.createElement("div");
+  row.className = "emotion-row";
+  for (const emotion of EMOTION_CATALOG) {
+    const count = emotion.unlimited ? null : Number(inventory[emotion.id] || 0);
+    const option = document.createElement("div");
+    option.className = "emotion-option";
+
+    const iconWrap = document.createElement("div");
+    iconWrap.className = "emotion-icon-wrap";
+    const icon = document.createElement("div");
+    icon.className = "emotion-icon";
+    icon.textContent = emotion.emoji;
+    iconWrap.appendChild(icon);
+    if (!emotion.unlimited) {
+      const badge = document.createElement("span");
+      badge.className = "emotion-count";
+      badge.textContent = count;
+      iconWrap.appendChild(badge);
+    }
+    option.appendChild(iconWrap);
+
+    const delta = document.createElement("div");
+    delta.className =
+      "emotion-delta" +
+      (emotion.charmDelta < 0
+        ? " negative"
+        : emotion.charmDelta > 0
+          ? " positive"
+          : "");
+    delta.textContent =
+      emotion.charmDelta === 0
+        ? "\u9b45\u529b\u4e0d\u53d8"
+        : "\u9b45\u529b " + formatSignedNumber(emotion.charmDelta);
+    option.appendChild(delta);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "emotion-send";
+    const hasStock = emotion.unlimited || count > 0;
+    btn.textContent = hasStock
+      ? "\u53d1\u9001"
+      : emotion.cost + "\u91d1\u5e01";
+    btn.disabled = !canSend;
+    if (!hasStock && coins < emotion.cost) btn.classList.add("unaffordable");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!canSend) return;
+      if (!hasStock && coins < emotion.cost) {
+        toast("\u91d1\u5e01\u4e0d\u8db3");
+        return;
+      }
+      Net.send("room:interact", {
+        targetId: interactTarget,
+        emotionId: emotion.id,
+      });
+      hideInteractPanel();
+    });
+    option.appendChild(btn);
+    row.appendChild(option);
+  }
+
+  if (canSend) {
+    interactPanel.appendChild(row);
+  } else {
+    const note = document.createElement("div");
+    note.className = "interact-note";
+    note.textContent = isSelf
+      ? "\u4e0d\u80fd\u7ed9\u81ea\u5df1\u53d1\u8868\u60c5"
+      : "\u5f53\u524d\u53ea\u80fd\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
+    interactPanel.appendChild(note);
+  }
+}
+
+function showInteractPanel(playerId, seatEl, player = null) {
+  if (!interactPanel || !seatEl) return;
+  interactTarget = playerId;
+  interactAnchor = seatEl;
+  interactPlayer = player || getPanelPlayer(playerId);
+  renderInteractPanel();
+  interactPanel.classList.add("active");
+  requestAnimationFrame(positionInteractPanel);
+}
+
+function refreshInteractPanel() {
+  if (!interactPanel || !interactPanel.classList.contains("active")) return;
+  renderInteractPanel();
+  requestAnimationFrame(positionInteractPanel);
+}
+
+function hideInteractPanel() {
+  if (interactPanel) interactPanel.classList.remove("active");
+  interactTarget = null;
+  interactAnchor = null;
+  interactPlayer = null;
+}
+
+window.addEventListener("resize", () => {
+  if (interactPanel?.classList.contains("active")) {
+    requestAnimationFrame(positionInteractPanel);
+  }
+});
+
+Net.on("room:interact", (d) => {
+  if (!d || !d.emotion) return;
+  applyPublicProfileToState(d.fromId, d.senderPublic);
+  applyPublicProfileToState(d.toId, d.targetPublic);
+  spawnEmotionFlyByIds(d.fromId, d.toId, d.emotion);
+  refreshInteractPanel();
 });
 
 // ===== AVATAR SELECTOR SYSTEM =====

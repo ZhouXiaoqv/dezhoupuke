@@ -70,6 +70,8 @@ function register(ws, ctx) {
               bonus: checkIn.bonus,
               totalReward: checkIn.totalReward,
               coins: checkIn.coins,
+              emotionRewards: checkIn.emotionRewards,
+              emotionInventory: checkIn.emotionInventory,
               weekStart: checkIn.weekStart,
               checkedDays: checkIn.checkedDays,
               fullWeek: checkIn.fullWeek,

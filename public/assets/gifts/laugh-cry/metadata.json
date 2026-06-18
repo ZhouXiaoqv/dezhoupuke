@@ -1,0 +1,32 @@
+{
+  "slug": "laugh-cry",
+  "displayName": "笑哭",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "sheet": "laugh-cry-sheet.png",
+  "preview": "laugh-cry-preview.gif",
+  "frames": [
+    "frames/laugh-cry-01.png",
+    "frames/laugh-cry-02.png",
+    "frames/laugh-cry-03.png",
+    "frames/laugh-cry-04.png",
+    "frames/laugh-cry-05.png",
+    "frames/laugh-cry-06.png",
+    "frames/laugh-cry-07.png",
+    "frames/laugh-cry-08.png",
+    "frames/laugh-cry-09.png",
+    "frames/laugh-cry-10.png",
+    "frames/laugh-cry-11.png",
+    "frames/laugh-cry-12.png",
+    "frames/laugh-cry-13.png",
+    "frames/laugh-cry-14.png",
+    "frames/laugh-cry-15.png",
+    "frames/laugh-cry-16.png"
+  ],
+  "prompt": "Clean HD 2D casual game gift animation, 4x4 sequence: a laughing yellow emoji pops, wobbles with tears flying, then fades. Transparent final output, centered, no text.",
+  "note": "Generated as transparent PNG frame animation assets for the poker gift UI."
+}

@@ -98,7 +98,7 @@ dezhoupuke/
 | `room:start` | - | 房主开始游戏 |
 | `room:ready` | `{ ready }` | 准备/取消 |
 | `room:list` | - | 获取在线房间列表 |
-| `room:interact` | `{ targetId, gift }` | 玩家互动 |
+| `room:interact` | `{ targetId, emotionId }` | 玩家互动 |
 | `game:action` | `{ action, amount }` | 执行操作（fold/check/call/raise/allin） |
 | `game:showHand` | `{ show }` | 非摊牌获胜后选择是否展示手牌 |
 | `game:nextHand` | - | 跳过等待，立即开始下一手 |

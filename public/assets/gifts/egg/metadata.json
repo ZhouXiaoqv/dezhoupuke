@@ -1,0 +1,32 @@
+{
+  "slug": "egg",
+  "displayName": "砸鸡蛋",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 256,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "sheet": "egg-sheet.png",
+  "preview": "egg-preview.gif",
+  "frames": [
+    "frames/egg-01.png",
+    "frames/egg-02.png",
+    "frames/egg-03.png",
+    "frames/egg-04.png",
+    "frames/egg-05.png",
+    "frames/egg-06.png",
+    "frames/egg-07.png",
+    "frames/egg-08.png",
+    "frames/egg-09.png",
+    "frames/egg-10.png",
+    "frames/egg-11.png",
+    "frames/egg-12.png",
+    "frames/egg-13.png",
+    "frames/egg-14.png",
+    "frames/egg-15.png",
+    "frames/egg-16.png"
+  ],
+  "prompt": "Clean HD 2D casual game gift animation, 4x4 sequence: an egg arcs across the frame, cracks on impact, yolk splashes and shell shards scatter, then fades. Transparent final output, centered, no text.",
+  "note": "Generated as transparent PNG frame animation assets for the poker gift UI."
+}

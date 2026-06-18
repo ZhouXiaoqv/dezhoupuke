@@ -333,6 +333,16 @@ Net.on("user:profile", (d) => {
   renderProfile(d.profile);
 });
 
+Net.on("user:profileUpdated", (d) => {
+  if (!d || !d.profile) return;
+  userProfile = d.profile;
+  updateUserArea();
+  if ($("profileOverlay")?.classList.contains("active")) {
+    renderProfile(d.profile);
+  }
+  if (typeof refreshInteractPanel === "function") refreshInteractPanel();
+});
+
 Net.on("user:error", (d) => {
   showError(d.message);
   toast(d.message);
@@ -395,6 +405,22 @@ function renderProfile(profile) {
     <div class="stat-card"><div class="stat-value">${s.totalWon > 0 ? "+" : ""}${s.totalWon}</div><div class="stat-label">总盈利</div></div>
     <div class="stat-card"><div class="stat-value">${s.biggestPot}</div><div class="stat-label">最大底池</div></div>
     <div class="stat-card"><div class="stat-value">${s.bestHand || "-"}</div><div class="stat-label">最佳牌型</div></div>
+  `;
+  const stats = profile.stats || {};
+  const totalProfit = stats.totalProfit ?? stats.totalWon ?? 0;
+  const winRate =
+    stats.handsPlayed > 0
+      ? Math.round(((stats.handsWon || 0) / stats.handsPlayed) * 100)
+      : 0;
+  $("profileStats").innerHTML = `
+    <div class="stat-card"><div class="stat-value">${profile.coins || 0}</div><div class="stat-label">\u91d1\u5e01</div></div>
+    <div class="stat-card"><div class="stat-value">${profile.charm || 0}</div><div class="stat-label">\u9b45\u529b\u503c</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.handsPlayed || 0}</div><div class="stat-label">\u6e38\u620f\u624b\u6570</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.handsWon || 0}</div><div class="stat-label">\u80dc\u573a</div></div>
+    <div class="stat-card"><div class="stat-value">${winRate}%</div><div class="stat-label">\u80dc\u7387</div></div>
+    <div class="stat-card"><div class="stat-value">${totalProfit > 0 ? "+" : ""}${totalProfit}</div><div class="stat-label">\u603b\u76c8\u5229</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.biggestPot || 0}</div><div class="stat-label">\u6700\u5927\u5e95\u6c60</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.bestHand || "-"}</div><div class="stat-label">\u6700\u4f73\u724c\u578b</div></div>
   `;
 
   const ACHIEVEMENTS = {
@@ -483,6 +509,7 @@ function buildCheckInFromProfile() {
     weekStart,
     checkedDays,
     fullWeek: bonus > 0,
+    emotionInventory: { ...(userProfile.emotionInventory || {}) },
   };
 }
 
@@ -500,6 +527,15 @@ function showDailyCheckIn(checkIn, options = {}) {
           ? checkIn.weekStart
           : userProfile.checkIn?.fullWeekBonusWeek || "",
     };
+    if (checkIn.emotionInventory) {
+      userProfile.emotionInventory = { ...checkIn.emotionInventory };
+    } else if (checkIn.emotionRewards) {
+      userProfile.emotionInventory = { ...(userProfile.emotionInventory || {}) };
+      for (const [id, count] of Object.entries(checkIn.emotionRewards)) {
+        userProfile.emotionInventory[id] =
+          (userProfile.emotionInventory[id] || 0) + Number(count || 0);
+      }
+    }
     updateUserArea();
   }
 
@@ -530,6 +566,9 @@ function showDailyCheckIn(checkIn, options = {}) {
       checkIn.coins
     : "\u4eca\u65e5\u7b7e\u5230\u6210\u529f\uff0c\u5f53\u524d\u91d1\u5e01\uff1a" +
       checkIn.coins;
+  if (!options.claimed && checkIn.emotionRewards) {
+    sub.textContent += "\uff0c\u8868\u60c5\u5e93\u5b58\u5404 +1";
+  }
   closeBtn.textContent = options.claimed
     ? "\u5df2\u7b7e\u5230"
     : "\u6536\u4e0b";
