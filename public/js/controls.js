@@ -349,7 +349,7 @@ $("btnCheck").addEventListener("click", () => {
 $("btnCall").addEventListener("click", () => {
   hideActions();
   SFX.btnClick();
-  const mySeat = document.querySelector(".seat-0");
+  const mySeat = getMySeatEl();
   if (mySeat) {
     spawnChipFly(mySeat, "#d4a840");
     spawnChipFly(mySeat, "#cc3333");
@@ -359,9 +359,9 @@ $("btnCall").addEventListener("click", () => {
 $("btnAllin").addEventListener("click", () => {
   hideActions();
   SFX.btnClick();
-  const mySeat = document.querySelector(".seat-0");
+  const mySeat = getMySeatEl();
   if (mySeat)
-    for (let i = 0; i < 6; i++)
+    for (let i = 0; i < 8; i++)
       setTimeout(() => spawnChipFly(mySeat), i * 80);
   Net.send("game:action", { action: "allin" });
 });
@@ -369,7 +369,7 @@ $("btnRaise").addEventListener("click", () => {
   const amount = parseInt($("raiseRange").value);
   hideActions();
   SFX.btnClick();
-  const mySeat = document.querySelector(".seat-0");
+  const mySeat = getMySeatEl();
   if (mySeat) {
     spawnChipFly(mySeat, "#d4a840");
     spawnChipFly(mySeat);

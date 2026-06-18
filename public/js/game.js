@@ -169,6 +169,30 @@ function restoreActionPanelIfMyTurn({ notify = false } = {}) {
   return true;
 }
 
+const SEAT_VISUAL_SLOTS = {
+  2: [0, 4],
+  3: [0, 3, 5],
+  4: [0, 2, 4, 6],
+  5: [0, 2, 3, 5, 6],
+  6: [0, 2, 3, 4, 5, 6],
+  7: [0, 1, 2, 3, 5, 6, 7],
+  8: [0, 1, 2, 3, 4, 5, 6, 7],
+};
+
+function getSeatVisualSlot(seatIndex, playerCount) {
+  const slots = SEAT_VISUAL_SLOTS[playerCount] || SEAT_VISUAL_SLOTS[8];
+  return slots[seatIndex] ?? seatIndex;
+}
+
+function getMySeatEl() {
+  if (!Net.playerId) return document.querySelector(".seat-pos-0");
+  return (
+    [...document.querySelectorAll(".seat")].find(
+      (seat) => seat.dataset.playerId === Net.playerId,
+    ) || document.querySelector(".seat-pos-0")
+  );
+}
+
 // Toggle logic
 $("actionLogToggle").addEventListener("click", () => {
   $("actionLogPanel").classList.toggle("open");
@@ -354,7 +378,8 @@ function renderGame(state) {
 
     if (!seatExisted) {
       seat = document.createElement("div");
-      seat.className = `seat seat-${i}`;
+      const visualSlot = getSeatVisualSlot(i, state.players.length);
+      seat.className = `seat seat-${i} seat-pos-${visualSlot}`;
       seat.dataset.playerId = p.id;
     }
 
@@ -566,22 +591,27 @@ function renderGame(state) {
   dBtn.textContent = "D";
   const dpDesktop = [
     { bottom: "55px", left: "calc(50% + 60px)" },
-    { left: "120px", top: "calc(40% + 40px)" },
-    { left: "calc(15% + 70px)", top: "45px" },
+    { left: "calc(4% + 72px)", top: "calc(62% - 12px)" },
+    { left: "calc(4% + 72px)", top: "calc(25% - 12px)" },
+    { left: "calc(25% + 82px)", top: "45px" },
     { left: "50%", top: "45px", transform: "translateX(-50%)" },
-    { right: "calc(15% + 70px)", top: "45px" },
-    { right: "120px", top: "calc(40% + 40px)" },
+    { right: "calc(25% + 82px)", top: "45px" },
+    { right: "calc(4% + 72px)", top: "calc(25% - 12px)" },
+    { right: "calc(4% + 72px)", top: "calc(62% - 12px)" },
   ];
   const dpMobile = [
     { bottom: "55px", left: "calc(50% + 50px)" },
-    { left: "80px", top: "calc(40% + 30px)" },
-    { left: "calc(10% + 50px)", top: "30px" },
+    { left: "62px", top: "calc(66% - 10px)" },
+    { left: "62px", top: "calc(28% - 10px)" },
+    { left: "calc(22% + 50px)", top: "30px" },
     { left: "50%", top: "30px", transform: "translateX(-50%)" },
-    { right: "calc(10% + 50px)", top: "30px" },
-    { right: "80px", top: "calc(40% + 30px)" },
+    { right: "calc(22% + 50px)", top: "30px" },
+    { right: "62px", top: "calc(28% - 10px)" },
+    { right: "62px", top: "calc(66% - 10px)" },
   ];
   const dp = isMobile ? dpMobile : dpDesktop;
-  Object.assign(dBtn.style, dp[state.dealerIdx] || dp[0]);
+  const dealerSlot = getSeatVisualSlot(state.dealerIdx, state.players.length);
+  Object.assign(dBtn.style, dp[dealerSlot] || dp[0]);
   table.appendChild(dBtn);
 
   // Small blind button — attach to seat
