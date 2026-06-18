@@ -6,13 +6,15 @@ const { Game, START_STACK } = require('./game');
 const crypto = require('crypto');
 
 const ROOM_RESUME_TTL = 30 * 60 * 1000;
+const MAX_PLAYERS = 8;
 
 class Room {
   constructor(code, hostId, hostName, hostWs, options = {}) {
     this.code = code;
     this.hostId = hostId;
     this.createdAt = Date.now();
-    this.maxPlayers = options.maxPlayers || 6;
+    const requestedMaxPlayers = Number(options.maxPlayers) || MAX_PLAYERS;
+    this.maxPlayers = Math.min(Math.max(2, requestedMaxPlayers), MAX_PLAYERS);
     this.startStack = options.startStack || START_STACK;
     this.sb = options.sb || 10;
     this.bb = options.bb || 20;
@@ -588,4 +590,4 @@ class RoomRegistry {
   }
 }
 
-module.exports = { Room, RoomRegistry, ROOM_RESUME_TTL };
+module.exports = { Room, RoomRegistry, ROOM_RESUME_TTL, MAX_PLAYERS };

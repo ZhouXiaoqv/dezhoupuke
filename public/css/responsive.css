@@ -102,7 +102,7 @@
   .seat-cards {
     gap: 2px;
   }
-  .seat:not(.seat-0) {
+  .seat:not(.seat-pos-0) {
     width: 18vw;
     max-width: 72px;
   }
@@ -176,40 +176,61 @@
     font-size: 13px;
   }
   /* Seat repositions for mobile */
-  .seat-0 {
+  .seat-pos-0 {
     bottom: 0;
   }
-  .seat-1 {
+  .seat-pos-1 {
+    left: 1%;
+    top: 66%;
+    transform: translateY(-50%);
+  }
+  .seat-pos-1 .seat-bet {
+    right: -28px;
+    top: 50%;
+  }
+  .seat-pos-2 {
     left: 1%;
     top: 44%;
     transform: translateY(-50%);
   }
-  .seat-1 .seat-bet {
+  .seat-pos-2 .seat-bet {
     right: -28px;
     top: 50%;
   }
-  .seat-2 {
-    left: 14%;
+  .seat-pos-3 {
+    left: 22%;
     top: -6px;
   }
-  .seat-3 {
+  .seat-pos-4 {
     left: 50%;
     top: -12px;
     transform: translateX(-50%);
   }
-  .seat-4 {
-    right: 14%;
-    top: -6px;
-  }
-  .seat-4 .seat-bet {
+  .seat-pos-4 .seat-bet {
     bottom: -20px;
   }
-  .seat-5 {
+  .seat-pos-5 {
+    right: 22%;
+    top: -6px;
+  }
+  .seat-pos-5 .seat-bet {
+    bottom: -20px;
+  }
+  .seat-pos-6 {
     right: 1%;
     top: 44%;
     transform: translateY(-50%);
   }
-  .seat-5 .seat-bet {
+  .seat-pos-6 .seat-bet {
+    left: -28px;
+    top: 50%;
+  }
+  .seat-pos-7 {
+    right: 1%;
+    top: 66%;
+    transform: translateY(-50%);
+  }
+  .seat-pos-7 .seat-bet {
     left: -28px;
     top: 50%;
   }
@@ -298,7 +319,7 @@
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
-  .seat:not(.seat-0) {
+  .seat:not(.seat-pos-0) {
     width: 17vw;
     max-width: 68px;
   }
@@ -324,24 +345,33 @@
     font-size: 7px;
     min-height: 9px;
   }
-  .seat-1 {
+  .seat-pos-1 {
+    left: 0.5%;
+    top: 68%;
+  }
+  .seat-pos-2 {
     left: 0.5%;
     top: 45%;
   }
-  .seat-2 {
-    left: 13%;
+  .seat-pos-3 {
+    left: 17%;
     top: -4px;
   }
-  .seat-3 {
-    right: 13%;
+  .seat-pos-4 {
+    left: 50%;
+    top: -10px;
+  }
+  .seat-pos-5 {
+    right: 17%;
     top: -4px;
   }
-  .seat-4 {
+  .seat-pos-6 {
     right: 0.5%;
     top: 45%;
   }
-  .seat-5 {
-    top: -10px;
+  .seat-pos-7 {
+    right: 0.5%;
+    top: 68%;
   }
 }
 /* Landscape mode for mobile */

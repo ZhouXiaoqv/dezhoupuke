@@ -1147,59 +1147,79 @@
   color: #fff;
 }
 
-/* Seat positions — horseshoe layout (Dou Dizhu style) */
-/* seat-0: Me — bottom center */
-.seat-0 {
+/* Seat positions — 8-player horseshoe layout */
+/* seat-pos-0: bottom center */
+.seat-pos-0 {
   bottom: -10px;
   left: 50%;
   transform: translateX(-50%);
 }
-.seat-0 .seat-bet {
+.seat-pos-0 .seat-bet {
   top: -24px;
 }
-/* seat-1: Left */
-.seat-1 {
-  left: 2%;
+/* seat-pos-1: lower-left rail */
+.seat-pos-1 {
+  left: 4%;
+  top: 62%;
+  transform: translateY(-50%);
+}
+.seat-pos-1 .seat-bet {
+  right: -44px;
+  top: 50%;
+}
+/* seat-pos-2: left rail */
+.seat-pos-2 {
+  left: 4%;
   top: 35%;
   transform: translateY(-50%);
 }
-.seat-1 .seat-bet {
-  right: -50px;
+.seat-pos-2 .seat-bet {
+  right: -44px;
   top: 50%;
 }
-/* seat-2: Top-left */
-.seat-2 {
-  left: 18%;
+/* seat-pos-3: top-left */
+.seat-pos-3 {
+  left: 25%;
   top: -15px;
 }
-.seat-2 .seat-bet {
+.seat-pos-3 .seat-bet {
   bottom: -24px;
 }
-/* seat-3: Top-center */
-.seat-3 {
+/* seat-pos-4: top-center */
+.seat-pos-4 {
   left: 50%;
   top: -15px;
   transform: translateX(-50%);
 }
-.seat-3 .seat-bet {
+.seat-pos-4 .seat-bet {
   bottom: -24px;
 }
-/* seat-4: Top-right */
-.seat-4 {
-  right: 18%;
+/* seat-pos-5: top-right */
+.seat-pos-5 {
+  right: 25%;
   top: -15px;
 }
-.seat-4 .seat-bet {
+.seat-pos-5 .seat-bet {
   bottom: -24px;
 }
-/* seat-5: Right */
-.seat-5 {
-  right: 2%;
+/* seat-pos-6: right rail */
+.seat-pos-6 {
+  right: 4%;
   top: 35%;
   transform: translateY(-50%);
 }
-.seat-5 .seat-bet {
-  left: -50px;
+.seat-pos-6 .seat-bet {
+  left: -44px;
+  top: 50%;
+}
+/* seat-pos-7: lower-right rail */
+.seat-pos-7 {
+  right: 4%;
+  top: 62%;
+  transform: translateY(-50%);
+}
+.seat-pos-7 .seat-bet {
+  left: -44px;
   top: 50%;
 }
 
