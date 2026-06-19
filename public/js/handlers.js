@@ -86,6 +86,29 @@ Net.on("room:gameStarted", () => {
   if (isSpectator) $("spectatorBadge").classList.add("visible");
 });
 
+function createLayoutTestRoomCard() {
+  const card = document.createElement("div");
+  card.className = "room-card layout-test-room";
+  card.innerHTML = `
+<div class="room-card-left">
+  <div class="room-card-code">LAYOUT</div>
+  <div class="room-card-host">\u5e03\u5c40\u6d4b\u8bd5\u623f\u95f4</div>
+</div>
+<div class="room-card-right">
+  <div class="room-card-players">8/8</div>
+  <div class="room-card-status bot">\u7535\u8111\u73a9\u5bb6</div>
+</div>
+    `;
+  card.addEventListener("click", () => enterLayoutTestRoom());
+  return card;
+}
+
+function renderLayoutTestRoomEntry() {
+  const list = $("publicRoomList");
+  if (!list) return;
+  list.prepend(createLayoutTestRoomCard());
+}
+
 Net.on("room:list", (d) => {
   const list = $("publicRoomList");
   if (!list) return;
@@ -93,10 +116,12 @@ Net.on("room:list", (d) => {
   if (d.rooms.length === 0) {
     list.innerHTML =
       '<div class="room-list-empty">暂无公开房间，创建一个吧</div>';
+    renderLayoutTestRoomEntry();
     return;
   }
 
   list.innerHTML = "";
+  renderLayoutTestRoomEntry();
   for (const r of d.rooms) {
     const card = document.createElement("div");
     card.className = "room-card";

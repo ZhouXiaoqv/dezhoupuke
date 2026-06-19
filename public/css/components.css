@@ -1005,11 +1005,17 @@
 
 .seat {
   position: absolute;
+  left: var(--seat-x, 50%);
+  top: var(--seat-y, 50%);
+  right: auto;
+  bottom: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   z-index: 20;
+  transform: translate(-50%, -50%) scale(var(--seat-scale, 1));
+  transform-origin: center;
   transition: opacity 0.3s;
 }
 .seat.folded {
@@ -1148,79 +1154,116 @@
 }
 
 /* Seat positions — 8-player horseshoe layout */
-/* seat-pos-0: bottom center */
+/* Proportional seat grid shared by every device. */
+.table {
+  --seat-edge-half: 46px;
+  --seat-left-edge-offset: max(
+    0px,
+    calc(
+      var(--seat-edge-half) + env(safe-area-inset-left, 0px) -
+        (50vw - 50%)
+    )
+  );
+  --seat-right-edge-offset: max(
+    0px,
+    calc(
+      var(--seat-edge-half) + env(safe-area-inset-right, 0px) -
+        (50vw - 50%)
+    )
+  );
+  --seat-col-1: var(--seat-left-edge-offset);
+  --seat-col-2: 30%;
+  --seat-col-3: 50%;
+  --seat-col-4: 70%;
+  --seat-col-5: calc(100% - var(--seat-right-edge-offset));
+  --seat-row-1: 0%;
+  --seat-row-2: 10%;
+  --seat-row-3: 50%;
+  --seat-row-4: 90%;
+  --seat-row-5: 100%;
+  --seat-bet-gap: 30px;
+}
+.seat-pos-0,
+.seat-pos-1,
+.seat-pos-2,
+.seat-pos-3,
+.seat-pos-4,
+.seat-pos-5,
+.seat-pos-6,
+.seat-pos-7 {
+  left: var(--seat-x);
+  top: var(--seat-y);
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%) scale(var(--seat-scale, 1));
+}
+.seat-pos-0,
+.seat-pos-4 {
+  --seat-x: var(--seat-col-3);
+}
+.seat-pos-1,
+.seat-pos-3 {
+  --seat-x: var(--seat-col-2);
+}
+.seat-pos-5,
+.seat-pos-7 {
+  --seat-x: var(--seat-col-4);
+}
+.seat-pos-2 {
+  --seat-x: var(--seat-col-1);
+}
+.seat-pos-6 {
+  --seat-x: var(--seat-col-5);
+}
+.seat-pos-4 {
+  --seat-y: var(--seat-row-1);
+}
+.seat-pos-3,
+.seat-pos-5 {
+  --seat-y: var(--seat-row-2);
+}
+.seat-pos-2,
+.seat-pos-6 {
+  --seat-y: var(--seat-row-3);
+}
+.seat-pos-1,
+.seat-pos-7 {
+  --seat-y: var(--seat-row-4);
+}
 .seat-pos-0 {
-  bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  --seat-y: var(--seat-row-5);
 }
 .seat-pos-0 .seat-bet {
-  top: -24px;
-}
-/* seat-pos-1: lower-left rail */
-.seat-pos-1 {
-  left: 4%;
-  top: 62%;
-  transform: translateY(-50%);
-}
-.seat-pos-1 .seat-bet {
-  right: -44px;
-  top: 50%;
-}
-/* seat-pos-2: left rail */
-.seat-pos-2 {
-  left: 4%;
-  top: 35%;
-  transform: translateY(-50%);
-}
-.seat-pos-2 .seat-bet {
-  right: -44px;
-  top: 50%;
-}
-/* seat-pos-3: top-left */
-.seat-pos-3 {
-  left: 25%;
-  top: -15px;
-}
-.seat-pos-3 .seat-bet {
-  bottom: -24px;
-}
-/* seat-pos-4: top-center */
-.seat-pos-4 {
   left: 50%;
-  top: -15px;
+  top: calc(-1 * var(--seat-bet-gap));
+  right: auto;
+  bottom: auto;
   transform: translateX(-50%);
 }
 .seat-pos-4 .seat-bet {
-  bottom: -24px;
+  left: 50%;
+  bottom: calc(-1 * var(--seat-bet-gap));
+  top: auto;
+  right: auto;
+  transform: translateX(-50%);
 }
-/* seat-pos-5: top-right */
-.seat-pos-5 {
-  right: 25%;
-  top: -15px;
-}
-.seat-pos-5 .seat-bet {
-  bottom: -24px;
-}
-/* seat-pos-6: right rail */
-.seat-pos-6 {
-  right: 4%;
-  top: 35%;
-  transform: translateY(-50%);
-}
-.seat-pos-6 .seat-bet {
-  left: -44px;
+.seat-pos-1 .seat-bet,
+.seat-pos-2 .seat-bet,
+.seat-pos-3 .seat-bet {
+  right: calc(-1 * var(--seat-bet-gap));
+  left: auto;
   top: 50%;
-}
-/* seat-pos-7: lower-right rail */
-.seat-pos-7 {
-  right: 4%;
-  top: 62%;
+  bottom: auto;
   transform: translateY(-50%);
 }
+.seat-pos-5 .seat-bet,
+.seat-pos-6 .seat-bet,
 .seat-pos-7 .seat-bet {
-  left: -44px;
+  left: calc(-1 * var(--seat-bet-gap));
+  right: auto;
   top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
 }
 
 /* My hand — fixed at bottom, outside table */

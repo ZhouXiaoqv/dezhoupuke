@@ -406,6 +406,11 @@ $("spectateLink").addEventListener("click", async (e) => {
 (function () {
   function navigateToCreateScreen(autoLoadRooms) {
     showScreen("createRoomScreen");
+    const list = $("publicRoomList");
+    if (list && typeof renderLayoutTestRoomEntry === "function") {
+      list.innerHTML = "";
+      renderLayoutTestRoomEntry();
+    }
     if (autoLoadRooms && Net.connected) {
       Net.send("room:list");
       toast("加载公开房间...");
@@ -438,6 +443,7 @@ $("spectateLink").addEventListener("click", async (e) => {
   const exitBtn = document.getElementById("gameExitBtn");
   if (exitBtn) {
     exitBtn.addEventListener("click", () => {
+      if (leaveLayoutTestRoom()) return;
       if (confirm("确定退出当前游戏？")) {
         Net.send("room:leave");
       }
@@ -447,6 +453,11 @@ $("spectateLink").addEventListener("click", async (e) => {
 
 // Refresh room list button
 $("refreshRoomList").addEventListener("click", () => {
+  const list = $("publicRoomList");
+  if (list && typeof renderLayoutTestRoomEntry === "function") {
+    list.innerHTML = "";
+    renderLayoutTestRoomEntry();
+  }
   if (Net.connected) {
     Net.send("room:list");
     toast("刷新中...");
@@ -500,13 +511,14 @@ Net.on("stats:leaderboard", (d) => {
             : p.rank === 3
               ? "🥉"
               : p.rank;
+      const profit = p.totalProfit ?? p.totalWon ?? 0;
       return `<tr>
 <td class="lb-rank ${rankClass}">${medal}</td>
 <td class="lb-name">${p.name}</td>
 <td class="lb-num">${p.handsPlayed}</td>
 <td class="lb-num">${p.handsWon}</td>
 <td class="lb-num">${p.winRate}%</td>
-<td class="lb-highlight">${p.totalWon > 0 ? "+" : ""}${p.totalWon}</td>
+<td class="lb-highlight">${profit > 0 ? "+" : ""}${profit}</td>
 <td style="color:var(--dim);font-size:12px">${p.bestHand}</td>
     </tr>`;
     })

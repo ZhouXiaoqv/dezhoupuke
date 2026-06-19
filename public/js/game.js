@@ -10,6 +10,152 @@ let prevPot = 0;
 let prevActions = {}; // playerId -> lastAction
 let prevMyHandIds = null; // track my hand cards to avoid re-animating
 let lastTurnActionData = null;
+let isLayoutTestRoom = false;
+window.lastSeatCenters = window.lastSeatCenters || Object.create(null);
+
+function cacheSeatCenter(playerId, seatEl) {
+  if (!playerId || !seatEl) return;
+  const rect = seatEl.getBoundingClientRect();
+  if (!rect.width && !rect.height) return;
+  window.lastSeatCenters[String(playerId)] = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+function makeLayoutTestCard(rankStr, suit) {
+  const suits = ["\u2660", "\u2665", "\u2666", "\u2663"];
+  const ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+  return {
+    suit,
+    rank: ranks.indexOf(rankStr),
+    rankStr,
+    suitStr: suits[suit],
+  };
+}
+
+function buildLayoutTestState() {
+  const cardBacks = [
+    "default-blue",
+    "solid-purple",
+    "solid-pink",
+    "solid-yellow",
+    "solid-black",
+    "pattern-diagonal-pop",
+    "pattern-geo-party",
+    "pattern-night-stars",
+  ];
+  return {
+    handNum: 1,
+    phase: "river",
+    gameMode: "classic",
+    pot: 240,
+    roundBet: 20,
+    minRaise: 20,
+    dealerIdx: 4,
+    sbIdx: 5,
+    bbIdx: 6,
+    currentIdx: 2,
+    community: [
+      makeLayoutTestCard("A", 0),
+      makeLayoutTestCard("K", 1),
+      makeLayoutTestCard("Q", 2),
+      makeLayoutTestCard("J", 3),
+      makeLayoutTestCard("10", 0),
+    ],
+    players: Array.from({ length: 8 }, (_, i) => ({
+      id: `layout-ai-${i}`,
+      name: `\u7535\u8111 ${i + 1}`,
+      stack: 2000 - i * 75,
+      bet: 0,
+      totalBet: 0,
+      folded: false,
+      allIn: false,
+      lastAction: "",
+      connected: true,
+      avatar: "AI",
+      avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
+      cardBack: cardBacks[i % cardBacks.length],
+      publicProfile: {
+        username: `\u7535\u8111 ${i + 1}`,
+        avatar: "AI",
+        avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
+        charm: 12 - i,
+        stats: {
+          handsPlayed: 80 + i * 9,
+          handsWon: 28 + i * 3,
+          winRate: Math.round(((28 + i * 3) / (80 + i * 9)) * 100),
+          totalProfit: i % 2 === 0 ? 260 - i * 30 : -120 + i * 15,
+        },
+      },
+      hand: [],
+    })),
+  };
+}
+
+function enterLayoutTestRoom() {
+  isLayoutTestRoom = true;
+  isSpectator = true;
+  isHost = false;
+  roomCode = "LAYOUT";
+  lastTurnActionData = null;
+  prevActions = {};
+  prevMyHandIds = null;
+  window._prevOtherHands = {};
+
+  if (typeof hideActions === "function") hideActions();
+  if (typeof hideShowHandBar === "function") hideShowHandBar();
+  if (typeof hideNextHandBar === "function") hideNextHandBar();
+  document.querySelectorAll("#table-container > .my-hand").forEach((el) => el.remove());
+  $("actionLogToggle")?.classList.remove("visible");
+  $("actionLogPanel")?.classList.remove("open");
+  $("scoreboardToggle")?.classList.remove("visible");
+  $("scoreboardPanel")?.classList.remove("open");
+  $("spectatorBadge")?.classList.add("visible");
+
+  const state = buildLayoutTestState();
+  prevPhase = state.phase;
+  logPrevPhase = state.phase;
+  prevCommunityLen = state.community.length;
+  prevPot = state.pot;
+  showScreen("table");
+  renderGame(state);
+  toast("\u5df2\u8fdb\u5165\u5e03\u5c40\u6d4b\u8bd5\u623f\u95f4");
+}
+
+function leaveLayoutTestRoom() {
+  if (!isLayoutTestRoom) return false;
+  isLayoutTestRoom = false;
+  isSpectator = false;
+  gameState = null;
+  roomCode = "";
+  lastTurnActionData = null;
+  prevPhase = "";
+  logPrevPhase = "";
+  prevCommunityLen = 0;
+  prevPot = 0;
+  prevActions = {};
+  prevMyHandIds = null;
+  window._prevOtherHands = {};
+
+  if (typeof hideActions === "function") hideActions();
+  if (typeof hideShowHandBar === "function") hideShowHandBar();
+  if (typeof hideNextHandBar === "function") hideNextHandBar();
+  $("table")?.querySelectorAll(".seat,.dealer-btn,.blind-btn").forEach((el) => el.remove());
+  document.querySelectorAll("#table-container > .my-hand").forEach((el) => el.remove());
+  if ($("community")) $("community").innerHTML = "";
+  if ($("potAmount")) $("potAmount").textContent = "0";
+  $("turnLabel")?.classList.remove("visible");
+  $("handRankLabel")?.classList.remove("visible");
+  $("spectatorBadge")?.classList.remove("visible");
+  $("actionLogToggle")?.classList.remove("visible");
+  $("actionLogPanel")?.classList.remove("open");
+  $("scoreboardToggle")?.classList.remove("visible");
+  $("scoreboardPanel")?.classList.remove("open");
+  showScreen("lobbyScreen");
+  toast("\u5df2\u9000\u51fa\u5e03\u5c40\u6d4b\u8bd5\u623f\u95f4");
+  return true;
+}
 
 // ===== ACTION LOG =====
 let logPrevPhase = "";
@@ -514,6 +660,11 @@ function renderGame(state) {
 <div class="seat-stack">${p.stack}</div>
 <div class="seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}">${actionMap[p.lastAction] || ""}</div>
     `;
+    infoEl.title = "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
+    infoEl.onclick = (e) => {
+      e.stopPropagation();
+      showInteractPanel(p.id, seat, p);
+    };
 
     // Assemble seat if new
     if (!seatExisted) {
@@ -532,7 +683,7 @@ function renderGame(state) {
         trigBtn.style.transform = "translateY(-50%)";
         trigBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          showInteractPanel(p.id, seat);
+          showInteractPanel(p.id, seat, p);
         });
         seat.appendChild(trigBtn);
         if (window.innerWidth > 700) {
@@ -574,6 +725,8 @@ function renderGame(state) {
     }
 
     if (!seatExisted) table.appendChild(seat);
+    cacheSeatCenter(p.id, seat);
+    requestAnimationFrame(() => cacheSeatCenter(p.id, seat));
   });
 
   // Move my hand cards outside the table (fixed at bottom of screen, Dou Dizhu style)
@@ -583,36 +736,19 @@ function renderGame(state) {
     container.appendChild(myHandEl);
   }
 
-  const isMobile = window.innerWidth <= 700;
-
   // Dealer button
-  const dBtn = document.createElement("div");
-  dBtn.className = "dealer-btn";
-  dBtn.textContent = "D";
-  const dpDesktop = [
-    { bottom: "55px", left: "calc(50% + 60px)" },
-    { left: "calc(4% + 72px)", top: "calc(62% - 12px)" },
-    { left: "calc(4% + 72px)", top: "calc(25% - 12px)" },
-    { left: "calc(25% + 82px)", top: "45px" },
-    { left: "50%", top: "45px", transform: "translateX(-50%)" },
-    { right: "calc(25% + 82px)", top: "45px" },
-    { right: "calc(4% + 72px)", top: "calc(25% - 12px)" },
-    { right: "calc(4% + 72px)", top: "calc(62% - 12px)" },
-  ];
-  const dpMobile = [
-    { bottom: "55px", left: "calc(50% + 50px)" },
-    { left: "62px", top: "calc(66% - 10px)" },
-    { left: "62px", top: "calc(28% - 10px)" },
-    { left: "calc(22% + 50px)", top: "30px" },
-    { left: "50%", top: "30px", transform: "translateX(-50%)" },
-    { right: "calc(22% + 50px)", top: "30px" },
-    { right: "62px", top: "calc(28% - 10px)" },
-    { right: "62px", top: "calc(66% - 10px)" },
-  ];
-  const dp = isMobile ? dpMobile : dpDesktop;
-  const dealerSlot = getSeatVisualSlot(state.dealerIdx, state.players.length);
-  Object.assign(dBtn.style, dp[dealerSlot] || dp[0]);
-  table.appendChild(dBtn);
+  if (state.dealerIdx !== undefined && state.dealerIdx !== null) {
+    const dealerSeat = table.querySelector(`.seat-${state.dealerIdx}`);
+    if (dealerSeat) {
+      const dBtn = document.createElement("div");
+      dBtn.className = "dealer-btn";
+      dBtn.textContent = "D";
+      dBtn.style.position = "absolute";
+      dBtn.style.top = "-8px";
+      dBtn.style.left = "-4px";
+      dealerSeat.appendChild(dBtn);
+    }
+  }
 
   // Small blind button — attach to seat
   if (state.sbIdx !== undefined && state.sbIdx !== null) {

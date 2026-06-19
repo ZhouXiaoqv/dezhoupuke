@@ -18,6 +18,7 @@ class StatsTracker {
         handsWon: 0,
         totalWon: 0,
         totalLost: 0,
+        totalProfit: 0,
         biggestPot: 0,
         bestHand: '',
         bestHandRank: -1,
@@ -28,13 +29,21 @@ class StatsTracker {
     }
 
     const stats = this.stats.get(playerName);
+    const amount = Number(data.amount || 0);
+    const net = Number.isFinite(Number(data.net))
+      ? Number(data.net)
+      : data.won
+        ? amount
+        : -amount;
     stats.handsPlayed++;
     stats.lastSeen = Date.now();
+    stats.totalProfit += net;
+    if (net < 0) stats.totalLost += Math.abs(net);
 
     if (data.won) {
       stats.handsWon++;
-      stats.totalWon += data.amount;
-      if (data.amount > stats.biggestPot) stats.biggestPot = data.amount;
+      stats.totalWon += amount;
+      if (amount > stats.biggestPot) stats.biggestPot = amount;
     }
 
     if (data.handRank > stats.bestHandRank) {
@@ -50,14 +59,16 @@ class StatsTracker {
     if (userBoard.length > 0) return userBoard;
 
     const list = [...this.stats.values()];
-    list.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
+    const statKey = sortBy === 'totalWon' ? 'totalProfit' : sortBy;
+    list.sort((a, b) => (b[statKey] || 0) - (a[statKey] || 0));
     return list.slice(0, limit).map((stats, index) => ({
       rank: index + 1,
       name: stats.name,
       handsPlayed: stats.handsPlayed,
       handsWon: stats.handsWon,
       winRate: stats.handsPlayed > 0 ? Math.round(stats.handsWon / stats.handsPlayed * 100) : 0,
-      totalWon: stats.totalWon,
+      totalWon: stats.totalProfit,
+      totalProfit: stats.totalProfit,
       biggestPot: stats.biggestPot,
       bestHand: stats.bestHand || '-',
       allIns: stats.allIns,

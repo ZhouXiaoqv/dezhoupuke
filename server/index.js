@@ -32,6 +32,8 @@ function wireStatsReporting(room) {
     for (const gp of game.players) {
       const won = game.winners.some((winner) => winner.id === gp.id);
       const winData = game.winners.find((winner) => winner.id === gp.id);
+      const stackBefore = room.handStartStacks.get(gp.id) ?? gp.stack;
+      const net = gp.stack - stackBefore;
       let handRank = -1;
       let handName = '';
 
@@ -46,16 +48,30 @@ function wireStatsReporting(room) {
       const recordData = {
         won,
         amount: won ? (winData?.amount || 0) : 0,
+        net,
         handRank,
         handName,
         allIn: gp.lastAction === 'allin' || gp.allIn,
-        stackBefore: gp.stack - (won ? (winData?.amount || 0) : 0),
+        stackBefore,
       };
 
       stats.record(gp.name, recordData);
 
       if (gp._username) {
         const result = userStore.recordGame(gp._username, recordData);
+        if (result.profile) {
+          const playerWs = wsManager.playerSockets.get(gp.id);
+          if (playerWs && playerWs.readyState === 1) {
+            playerWs.send(JSON.stringify({
+              type: 'user:profileUpdated',
+              data: { profile: result.profile },
+            }));
+          }
+          const publicProfile = userStore.getPublicProfile(gp._username);
+          if (publicProfile && typeof room.updatePlayerPublicProfile === 'function') {
+            room.updatePlayerPublicProfile(gp.id, publicProfile, { silent: true });
+          }
+        }
         if (result.newAchievements && result.newAchievements.length > 0) {
           const playerWs = wsManager.playerSockets.get(gp.id);
           if (playerWs && playerWs.readyState === 1) {

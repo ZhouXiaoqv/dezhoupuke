@@ -8,6 +8,7 @@
     border-width: 6px;
     --community-card-half: 20px;
     --pot-gap-above-community: 18px;
+    --seat-edge-half: 36px;
   }
   .table::before {
     inset: 4px;
@@ -175,64 +176,8 @@
     padding: 4px 10px;
     font-size: 13px;
   }
-  /* Seat repositions for mobile */
-  .seat-pos-0 {
-    bottom: 0;
-  }
-  .seat-pos-1 {
-    left: 1%;
-    top: 66%;
-    transform: translateY(-50%);
-  }
-  .seat-pos-1 .seat-bet {
-    right: -28px;
-    top: 50%;
-  }
-  .seat-pos-2 {
-    left: 1%;
-    top: 44%;
-    transform: translateY(-50%);
-  }
-  .seat-pos-2 .seat-bet {
-    right: -28px;
-    top: 50%;
-  }
-  .seat-pos-3 {
-    left: 22%;
-    top: -6px;
-  }
-  .seat-pos-4 {
-    left: 50%;
-    top: -12px;
-    transform: translateX(-50%);
-  }
-  .seat-pos-4 .seat-bet {
-    bottom: -20px;
-  }
-  .seat-pos-5 {
-    right: 22%;
-    top: -6px;
-  }
-  .seat-pos-5 .seat-bet {
-    bottom: -20px;
-  }
-  .seat-pos-6 {
-    right: 1%;
-    top: 44%;
-    transform: translateY(-50%);
-  }
-  .seat-pos-6 .seat-bet {
-    left: -28px;
-    top: 50%;
-  }
-  .seat-pos-7 {
-    right: 1%;
-    top: 66%;
-    transform: translateY(-50%);
-  }
-  .seat-pos-7 .seat-bet {
-    left: -28px;
-    top: 50%;
+  .table {
+    --seat-bet-gap: 24px;
   }
   .turn-label {
     font-size: 14px;
@@ -345,33 +290,9 @@
     font-size: 7px;
     min-height: 9px;
   }
-  .seat-pos-1 {
-    left: 0.5%;
-    top: 68%;
-  }
-  .seat-pos-2 {
-    left: 0.5%;
-    top: 45%;
-  }
-  .seat-pos-3 {
-    left: 17%;
-    top: -4px;
-  }
-  .seat-pos-4 {
-    left: 50%;
-    top: -10px;
-  }
-  .seat-pos-5 {
-    right: 17%;
-    top: -4px;
-  }
-  .seat-pos-6 {
-    right: 0.5%;
-    top: 45%;
-  }
-  .seat-pos-7 {
-    right: 0.5%;
-    top: 68%;
+  .table {
+    --seat-bet-gap: 20px;
+    --seat-edge-half: 34px;
   }
 }
 /* Landscape mode for mobile */
@@ -423,7 +344,7 @@
     height: 45vh;
   }
   .seat {
-    transform: scale(0.85);
+    --seat-scale: 0.85;
   }
   .action-panel {
     padding: 6px;
