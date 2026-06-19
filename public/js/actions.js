@@ -9,6 +9,9 @@ function syncActionPanelOffset() {
     ? Math.ceil(panel.getBoundingClientRect().height)
     : 0;
   container.style.setProperty("--action-panel-height", `${height}px`);
+  if (typeof syncAutoCallControls === "function") {
+    syncAutoCallControls(lastTurnActionData || {});
+  }
 }
 
 function syncAutoCallControls(data = {}) {
