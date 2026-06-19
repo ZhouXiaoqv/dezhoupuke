@@ -13,6 +13,15 @@ let lastTurnActionData = null;
 let isLayoutTestRoom = false;
 window.lastSeatCenters = window.lastSeatCenters || Object.create(null);
 
+function clearMyHandView(resetSignature = true) {
+  myHand = [];
+  if (resetSignature) prevMyHandIds = null;
+  document
+    .querySelectorAll("#table-container .my-hand")
+    .forEach((el) => el.remove());
+  $("handRankLabel")?.classList.remove("visible");
+}
+
 function cacheSeatCenter(playerId, seatEl) {
   if (!playerId || !seatEl) return;
   const rect = seatEl.getBoundingClientRect();
@@ -106,7 +115,7 @@ function enterLayoutTestRoom() {
   if (typeof hideActions === "function") hideActions();
   if (typeof hideShowHandBar === "function") hideShowHandBar();
   if (typeof hideNextHandBar === "function") hideNextHandBar();
-  document.querySelectorAll("#table-container > .my-hand").forEach((el) => el.remove());
+  clearMyHandView();
   $("actionLogToggle")?.classList.remove("visible");
   $("actionLogPanel")?.classList.remove("open");
   $("scoreboardToggle")?.classList.remove("visible");
@@ -142,7 +151,7 @@ function leaveLayoutTestRoom() {
   if (typeof hideShowHandBar === "function") hideShowHandBar();
   if (typeof hideNextHandBar === "function") hideNextHandBar();
   $("table")?.querySelectorAll(".seat,.dealer-btn,.blind-btn").forEach((el) => el.remove());
-  document.querySelectorAll("#table-container > .my-hand").forEach((el) => el.remove());
+  clearMyHandView();
   if ($("community")) $("community").innerHTML = "";
   if ($("potAmount")) $("potAmount").textContent = "0";
   $("turnLabel")?.classList.remove("visible");
@@ -512,6 +521,8 @@ function renderGame(state) {
   if (me && me.hand && me.hand[0]) {
     myHand = me.hand;
     prevMyHandIds = currentHandIds;
+  } else {
+    clearMyHandView(false);
   }
 
   // Track which players we've seen cards for (to avoid re-animating other players)
@@ -572,16 +583,18 @@ function renderGame(state) {
       p.id !== Net.playerId
         ? otherCardSig !== (window._prevOtherHands[p.id] || "")
         : false;
+    const isMySeat = p.id === Net.playerId;
+    const hasMyCards = isMySeat && !!p.hand?.[0];
     const needsCardRebuild =
-      !cardsEl ||
-      (p.id === Net.playerId ? myHandChanged : otherCardsChanged);
+      (!cardsEl && (!isMySeat || hasMyCards)) ||
+      (isMySeat ? hasMyCards && myHandChanged : otherCardsChanged);
     if (needsCardRebuild) {
       if (cardsEl) cardsEl.remove();
       cardsEl = document.createElement("div");
-      if (p.id === Net.playerId) cardsEl.className = "my-hand";
+      if (isMySeat) cardsEl.className = "my-hand";
       else cardsEl.className = "seat-cards";
 
-      if (p.id === Net.playerId) {
+      if (isMySeat) {
         for (const card of p.hand || []) {
           if (card) {
             const el = createCardEl(card);
@@ -669,7 +682,7 @@ function renderGame(state) {
     // Assemble seat if new
     if (!seatExisted) {
       if (p.id === Net.playerId) {
-        seat.appendChild(cardsEl);
+        if (cardsEl) seat.appendChild(cardsEl);
         seat.appendChild(infoEl);
       } else {
         seat.appendChild(infoEl);

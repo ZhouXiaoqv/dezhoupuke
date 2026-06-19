@@ -50,8 +50,15 @@
   pointer-events: none;
   opacity: 1;
   will-change: transform, opacity;
-  transition: transform var(--fly-duration, 720ms) linear;
+  transform: translate(-50%, -50%) translate(0, 0) scale(1);
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+}
+.flying-gift.in-flight {
+  animation: giftFlyLinear var(--fly-duration, 720ms) linear forwards;
+}
+.flying-gift.gift-arc.in-flight {
+  animation-name: giftFlyArc;
+  animation-timing-function: ease-in-out;
 }
 .flying-gift-sprite {
   width: 100%;
@@ -60,6 +67,28 @@
 .flying-gift.arrived {
   opacity: 0;
   transition: opacity 280ms ease-out;
+}
+@keyframes giftFlyLinear {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(-50%, -50%)
+      translate(var(--fly-x, 0px), var(--fly-y, 0px)) scale(1);
+  }
+}
+@keyframes giftFlyArc {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%)
+      translate(var(--fly-mid-x, 0px), var(--fly-mid-y, -32px)) scale(1.04);
+  }
+  100% {
+    transform: translate(-50%, -50%)
+      translate(var(--fly-x, 0px), var(--fly-y, 0px)) scale(1);
+  }
 }
 @keyframes giftFloat {
   0% {

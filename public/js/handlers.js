@@ -27,6 +27,9 @@ Net.on("room:state", (d) => {
   $("roomCodeDisplay").textContent = d.code;
   isHost = d.hostId === Net.playerId;
   $("scoreboardToggle").classList.toggle("visible", !!d.gameRunning);
+  if (!d.gameRunning && typeof clearMyHandView === "function") {
+    clearMyHandView();
+  }
 });
 
 Net.on("room:players", (d) => {
@@ -81,6 +84,7 @@ Net.on("room:hostChanged", (d) => {
 
 Net.on("room:gameStarted", () => {
   showScreen("table");
+  if (typeof clearMyHandView === "function") clearMyHandView();
   hideActions();
   $("scoreboardToggle").classList.add("visible");
   if (isSpectator) $("spectatorBadge").classList.add("visible");
@@ -193,6 +197,7 @@ Net.on("room:error", (d) => {
   toast(d.message);
 });
 Net.on("room:left", () => {
+  if (typeof clearMyHandView === "function") clearMyHandView();
   $("actionLogToggle").classList.remove("visible");
   $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
@@ -207,6 +212,7 @@ Net.on("room:left", () => {
   toast("已离开房间");
 });
 Net.on("room:destroyed", () => {
+  if (typeof clearMyHandView === "function") clearMyHandView();
   $("actionLogToggle").classList.remove("visible");
   $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
@@ -232,6 +238,7 @@ Net.on("game:yourTurn", (d) => {
 
 Net.on("game:handStart", (d) => {
   lastTurnActionData = null;
+  if (typeof clearMyHandView === "function") clearMyHandView();
   hideActions();
   hideShowHandBar();
   toast(`第 ${d.handNum} 手开始`);
@@ -270,6 +277,7 @@ Net.on("game:showdown", (d) => {
 
 Net.on("game:handEnd", (d) => {
   lastTurnActionData = null;
+  if (typeof clearMyHandView === "function") clearMyHandView();
   hideActions();
   hideShowHandBar();
   hideNextHandBar();
@@ -308,6 +316,7 @@ Net.on("game:handShown", (d) => {
 });
 
 Net.on("game:waitingForNext", (d) => {
+  if (typeof clearMyHandView === "function") clearMyHandView();
   hideShowHandBar();
   $("settlementOverlay").classList.remove("active");
   showNextHandBar(d.nextHandDelay || 15);

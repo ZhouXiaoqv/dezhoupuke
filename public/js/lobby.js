@@ -68,6 +68,8 @@ const GIFT_ANIMATION_FRAME_COUNT = 16;
 const GIFT_ANIMATION_FPS = 12;
 const GIFT_ANIMATION_COLS = 4;
 const GIFT_ANIMATION_ROWS = 4;
+const giftSpritePreloadCache = new Map();
+const pendingLocalGiftRoutes = [];
 
 function getEmotionAnimationSlug(emotion) {
   if (!emotion || typeof emotion === "string") return null;
@@ -80,6 +82,26 @@ function getEmotionAnimationSlug(emotion) {
 
 function getGiftSpriteUrl(slug) {
   return `${GIFT_ANIMATION_BASE}/${slug}/${slug}-sheet.png`;
+}
+
+function preloadGiftSprite(slug) {
+  if (!slug) return Promise.resolve(true);
+  if (giftSpritePreloadCache.has(slug)) return giftSpritePreloadCache.get(slug);
+
+  const promise = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = getGiftSpriteUrl(slug);
+  });
+  giftSpritePreloadCache.set(slug, promise);
+  return promise;
+}
+
+function preloadGiftSprites() {
+  for (const emotion of EMOTION_CATALOG) {
+    preloadGiftSprite(getEmotionAnimationSlug(emotion));
+  }
 }
 
 function setGiftSpriteFrame(el, frameIndex) {
@@ -132,10 +154,47 @@ function playGiftSprite(sprite) {
   return () => cancelAnimationFrame(rafId);
 }
 
-function spawnEmotionFlyByIds(fromId, toId, emotion) {
-  const from = getSeatCenterByPlayerId(fromId);
+function rememberPendingGiftRoute(toId, emotionId) {
+  if (!Net.playerId || !toId) return;
+  const from = getSeatCenterByPlayerId(Net.playerId);
   const to = getSeatCenterByPlayerId(toId);
   if (!from || !to) return;
+
+  pendingLocalGiftRoutes.push({
+    fromId: String(Net.playerId),
+    toId: String(toId),
+    emotionId: String(emotionId || ""),
+    from,
+    to,
+    createdAt: performance.now(),
+  });
+  while (pendingLocalGiftRoutes.length > 8) pendingLocalGiftRoutes.shift();
+}
+
+function takePendingGiftRoute(fromId, toId, emotion) {
+  const now = performance.now();
+  const emotionId = String(
+    emotion && typeof emotion === "object" ? emotion.id || "" : "",
+  );
+  for (let i = pendingLocalGiftRoutes.length - 1; i >= 0; i--) {
+    const route = pendingLocalGiftRoutes[i];
+    if (now - route.createdAt > 5000) {
+      pendingLocalGiftRoutes.splice(i, 1);
+      continue;
+    }
+    if (
+      route.fromId === String(fromId) &&
+      route.toId === String(toId) &&
+      route.emotionId === emotionId
+    ) {
+      pendingLocalGiftRoutes.splice(i, 1);
+      return route;
+    }
+  }
+  return null;
+}
+
+function spawnEmotionFly(from, to, emotion) {
   const startX = from.x;
   const startY = from.y;
   const endX = to.x;
@@ -146,32 +205,50 @@ function spawnEmotionFlyByIds(fromId, toId, emotion) {
   const duration = Math.max(680, Math.min(1180, Math.round(distance * 1.55)));
   const animationDuration =
     (GIFT_ANIMATION_FRAME_COUNT / GIFT_ANIMATION_FPS) * 1000;
+  const slug = getEmotionAnimationSlug(emotion);
+  const hasArc = slug === "slipper";
+  const arcHeight = hasArc
+    ? Math.max(26, Math.min(52, Math.round(distance * 0.12)))
+    : 0;
 
   const gift = document.createElement("div");
   gift.className = "flying-gift";
+  if (hasArc) gift.classList.add("gift-arc");
   gift.style.left = startX + "px";
   gift.style.top = startY + "px";
   gift.style.setProperty("--fly-duration", duration + "ms");
-  gift.style.transform = "translate(-50%, -50%) translate(0, 0) scale(1)";
+  gift.style.setProperty("--fly-x", dx + "px");
+  gift.style.setProperty("--fly-y", dy + "px");
+  gift.style.setProperty("--fly-mid-x", dx / 2 + "px");
+  gift.style.setProperty("--fly-mid-y", dy / 2 - arcHeight + "px");
   const sprite = createGiftSpriteEl(emotion, "flying-gift-sprite");
   gift.appendChild(sprite);
   document.body.appendChild(gift);
   const stopSprite = playGiftSprite(sprite);
 
   requestAnimationFrame(() => {
-    gift.style.transform =
-      `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(1)`;
+    gift.classList.add("in-flight");
   });
   setTimeout(() => {
     gift.classList.add("arrived");
-    gift.style.transform =
-      `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(1)`;
   }, Math.max(duration, animationDuration));
   setTimeout(() => {
     stopSprite();
     gift.remove();
   }, Math.max(duration, animationDuration) + 300);
 }
+
+function spawnEmotionFlyByIds(fromId, toId, emotion) {
+  const pendingRoute = takePendingGiftRoute(fromId, toId, emotion);
+  const from = pendingRoute?.from || getSeatCenterByPlayerId(fromId);
+  const to = pendingRoute?.to || getSeatCenterByPlayerId(toId);
+  if (!from || !to) return;
+
+  const slug = getEmotionAnimationSlug(emotion);
+  preloadGiftSprite(slug).then(() => spawnEmotionFly(from, to, emotion));
+}
+
+preloadGiftSprites();
 
 function formatSignedNumber(value) {
   const n = Number(value || 0);
@@ -349,6 +426,7 @@ function renderInteractPanel() {
         toast("\u91d1\u5e01\u4e0d\u8db3");
         return;
       }
+      rememberPendingGiftRoute(interactTarget, emotion.id);
       Net.send("room:interact", {
         targetId: interactTarget,
         emotionId: emotion.id,
