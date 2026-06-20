@@ -283,7 +283,7 @@ class Room {
     if (starterId !== this.hostId) return;
 
     const connected = [...this.players.values()].filter((p) => p.connected);
-    if (connected.length < 2) {
+    if (connected.filter((p) => p.stack > 0).length < 2) {
       this.sendTo(starterId, 'room:error', { message: '至少需要 2 名玩家' });
       return;
     }
@@ -332,6 +332,8 @@ class Room {
           if (spectator.ws && spectator.ws.readyState === 1) spectator.ws.send(msg);
         }
       }
+
+      if (this.isCurrentHandSettled()) this.broadcastScoreboard();
     };
 
     this.game.onGameEnd = () => {
@@ -357,7 +359,7 @@ class Room {
 
       this.broadcast('game:waitingForNext', { nextHandDelay: 15 });
       this.nextHandTimer = setTimeout(() => {
-        if (this.players.size >= 2) this.startGame(this.hostId);
+        if (this.canStartHand()) this.startGame(this.hostId);
       }, 15000);
     };
 
@@ -459,10 +461,35 @@ class Room {
     this.broadcast('room:players', { players, spectators, hostId: this.hostId });
   }
 
+  canStartHand() {
+    return [...this.players.values()].filter((p) => p.connected && p.stack > 0).length >= 2;
+  }
+
   getScoreboard() {
-    return [...this.scoreboard.values()]
+    const scores = new Map([...this.scoreboard.entries()].map(([id, score]) => [id, { ...score }]));
+
+    if (this.game && this.gameRunning && this.isCurrentHandSettled()) {
+      for (const gp of this.game.players) {
+        const startStack = this.handStartStacks.get(gp.id);
+        if (typeof startStack !== 'number') continue;
+        if (!scores.has(gp.id)) {
+          scores.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
+        }
+        const score = scores.get(gp.id);
+        score.name = gp.name;
+        score.score += gp.stack - startStack;
+      }
+    }
+
+    return [...scores.values()]
       .map((s) => ({ ...s }))
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  }
+
+  isCurrentHandSettled() {
+    if (!this.game) return false;
+    return (this.game.winners && this.game.winners.length > 0) ||
+      (this.game.refunds && this.game.refunds.length > 0);
   }
 
   broadcastScoreboard() {

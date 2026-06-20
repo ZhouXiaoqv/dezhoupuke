@@ -94,6 +94,7 @@ document.addEventListener("visibilitychange", async () => {
     localStorage.removeItem("poker_token");
     stopRoomListRefresh();
     showAvatarBtn(false);
+    if (typeof updateHolidayBookmark === "function") updateHolidayBookmark([]);
     updateUserArea();
     updateLobbyVisibility();
   }
@@ -109,6 +110,8 @@ document.addEventListener("visibilitychange", async () => {
     $("spectatorBadge").classList.remove("visible");
     $("profileOverlay").classList.remove("active");
     $("checkinOverlay").classList.remove("active");
+    $("holidayGiftDropdown")?.classList.remove("active");
+    $("holidayGiftResult")?.classList.remove("active");
     activateAuthTab("login");
     showScreen("lobbyScreen");
     showError("");
@@ -179,6 +182,13 @@ document.addEventListener("visibilitychange", async () => {
     userProfile = d.profile;
     isRegistered = true;
     localStorage.setItem("poker_token", d.token);
+    if (userProfile?.role === "admin") {
+      stopRoomListRefresh();
+      updateLobbyVisibility();
+      showScreen("adminScreen");
+      if (typeof loadAdminDashboard === "function") loadAdminDashboard();
+      return;
+    }
     updateLobbyVisibility();
     if (d.resume) {
       roomCode = d.resume.code || "";
@@ -194,6 +204,8 @@ document.addEventListener("visibilitychange", async () => {
     userProfile = d.profile;
     isRegistered = true;
     localStorage.setItem("poker_token", d.token);
+    Net.send("shop:getCatalog");
+    Net.send("holiday:list");
     updateLobbyVisibility();
   });
 
@@ -273,6 +285,7 @@ document.addEventListener("visibilitychange", async () => {
     const restored = await restoreAuthenticatedSession({ silent: true });
     if (restored) {
       $("connDot").className = "connection-dot online";
+      if (userProfile?.role === "admin") return;
       requestAnimationFrame(() =>
         restoreActionPanelIfMyTurn({ notify: true }),
       );

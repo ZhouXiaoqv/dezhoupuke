@@ -113,7 +113,7 @@ class Game {
       id: p.id,
       name: p.name,
       seatIdx: i,
-      stack: p.stack || this.startStack,
+      stack: Number.isFinite(p.stack) ? p.stack : this.startStack,
       hand: [],
       bet: 0,
       totalBet: 0,
@@ -580,7 +580,13 @@ class Game {
 
       // Eligible winners: in-hand (not folded) with totalBet >= level
       const eligible = evals.filter(e => e.player.totalBet >= level);
-      if (eligible.length === 0) { prevLevel = level; continue; }
+      if (eligible.length === 0) {
+        for (const contributor of contributors) {
+          refunds[contributor.id] = (refunds[contributor.id] || 0) + layerSize;
+        }
+        prevLevel = level;
+        continue;
+      }
 
       // Best hand(s) among eligible
       const best = [eligible[0]];

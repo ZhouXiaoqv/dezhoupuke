@@ -292,6 +292,16 @@
 .card-back-preview::after {
   pointer-events: none;
 }
+.card-back-image {
+  background-color: #111;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  border: none;
+}
+.card-back-image::after {
+  display: none;
+}
 .card-back-default-blue {
   background: linear-gradient(135deg, #1a3a6a 0%, #2a4a8a 100%);
   border-color: #3a5a9a;

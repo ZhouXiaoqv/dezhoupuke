@@ -5,8 +5,21 @@
 function register(ws, ctx) {
   const { registry, wsManager, wireStatsReporting, userStore } = ctx;
 
+  function requirePlayer() {
+    if (!ws._requireLogin()) return false;
+    if (!userStore.isPlayer(ws._currentUser.username)) {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: '管理员不能进入房间或查看牌局' } }));
+      return false;
+    }
+    return true;
+  }
+
   ws._on('room:list', () => {
     if (!ws._currentUser) {
+      ws.send(JSON.stringify({ type: 'room:list', data: { rooms: [] } }));
+      return;
+    }
+    if (!userStore.isPlayer(ws._currentUser.username)) {
       ws.send(JSON.stringify({ type: 'room:list', data: { rooms: [] } }));
       return;
     }
@@ -14,7 +27,7 @@ function register(ws, ctx) {
   });
 
   ws._on('room:create', (data) => {
-    if (!ws._requireLogin()) return;
+    if (!requirePlayer()) return;
 
     if (ws._currentRoom) registry.leaveRoom(ws._playerId);
 
@@ -45,7 +58,7 @@ function register(ws, ctx) {
   });
 
   ws._on('room:join', (data) => {
-    if (!ws._requireLogin()) return;
+    if (!requirePlayer()) return;
 
     const code = (data.code || '').toUpperCase().trim();
     if (!code) {
@@ -69,7 +82,7 @@ function register(ws, ctx) {
   });
 
   ws._on('room:spectate', (data) => {
-    if (!ws._requireLogin()) return;
+    if (!requirePlayer()) return;
 
     const code = (data.code || '').toUpperCase().trim();
     if (!code) {
@@ -93,6 +106,7 @@ function register(ws, ctx) {
   });
 
   ws._on('room:leave', () => {
+    if (ws._currentUser && !userStore.isPlayer(ws._currentUser.username)) return;
     if (ws._playerId && ws._currentRoom) {
       wsManager.clearPendingDisconnect(ws._playerId);
       registry.leaveRoom(ws._playerId);
@@ -103,17 +117,19 @@ function register(ws, ctx) {
   });
 
   ws._on('room:start', () => {
+    if (!ws._currentUser || !userStore.isPlayer(ws._currentUser.username)) return;
     if (!ws._currentRoom) return;
     ws._currentRoom.startGame(ws._playerId);
   });
 
   ws._on('room:ready', (data) => {
+    if (!ws._currentUser || !userStore.isPlayer(ws._currentUser.username)) return;
     if (!ws._currentRoom) return;
     ws._currentRoom.setReady(ws._playerId, !!data.ready);
   });
 
   ws._on('room:interact', (data) => {
-    if (!ws._requireLogin()) return;
+    if (!requirePlayer()) return;
     if (!ws._currentRoom) return;
     const room = ws._currentRoom;
     const targetId = data && data.targetId;

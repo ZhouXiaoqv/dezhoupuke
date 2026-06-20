@@ -1,0 +1,38 @@
+{
+  "slug": "holiday-gift-box",
+  "displayName": "节日礼物盒",
+  "frameRate": 16,
+  "frameCount": 16,
+  "frameWidth": 384,
+  "frameHeight": 256,
+  "sheetColumns": 4,
+  "sheetRows": 4,
+  "anchor": {
+    "mode": "fixed-cell",
+    "x": 192,
+    "y": 202,
+    "note": "The base gift box keeps a fixed cell canvas and fixed bottom-center anchor to avoid jitter."
+  },
+  "sheet": "holiday-gift-box-sheet.png",
+  "preview": "holiday-gift-box-preview.gif",
+  "frames": [
+    "frames/holiday-gift-box-01.png",
+    "frames/holiday-gift-box-02.png",
+    "frames/holiday-gift-box-03.png",
+    "frames/holiday-gift-box-04.png",
+    "frames/holiday-gift-box-05.png",
+    "frames/holiday-gift-box-06.png",
+    "frames/holiday-gift-box-07.png",
+    "frames/holiday-gift-box-08.png",
+    "frames/holiday-gift-box-09.png",
+    "frames/holiday-gift-box-10.png",
+    "frames/holiday-gift-box-11.png",
+    "frames/holiday-gift-box-12.png",
+    "frames/holiday-gift-box-13.png",
+    "frames/holiday-gift-box-14.png",
+    "frames/holiday-gift-box-15.png",
+    "frames/holiday-gift-box-16.png"
+  ],
+  "style": "flat business casino, black and gold palette, poker suit pattern, golden light reveal",
+  "note": "Generated as a standalone holiday gift-box animation asset, separate from in-game gift assets."
+}

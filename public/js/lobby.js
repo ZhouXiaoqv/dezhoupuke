@@ -660,6 +660,25 @@ Net.on("shop:purchaseResult", (d) => {
   toast("购买成功");
 });
 
+Net.on("shop:catalog", (d) => {
+  syncShopCatalog(d.catalog);
+  if (d.profile) userProfile = d.profile;
+  renderShop();
+  renderOwnedCardBacks();
+});
+
+Net.on("shop:error", (d) => {
+  toast(d.message || "\u5546\u5e97\u64cd\u4f5c\u5931\u8d25");
+});
+
+Net.on("shop:blindBoxResult", (d) => {
+  if (userProfile && d.profile) userProfile = d.profile;
+  updateUserArea();
+  renderOwnedCardBacks();
+  renderShop();
+  playBlindBoxResult(d);
+});
+
 function renderOwnedCardBacks() {
   const grid = $("cardBackGrid");
   if (!grid) return;
@@ -687,18 +706,33 @@ function renderShop() {
   const grid = $("shopGrid");
   if (!grid) return;
   grid.innerHTML = "";
+  renderShopCategories();
   const owned = new Set(getOwnedCardBacks(userProfile));
   const coins = userProfile?.coins || 0;
-  const items = [...CARD_BACK_SHOP].sort((a, b) => a.price - b.price);
+  const catalog = shopCatalog || {
+    shopItems: CARD_BACK_SHOP.map((item) => ({
+      id: item.id,
+      cardBackId: item.id,
+      price: item.price,
+      categoryId: "card-backs",
+      enabled: true,
+    })),
+    blindBoxes: [],
+  };
+  const selectedCategory = renderShop.selectedCategory || "";
+  const items = (catalog.shopItems || [])
+    .filter((item) => !selectedCategory || item.categoryId === selectedCategory)
+    .sort((a, b) => (a.price || 0) - (b.price || 0));
   items.forEach((item) => {
-    const isOwned = owned.has(item.id);
+    const cardBackId = item.cardBackId || item.id;
+    const isOwned = owned.has(cardBackId);
     const canBuy = coins >= item.price;
     const opt = document.createElement("div");
     opt.className =
       "shop-option" +
       (isOwned ? " owned" : "") +
       (!isOwned && !canBuy ? " unaffordable" : "");
-    opt.appendChild(createCardBackPreview(item.id));
+    opt.appendChild(createCardBackPreview(cardBackId));
     const price = document.createElement("div");
     price.className = "shop-price";
     price.textContent = item.price + "\u91d1\u5e01";
@@ -712,13 +746,66 @@ function renderShop() {
     buyBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (isOwned || !canBuy) return;
-      Net.send("shop:buyCardBack", { id: item.id });
+      Net.send("shop:buyItem", { id: item.id, cardBackId });
     });
     grid.appendChild(opt);
+  });
+  (catalog.blindBoxes || [])
+    .filter((box) => !selectedCategory || box.categoryId === selectedCategory)
+    .forEach((box) => {
+      const canBuy = coins >= box.price;
+      const opt = document.createElement("div");
+      opt.className = "shop-option blindbox-option" + (!canBuy ? " unaffordable" : "");
+      const icon = document.createElement("div");
+      icon.className = "blindbox-shop-icon";
+      opt.appendChild(icon);
+      const name = document.createElement("div");
+      name.className = "shop-item-name";
+      name.textContent = box.name || "\u724c\u80cc\u76f2\u76d2";
+      opt.appendChild(name);
+      const price = document.createElement("div");
+      price.className = "shop-price";
+      price.textContent = box.price + "\u91d1\u5e01";
+      opt.appendChild(price);
+      const buyBtn = document.createElement("button");
+      buyBtn.type = "button";
+      buyBtn.className = "shop-buy-btn";
+      buyBtn.textContent = "\u8bf4\u660e";
+      opt.appendChild(buyBtn);
+      opt.addEventListener("click", () => openBlindBoxModal(box));
+      grid.appendChild(opt);
+    });
+  if (!grid.children.length) {
+    grid.innerHTML = '<div class="shop-empty">\u6682\u65e0\u5546\u54c1</div>';
+  }
+}
+
+function renderShopCategories() {
+  const tabs = $("shopCategoryTabs");
+  if (!tabs) return;
+  const categories = shopCatalog?.shopCategories || [];
+  tabs.innerHTML = "";
+  if (!categories.length) return;
+  const categoryIds = new Set(categories.map((category) => category.id));
+  const activeId = categoryIds.has(renderShop.selectedCategory)
+    ? renderShop.selectedCategory
+    : categories[0].id;
+  renderShop.selectedCategory = activeId;
+  categories.forEach((category) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "shop-category-tab" + (category.id === activeId ? " active" : "");
+    btn.textContent = category.name;
+    btn.addEventListener("click", () => {
+      renderShop.selectedCategory = category.id;
+      renderShop();
+    });
+    tabs.appendChild(btn);
   });
 }
 
 function openShopModal() {
+  Net.send("shop:getCatalog");
   renderShop();
   const modal = $("shopModal");
   if (modal) modal.classList.add("active");
@@ -733,6 +820,84 @@ if ($("shopClose")) $("shopClose").addEventListener("click", closeShopModal);
 if ($("shopModal")) {
   $("shopModal").addEventListener("click", (e) => {
     if (e.target === $("shopModal")) closeShopModal();
+  });
+}
+
+let currentBlindBox = null;
+let blindBoxResultReady = false;
+function openBlindBoxModal(box) {
+  currentBlindBox = box;
+  blindBoxResultReady = false;
+  $("blindBoxTitle").textContent = box.name || "\u724c\u80cc\u76f2\u76d2";
+  $("blindBoxDesc").textContent =
+    "\u82b1\u8d39 " +
+    box.price +
+    " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
+  const buy = $("blindBoxBuyBtn");
+  if (buy) {
+    buy.textContent = box.price + "\u91d1\u5e01\u8d2d\u4e70";
+    buy.disabled = (userProfile?.coins || 0) < box.price;
+  }
+  const stage = $("blindBoxStage");
+  if (stage) {
+    stage.innerHTML = "";
+    stage.appendChild(createCardBackPreview(DEFAULT_CARD_BACK));
+  }
+  $("blindBoxOverlay")?.classList.add("active");
+}
+
+function closeBlindBoxModal() {
+  $("blindBoxOverlay")?.classList.remove("active");
+  currentBlindBox = null;
+  blindBoxResultReady = false;
+}
+
+function playBlindBoxResult(result) {
+  const stage = $("blindBoxStage");
+  if (!stage) return;
+  $("blindBoxOverlay")?.classList.add("active");
+  stage.innerHTML = "";
+  const pool = result.pool && result.pool.length ? result.pool : [result.cardBackId];
+  let tick = 0;
+  const timer = setInterval(() => {
+    const id = pool[tick % pool.length];
+    stage.innerHTML = "";
+    const next = createCardBackPreview(id);
+    next.classList.add("blindbox-rolling-card");
+    stage.appendChild(next);
+    tick += 1;
+  }, 80);
+  setTimeout(() => {
+    clearInterval(timer);
+    stage.innerHTML = "";
+    const finalCard = createCardBackPreview(result.cardBackId);
+    finalCard.classList.add("blindbox-final-card");
+    stage.appendChild(finalCard);
+    const buy = $("blindBoxBuyBtn");
+    if (buy) {
+      buy.textContent = "\u786e\u8ba4";
+      buy.disabled = false;
+    }
+    currentBlindBox = null;
+    blindBoxResultReady = true;
+    toast("\u83b7\u5f97\u65b0\u724c\u80cc");
+  }, 1500);
+}
+
+if ($("blindBoxClose")) $("blindBoxClose").addEventListener("click", closeBlindBoxModal);
+if ($("blindBoxOverlay")) {
+  $("blindBoxOverlay").addEventListener("click", (e) => {
+    if (e.target === $("blindBoxOverlay")) closeBlindBoxModal();
+  });
+}
+if ($("blindBoxBuyBtn")) {
+  $("blindBoxBuyBtn").addEventListener("click", () => {
+    if (blindBoxResultReady) {
+      closeBlindBoxModal();
+      return;
+    }
+    if (!currentBlindBox) return;
+    Net.send("shop:buyBlindBox", { id: currentBlindBox.id });
   });
 }
 

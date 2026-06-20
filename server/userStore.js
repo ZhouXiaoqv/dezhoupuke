@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
+const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
 const CHECKIN_TIME_ZONE = 'Asia/Shanghai';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_CHECKIN_REWARDS = [50, 50, 50, 50, 50, 100, 100];
@@ -63,6 +63,8 @@ const CARD_BACK_SHOP = [
   { id: 'pattern-checker-classic-red', price: 400 },
 ];
 const CARD_BACK_IDS = new Set([DEFAULT_CARD_BACK, ...CARD_BACK_SHOP.map((item) => item.id)]);
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'adminjujku';
 
 // ===== Achievement Definitions =====
 const ACHIEVEMENTS = {
@@ -89,20 +91,24 @@ const ACHIEVEMENTS = {
 };
 
 class UserStore {
-  constructor() {
+  constructor(options = {}) {
     this.users = new Map();  // username -> userData
     this.tokens = new Map(); // token -> username
+    this.catalogStore = null;
+    this.dataFile = options.dataFile || DEFAULT_DATA_FILE;
     this._load();
+    this._ensureAdminAccount();
   }
 
   // ===== Persistence =====
   _load() {
     try {
-      if (fs.existsSync(DATA_FILE)) {
-        const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      if (fs.existsSync(this.dataFile)) {
+        const raw = fs.readFileSync(this.dataFile, 'utf-8');
         const data = JSON.parse(raw);
         for (const u of data) {
-          if (u.sessionToken) this.tokens.set(u.sessionToken, u.username);
+          this._ensureAccountState(u);
+          if (u.sessionToken && !u.disabled) this.tokens.set(u.sessionToken, u.username);
           this.users.set(u.username, u);
         }
         console.log(`[UserStore] Loaded ${this.users.size} users`);
@@ -114,10 +120,10 @@ class UserStore {
 
   _save() {
     try {
-      const dir = path.dirname(DATA_FILE);
+      const dir = path.dirname(this.dataFile);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const data = [...this.users.values()];
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      fs.writeFileSync(this.dataFile, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       console.error('[UserStore] Save error:', err.message);
     }
@@ -129,6 +135,19 @@ class UserStore {
 
   _generateToken() {
     return crypto.randomBytes(24).toString('hex');
+  }
+
+  setCatalogStore(catalogStore) {
+    this.catalogStore = catalogStore || null;
+    for (const user of this.users.values()) this._ensureAccountState(user);
+    this._save();
+  }
+
+  _getValidCardBackIds() {
+    if (this.catalogStore && typeof this.catalogStore.getAllCardBackIds === 'function') {
+      return new Set(this.catalogStore.getAllCardBackIds());
+    }
+    return CARD_BACK_IDS;
   }
 
   _getCheckInDay(now = new Date()) {
@@ -171,14 +190,18 @@ class UserStore {
   }
 
   _ensureCardBacks(user) {
+    const validCardBackIds = this._getValidCardBackIds();
     if (!Array.isArray(user.ownedCardBacks)) user.ownedCardBacks = [];
     if (!user.ownedCardBacks.includes(DEFAULT_CARD_BACK)) {
       user.ownedCardBacks.unshift(DEFAULT_CARD_BACK);
     }
     user.ownedCardBacks = [...new Set(user.ownedCardBacks)].filter((id) =>
-      CARD_BACK_IDS.has(id),
+      typeof id === 'string' && id.trim(),
     );
-    if (!CARD_BACK_IDS.has(user.equippedCardBack)) {
+    if (this.catalogStore) {
+      user.ownedCardBacks = user.ownedCardBacks.filter((id) => validCardBackIds.has(id));
+    }
+    if (this.catalogStore && !validCardBackIds.has(user.equippedCardBack)) {
       user.equippedCardBack = DEFAULT_CARD_BACK;
     }
     if (!user.ownedCardBacks.includes(user.equippedCardBack)) {
@@ -230,10 +253,61 @@ class UserStore {
   }
 
   _ensureAccountState(user) {
+    user.role = user.role === 'admin' ? 'admin' : 'player';
+    user.disabled = !!user.disabled;
+    if (!Array.isArray(user.claimedHolidayGiftIds)) user.claimedHolidayGiftIds = [];
     this._ensureCheckIn(user);
     this._ensureCardBacks(user);
     this._ensureEmotions(user);
     this._ensureStats(user);
+  }
+
+  _ensureAdminAccount() {
+    const existing = this.users.get(ADMIN_USERNAME);
+    if (existing) {
+      existing.passwordHash = this._hashPassword(ADMIN_PASSWORD);
+      existing.role = 'admin';
+      existing.disabled = false;
+      this._ensureAccountState(existing);
+      return;
+    }
+    const admin = {
+      username: ADMIN_USERNAME,
+      passwordHash: this._hashPassword(ADMIN_PASSWORD),
+      role: 'admin',
+      disabled: false,
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+      sessionToken: null,
+      sessionIssuedAt: null,
+      avatar: 'A',
+      avatarColor: '#d4a840',
+      coins: 0,
+      charm: 0,
+      emotionInventory: Object.fromEntries(STOCKED_EMOTION_IDS.map((id) => [id, 0])),
+      ownedCardBacks: [DEFAULT_CARD_BACK],
+      equippedCardBack: DEFAULT_CARD_BACK,
+      claimedHolidayGiftIds: [],
+      checkIn: { lastDate: '', weekStart: '', days: [], fullWeekBonusWeek: '' },
+      stats: {
+        handsPlayed: 0,
+        handsWon: 0,
+        totalWon: 0,
+        totalLost: 0,
+        totalProfit: 0,
+        biggestPot: 0,
+        bestHand: '',
+        bestHandRank: -1,
+        allIns: 0,
+        winStreak: 0,
+        bestWinStreak: 0,
+        currentStreak: 0,
+      },
+      achievements: [],
+      gamesPlayed: 0,
+    };
+    this._ensureAccountState(admin);
+    this.users.set(ADMIN_USERNAME, admin);
   }
 
   // ===== Registration =====
@@ -252,6 +326,8 @@ class UserStore {
     const user = {
       username,
       passwordHash: this._hashPassword(password),
+      role: 'player',
+      disabled: false,
       createdAt: Date.now(),
       lastLogin: Date.now(),
       sessionToken: null,
@@ -285,6 +361,7 @@ class UserStore {
       },
       achievements: [],
       gamesPlayed: 0,
+      claimedHolidayGiftIds: [],
     };
 
     this.users.set(username, user);
@@ -299,11 +376,11 @@ class UserStore {
     username = (username || '').trim();
     const user = this.users.get(username);
     if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    if (user.disabled) return { error: 'Account disabled' };
     if (user.passwordHash !== this._hashPassword(password)) {
       return { error: 'Incorrect password' };
     }
-
-    this._ensureAccountState(user);
     user.lastLogin = Date.now();
     const token = this._issueSession(user);
     this._save();
@@ -319,6 +396,7 @@ class UserStore {
     const user = this.users.get(username);
     if (!user || user.sessionToken !== token) return null;
     this._ensureAccountState(user);
+    if (user.disabled) return null;
     user.lastLogin = Date.now();
     user.sessionIssuedAt = Date.now();
     this.tokens.set(token, username);
@@ -331,6 +409,7 @@ class UserStore {
     const user = this.users.get(username);
     if (!user) return null;
     this._ensureAccountState(user);
+    if (user.role === 'admin') return null;
 
     const today = this._getCheckInDay();
     const weekStart = this._getWeekStart(today.date, today.weekday);
@@ -446,10 +525,14 @@ class UserStore {
     const user = this.users.get(username);
     if (!user) return { error: 'User not found' };
     this._ensureAccountState(user);
+    if (user.disabled || user.role !== 'player') return { error: 'Permission denied' };
 
-    const item = CARD_BACK_SHOP.find((entry) => entry.id === cardBackId);
+    const item = this.catalogStore
+      ? this.catalogStore.getShopItem(cardBackId)
+      : CARD_BACK_SHOP.find((entry) => entry.id === cardBackId);
     if (!item) return { error: 'Card back not found' };
-    if (user.ownedCardBacks.includes(cardBackId)) {
+    const resolvedCardBackId = item.cardBackId || item.id;
+    if (user.ownedCardBacks.includes(resolvedCardBackId)) {
       return { error: 'Card back already owned' };
     }
     if (user.coins < item.price) {
@@ -457,11 +540,39 @@ class UserStore {
     }
 
     user.coins -= item.price;
-    user.ownedCardBacks.push(cardBackId);
+    user.ownedCardBacks.push(resolvedCardBackId);
     this._save();
     return {
-      id: cardBackId,
+      id: resolvedCardBackId,
       price: item.price,
+      profile: this._sanitize(user),
+    };
+  }
+
+  buyBlindBox(username, boxId, rng = Math.random) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    if (user.disabled || user.role !== 'player') return { error: 'Permission denied' };
+    if (!this.catalogStore) return { error: 'Shop not ready' };
+
+    const box = this.catalogStore.getBlindBox(boxId || 'cardback-blindbox');
+    if (!box) return { error: 'Blind box not found' };
+    const pool = this.catalogStore.getBlindBoxDropPool(user.ownedCardBacks);
+    if (pool.length === 0) return { error: 'No available card backs in blind box' };
+    if (user.coins < box.price) return { error: 'Not enough coins' };
+
+    const index = Math.max(0, Math.min(pool.length - 1, Math.floor(rng() * pool.length)));
+    const picked = pool[index];
+    user.coins -= box.price;
+    user.ownedCardBacks.push(picked.cardBackId);
+    this._ensureAccountState(user);
+    this._save();
+    return {
+      blindBox: box,
+      cardBackId: picked.cardBackId,
+      price: box.price,
+      pool: pool.map((item) => item.cardBackId),
       profile: this._sanitize(user),
     };
   }
@@ -471,7 +582,7 @@ class UserStore {
     if (!user) return { error: 'User not found' };
     this._ensureAccountState(user);
     const nextId = cardBackId || DEFAULT_CARD_BACK;
-    if (!CARD_BACK_IDS.has(nextId)) return { error: 'Card back not found' };
+    if (!this._getValidCardBackIds().has(nextId)) return { error: 'Card back not found' };
     if (!user.ownedCardBacks.includes(nextId)) {
       return { error: 'Card back not owned' };
     }
@@ -488,6 +599,7 @@ class UserStore {
     const sender = this.users.get(fromUsername);
     const target = this.users.get(toUsername);
     if (!sender || !target) return { error: 'User not found' };
+    if (sender.disabled || target.disabled) return { error: 'User not found' };
     if (fromUsername === toUsername) return { error: 'Cannot send emotion to yourself' };
 
     this._ensureAccountState(sender);
@@ -521,6 +633,99 @@ class UserStore {
       senderPublic: this._publicProfile(sender),
       targetPublic: this._publicProfile(target),
     };
+  }
+
+  applyHolidayGift(username, gift) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    if (user.disabled || user.role !== 'player') return { error: 'Permission denied' };
+    if (!gift || !gift.id) return { error: 'Gift not found' };
+    if (user.claimedHolidayGiftIds.includes(gift.id)) return { error: 'Gift already claimed' };
+
+    const granted = [];
+    const skipped = [];
+    for (const reward of gift.rewards || []) {
+      if (reward.type === 'coins') {
+        const amount = Math.max(0, Math.floor(Number(reward.amount || 0)));
+        if (amount > 0) {
+          user.coins += amount;
+          granted.push({ type: 'coins', amount });
+        }
+      } else if (reward.type === 'emotion') {
+        const id = reward.id || reward.emotionId;
+        const amount = Math.max(0, Math.floor(Number(reward.amount || 0)));
+        if (STOCKED_EMOTION_IDS.includes(id) && amount > 0) {
+          user.emotionInventory[id] = (user.emotionInventory[id] || 0) + amount;
+          granted.push({ type: 'emotion', id, amount });
+        }
+      } else if (reward.type === 'cardBack') {
+        const id = reward.id || reward.cardBackId;
+        if (this._getValidCardBackIds().has(id) && !user.ownedCardBacks.includes(id)) {
+          user.ownedCardBacks.push(id);
+          granted.push({ type: 'cardBack', id, amount: 1 });
+        } else {
+          const duplicate = { type: 'cardBack', id, amount: 1, duplicate: true };
+          granted.push(duplicate);
+          skipped.push({ ...duplicate, reason: 'owned' });
+        }
+      }
+    }
+
+    user.claimedHolidayGiftIds.push(gift.id);
+    this._ensureAccountState(user);
+    this._save();
+    return {
+      gift: { id: gift.id, name: gift.name },
+      rewards: granted,
+      skipped,
+      profile: this._sanitize(user),
+    };
+  }
+
+  listUsers() {
+    return [...this.users.values()]
+      .map((user) => {
+        this._ensureAccountState(user);
+        return {
+          username: user.username,
+          role: user.role,
+          disabled: !!user.disabled,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin,
+          coins: user.coins || 0,
+          handsPlayed: user.stats?.handsPlayed || 0,
+        };
+      })
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)));
+  }
+
+  disableUser(username, actorUsername) {
+    const target = this.users.get(String(username || '').trim());
+    if (!target) return { error: 'User not found' };
+    this._ensureAccountState(target);
+    if (target.role === 'admin') return { error: 'Cannot delete admin account' };
+    if (target.username === actorUsername) return { error: 'Cannot delete current account' };
+    target.disabled = true;
+    if (target.sessionToken) this.tokens.delete(target.sessionToken);
+    target.sessionToken = null;
+    target.sessionIssuedAt = null;
+    this._save();
+    return { user: { username: target.username, disabled: true } };
+  }
+
+  isAdmin(username) {
+    const user = this.users.get(username);
+    if (!user) return false;
+    this._ensureAccountState(user);
+    return user.role === 'admin' && !user.disabled;
+  }
+
+  isPlayer(username) {
+    const user = this.users.get(username);
+    if (!user) return false;
+    this._ensureAccountState(user);
+    return user.role === 'player' && !user.disabled;
   }
 
   // ===== Achievement Checking =====
@@ -593,7 +798,7 @@ class UserStore {
 
   // ===== Leaderboard =====
   getLeaderboard(sortBy = 'totalWon', limit = 20) {
-    const list = [...this.users.values()];
+    const list = [...this.users.values()].filter((user) => user.role !== 'admin' && !user.disabled);
     for (const user of list) this._ensureAccountState(user);
     const statKey = sortBy === 'totalWon' ? 'totalProfit' : sortBy;
     list.sort((a, b) => (b.stats[statKey] || 0) - (a.stats[statKey] || 0));
@@ -618,6 +823,8 @@ class UserStore {
     this._ensureAccountState(user);
     return {
       username: user.username,
+      role: user.role || 'player',
+      disabled: !!user.disabled,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
       avatar: user.avatar || 'A',
@@ -638,6 +845,7 @@ class UserStore {
       stats: { ...user.stats },
       achievements: user.achievements.map(id => ({ id, ...ACHIEVEMENTS[id] })),
       gamesPlayed: user.gamesPlayed || 0,
+      claimedHolidayGiftIds: [...user.claimedHolidayGiftIds],
     };
   }
 
@@ -679,4 +887,6 @@ module.exports = {
   CARD_BACK_SHOP,
   DEFAULT_CARD_BACK,
   EMOTION_CATALOG,
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD,
 };

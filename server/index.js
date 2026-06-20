@@ -8,6 +8,7 @@ const { httpServer } = require('./http');
 const { WebSocketManager } = require('./ws');
 const { RoomRegistry } = require('./room');
 const { UserStore } = require('./userStore');
+const { CatalogStore } = require('./catalogStore');
 const { StatsTracker } = require('./stats');
 const { evaluateHand: evaluateForStats } = require('./game');
 
@@ -15,11 +16,16 @@ const authHandler = require('./handlers/auth');
 const roomHandler = require('./handlers/room');
 const gameHandler = require('./handlers/game');
 const miscHandler = require('./handlers/misc');
+const adminHandler = require('./handlers/admin');
+const shopHandler = require('./handlers/shop');
+const holidayHandler = require('./handlers/holiday');
 
 const PORT = process.env.PORT || 3000;
 
 // === Shared state ===
 const userStore = new UserStore();
+const catalogStore = new CatalogStore();
+userStore.setCatalogStore(catalogStore);
 const stats = new StatsTracker(userStore);
 const registry = new RoomRegistry(userStore);
 const wsManager = new WebSocketManager(httpServer);
@@ -114,9 +120,13 @@ wsManager.wss.on('connection', (ws) => {
     stats,
     playerSockets: wsManager.playerSockets,
     wireStatsReporting,
+    catalogStore,
   };
 
   authHandler.register(ws, handlerCtx);
+  adminHandler.register(ws, handlerCtx);
+  shopHandler.register(ws, handlerCtx);
+  holidayHandler.register(ws, handlerCtx);
   roomHandler.register(ws, handlerCtx);
   gameHandler.register(ws, handlerCtx);
   miscHandler.register(ws, handlerCtx);

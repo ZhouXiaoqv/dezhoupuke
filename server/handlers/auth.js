@@ -32,7 +32,8 @@ function register(ws, ctx) {
   }
 
   function finalizeAuthenticatedSession(result, token, responseType) {
-    const checkIn = userStore.applyDailyCheckIn(result.username);
+    const isAdmin = result.profile && result.profile.role === 'admin';
+    const checkIn = isAdmin ? null : userStore.applyDailyCheckIn(result.username);
     if (checkIn && checkIn.profile) result.profile = checkIn.profile;
 
     ws._currentUser = { username: result.username, token };
@@ -41,17 +42,22 @@ function register(ws, ctx) {
     ws._playerColor = result.profile.avatarColor || null;
     ws._playerCardBack = result.profile.equippedCardBack || DEFAULT_CARD_BACK;
 
-    const restored = registry.restoreUserSession(result.username, ws);
     let resume = null;
 
-    if (restored) {
-      bindIdentity(restored.playerId, restored.name || result.username);
-      ws._currentRoom = restored.room;
-      ws.isSpectator = !!restored.isSpectator;
-      resume = buildResume(restored.room, restored.isSpectator);
-    } else {
+    if (isAdmin) {
       bindIdentity(ws._playerId || crypto.randomUUID(), result.username);
       ws.isSpectator = false;
+    } else {
+      const restored = registry.restoreUserSession(result.username, ws);
+      if (restored) {
+        bindIdentity(restored.playerId, restored.name || result.username);
+        ws._currentRoom = restored.room;
+        ws.isSpectator = !!restored.isSpectator;
+        resume = buildResume(restored.room, restored.isSpectator);
+      } else {
+        bindIdentity(ws._playerId || crypto.randomUUID(), result.username);
+        ws.isSpectator = false;
+      }
     }
 
     ws.send(JSON.stringify({
@@ -146,6 +152,10 @@ function register(ws, ctx) {
 
   ws._on('shop:buyCardBack', (data) => {
     if (!requireLogin()) return;
+    if (!userStore.isPlayer(ws._currentUser.username)) {
+      ws.send(JSON.stringify({ type: 'user:error', data: { message: '管理员不能使用玩家商店' } }));
+      return;
+    }
     const result = userStore.buyCardBack(ws._currentUser.username, data && data.id);
     if (result.error) {
       ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));

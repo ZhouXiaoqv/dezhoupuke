@@ -342,6 +342,8 @@ Net.on("user:registered", (d) => {
   updateUserArea();
   showAvatarBtn(true);
   showDailyCheckIn(d.dailyCheckIn);
+  Net.send("shop:getCatalog");
+  Net.send("holiday:list");
   Net.send("room:list");
   startRoomListRefresh();
   toast("注册成功！欢迎 " + d.username);
@@ -354,9 +356,19 @@ Net.on("user:loggedIn", (d) => {
   localStorage.setItem("poker_token", d.token);
   Net.playerId = d.playerId;
   Net.playerName = d.username;
+  if (userProfile?.role === "admin") {
+    stopRoomListRefresh();
+    showAvatarBtn(false);
+    showScreen("adminScreen");
+    if (typeof loadAdminDashboard === "function") loadAdminDashboard();
+    toast("\u7ba1\u7406\u5458\u767b\u5f55\u6210\u529f");
+    return;
+  }
   updateUserArea();
   showAvatarBtn(true);
   showDailyCheckIn(d.dailyCheckIn);
+  Net.send("shop:getCatalog");
+  Net.send("holiday:list");
   Net.send("room:list");
   startRoomListRefresh();
   toast("登录成功！欢迎回来 " + d.username);
@@ -375,6 +387,7 @@ Net.on("user:profileUpdated", (d) => {
     renderProfile(d.profile);
   }
   if (typeof refreshInteractPanel === "function") refreshInteractPanel();
+  Net.send("holiday:list");
 });
 
 Net.on("user:error", (d) => {

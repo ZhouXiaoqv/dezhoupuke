@@ -115,13 +115,35 @@ const CARD_BACK_SHOP = [
 const CARD_BACK_CATALOG = [
   { id: DEFAULT_CARD_BACK, price: 0 },
   ...CARD_BACK_SHOP,
+  {
+    id: "dragonboat-1",
+    price: 0,
+    type: "image",
+    imageUrl: "assets/cardbacks/dragonboat-1.png",
+    name: "\u7aef\u5348\u724c\u80cc\u4e00",
+  },
 ];
+let shopCatalog = null;
+let holidayGifts = [];
 
 function getCardBackDef(id) {
   return (
     CARD_BACK_CATALOG.find((item) => item.id === id) ||
     CARD_BACK_CATALOG[0]
   );
+}
+
+function syncShopCatalog(catalog) {
+  if (!catalog || typeof catalog !== "object") return;
+  shopCatalog = catalog;
+  if (Array.isArray(catalog.cardBacks)) {
+    catalog.cardBacks.forEach((item) => {
+      if (!item || !item.id) return;
+      const existing = CARD_BACK_CATALOG.find((entry) => entry.id === item.id);
+      if (existing) Object.assign(existing, item);
+      else CARD_BACK_CATALOG.push({ ...item });
+    });
+  }
 }
 
 function getOwnedCardBacks(profile = userProfile) {
@@ -141,7 +163,8 @@ function getEquippedCardBack(profile = userProfile) {
 }
 
 function getCardBackClass(id) {
-  return "card-back-" + getCardBackDef(id).id;
+  const def = getCardBackDef(id);
+  return def.type === "image" ? "card-back-image" : "card-back-" + def.id;
 }
 
 function createCardBackPreview(id) {
@@ -153,7 +176,13 @@ function createCardBackPreview(id) {
 }
 
 function decorateCardBack(el, id) {
-  const cardBackId = getCardBackDef(id).id;
+  const def = getCardBackDef(id);
+  const cardBackId = def.id;
+  if (def.type === "image" && def.imageUrl) {
+    el.classList.add("card-back-image");
+    el.style.backgroundImage = `url("${def.imageUrl}")`;
+    return;
+  }
   if (cardBackId.startsWith("flag-")) {
     const face = document.createElement("div");
     face.className = "flag-face flag-face-" + cardBackId.slice(5);

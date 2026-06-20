@@ -143,6 +143,75 @@
       <div class="error-msg" id="lobbyError"></div>
     </div>
 
+    <!-- ===== ADMIN SCREEN ===== -->
+    <div class="screen admin-screen" id="adminScreen">
+      <div class="admin-shell">
+        <div class="admin-header">
+          <div>
+            <div class="admin-kicker">ADMIN</div>
+            <div class="admin-title">后台管理</div>
+          </div>
+          <button class="logout-btn" id="adminLogoutBtn" type="button">退出</button>
+        </div>
+        <div class="admin-grid">
+          <section class="admin-panel">
+            <div class="admin-panel-head">
+              <h2>商店分类</h2>
+              <button class="admin-mini-btn" id="adminAddCategory">新增</button>
+            </div>
+            <div class="admin-list" id="adminCategoryList"></div>
+          </section>
+          <section class="admin-panel">
+            <div class="admin-panel-head">
+              <h2>商店商品</h2>
+              <button class="admin-mini-btn" id="adminRefreshCatalog">刷新</button>
+            </div>
+            <div class="admin-list admin-shop-list" id="adminShopList"></div>
+          </section>
+          <section class="admin-panel">
+            <div class="admin-panel-head">
+              <h2>节日礼物</h2>
+              <button class="admin-mini-btn" id="adminCreateGift">发布</button>
+            </div>
+            <div class="admin-form" id="adminGiftForm">
+              <input id="giftNameInput" placeholder="礼物名称" />
+              <input id="giftStartInput" type="datetime-local" />
+              <input id="giftEndInput" type="datetime-local" />
+              <div class="admin-reward-builder">
+                <div class="admin-reward-tabs" id="giftRewardTabs">
+                  <button type="button" class="active" data-type="coins">金币</button>
+                  <button type="button" data-type="emotion">局内礼物</button>
+                  <button type="button" data-type="cardBack">牌背</button>
+                </div>
+                <div class="admin-reward-pane active" id="rewardPaneCoins">
+                  <input id="giftCoinAmount" type="number" min="1" placeholder="金币数量" />
+                  <button class="admin-mini-btn" id="addCoinReward" type="button">添加金币</button>
+                </div>
+                <div class="admin-reward-pane" id="rewardPaneEmotion">
+                  <div class="admin-pick-grid" id="giftEmotionPicker"></div>
+                  <input id="giftEmotionAmount" type="number" min="1" value="1" placeholder="数量" />
+                  <button class="admin-mini-btn" id="addEmotionReward" type="button">添加局内礼物</button>
+                </div>
+                <div class="admin-reward-pane" id="rewardPaneCardBack">
+                  <div class="admin-pick-grid cardback-pick-grid" id="giftCardBackPicker"></div>
+                  <button class="admin-mini-btn" id="addCardBackReward" type="button">添加牌背</button>
+                </div>
+                <div class="admin-selected-rewards" id="giftRewardList"></div>
+              </div>
+            </div>
+            <div class="admin-list" id="adminGiftList"></div>
+          </section>
+          <section class="admin-panel">
+            <div class="admin-panel-head">
+              <h2>账号</h2>
+              <button class="admin-mini-btn" id="adminRefreshUsers">刷新</button>
+            </div>
+            <div class="admin-list" id="adminUserList"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== CREATE ROOM SCREEN ===== -->
     <div class="screen" id="createRoomScreen">
       <div class="create-screen-inner">
@@ -386,7 +455,33 @@
       <div class="shop-card">
         <button class="shop-close" id="shopClose">&times;</button>
         <div class="shop-card-title">金币商城</div>
+        <div class="shop-category-tabs" id="shopCategoryTabs"></div>
         <div class="shop-grid" id="shopGrid"></div>
+      </div>
+    </div>
+
+    <div class="blindbox-overlay" id="blindBoxOverlay">
+      <div class="blindbox-card">
+        <button class="shop-close" id="blindBoxClose">&times;</button>
+        <div class="shop-card-title" id="blindBoxTitle">牌背盲盒</div>
+        <div class="blindbox-desc" id="blindBoxDesc"></div>
+        <div class="blindbox-stage" id="blindBoxStage"></div>
+        <button class="settlement-btn" id="blindBoxBuyBtn">购买</button>
+      </div>
+    </div>
+
+    <button class="holiday-bookmark" id="holidayGiftBookmark" type="button">
+      <span class="holiday-gift-icon"></span>
+    </button>
+    <div class="holiday-dropdown" id="holidayGiftDropdown">
+      <div class="holiday-grid" id="holidayGiftGrid"></div>
+    </div>
+    <div class="holiday-result-overlay" id="holidayGiftResult">
+      <div class="holiday-result-card">
+        <button class="shop-close" id="holidayResultClose">&times;</button>
+        <div class="holiday-open-stage" id="holidayOpenStage"></div>
+        <div class="holiday-result-title" id="holidayResultTitle">领取成功</div>
+        <div class="holiday-reward-row" id="holidayRewardRow"></div>
       </div>
     </div>
 
@@ -636,6 +731,8 @@
     <script src="js/ui.js"></script>
     <script src="js/sfx.js"></script>
     <script src="js/lobby.js"></script>
+    <script src="js/holiday.js"></script>
+    <script src="js/admin.js"></script>
     <script src="js/extras.js"></script>
     <script src="js/game.js"></script>
     <script src="js/actions.js"></script>
