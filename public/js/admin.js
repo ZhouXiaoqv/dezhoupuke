@@ -1,5 +1,6 @@
 let adminCatalog = null;
 let adminUsers = [];
+let adminScoreboardDiagnostics = [];
 let adminGiftDraftRewards = [];
 let selectedGiftRewardType = "coins";
 let selectedGiftEmotionId = "rose";
@@ -12,11 +13,17 @@ function loadAdminDashboard() {
 function renderAdminDashboard(data = {}) {
   if (data.catalog) adminCatalog = data.catalog;
   if (data.users) adminUsers = data.users;
+  if (data.scoreboardDiagnostics) {
+    adminScoreboardDiagnostics = data.scoreboardDiagnostics;
+  }
+  window.adminCatalog = adminCatalog;
   renderAdminCategories();
   renderAdminShop();
   renderGiftRewardBuilder();
   renderAdminGifts();
   renderAdminUsers();
+  renderAdminDiagnostics();
+  window.AdminPetStage?.sync(adminCatalog?.pets || []);
 }
 
 function getAdminCardBackName(id) {
@@ -293,15 +300,118 @@ function renderAdminUsers() {
   });
 }
 
+function formatAdminTime(ts) {
+  if (!ts) return "-";
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+}
+
+function renderScoreList(scores = []) {
+  if (!scores.length) return '<div class="admin-diagnostic-line">没有</div>';
+  return scores
+    .map((score) => {
+      const value = Number(score.score || 0);
+      return `<div class="admin-diagnostic-line">${score.name || score.id}: ${value > 0 ? "+" : ""}${value}</div>`;
+    })
+    .join("");
+}
+
+function renderPlayerSnapshot(players = []) {
+  if (!players.length) return '<div class="admin-diagnostic-line">没有</div>';
+  return players
+    .map((player) => {
+      const parts = [
+        player.name || player.id,
+        "开始 " + (player.startStack ?? "-"),
+        "结束 " + (player.finalStack ?? player.stack ?? "-"),
+      ];
+      if (typeof player.delta === "number") {
+        parts.push("变化 " + (player.delta > 0 ? "+" : "") + player.delta);
+      }
+      if (player.refilled) parts.push("已补筹码");
+      return `<div class="admin-diagnostic-line">${parts.join(" · ")}</div>`;
+    })
+    .join("");
+}
+
+function renderHandSnapshot(snapshot, index) {
+  if (!snapshot || snapshot.missing) {
+    return `
+      <div class="admin-diagnostic-section">
+        <div class="admin-diagnostic-section-title">前${2 - index}手快照</div>
+        <div class="admin-diagnostic-line">没有</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="admin-diagnostic-section">
+      <div class="admin-diagnostic-section-title">手牌 #${snapshot.handNum} · ${formatAdminTime(snapshot.recordedAt)}</div>
+      <div class="admin-diagnostic-grid">
+        <div>${renderPlayerSnapshot(snapshot.players || [])}</div>
+        <div>${renderScoreList(snapshot.scoreboard || [])}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminDiagnostics() {
+  const list = $("adminDiagnosticsList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!adminScoreboardDiagnostics.length) {
+    list.innerHTML = '<div class="admin-diagnostic-empty">暂无计分板异常记录</div>';
+    return;
+  }
+  adminScoreboardDiagnostics.forEach((report) => {
+    const card = document.createElement("div");
+    card.className = "admin-row admin-diagnostic-card";
+    card.innerHTML = `
+      <div class="admin-diagnostic-head">
+        <div>
+          <div class="admin-row-title">房间 ${report.roomCode || "-"} · 下一手 #${report.nextHandNum || "-"}</div>
+          <div class="admin-row-sub">${formatAdminTime(report.createdAt)} · 房主 ${report.hostName || "-"}</div>
+        </div>
+        <div class="admin-diagnostic-total">总和 ${report.total > 0 ? "+" : ""}${report.total || 0}</div>
+      </div>
+      <div class="admin-diagnostic-section">
+        <div class="admin-diagnostic-section-title">当前房间玩家</div>
+        <div class="admin-diagnostic-grid">
+          ${(report.players || [])
+            .map(
+              (player) =>
+                `<div class="admin-diagnostic-line">${player.name || player.id}: 筹码 ${player.stack ?? "-"} · ${player.connected ? "在线" : "离线"}</div>`,
+            )
+            .join("") || '<div class="admin-diagnostic-line">没有</div>'}
+        </div>
+      </div>
+      <div class="admin-diagnostic-section">
+        <div class="admin-diagnostic-section-title">异常时计分板</div>
+        <div class="admin-diagnostic-grid">${renderScoreList(report.scoreboard || [])}</div>
+      </div>
+      ${(report.handSnapshots || []).map(renderHandSnapshot).join("")}
+    `;
+    list.appendChild(card);
+  });
+}
+
 Net.on("admin:dashboard", renderAdminDashboard);
 Net.on("admin:catalog", (d) => renderAdminDashboard({ catalog: d.catalog }));
 Net.on("admin:users", (d) => renderAdminDashboard({ users: d.users }));
 Net.on("admin:userDisabled", (d) => renderAdminDashboard({ users: d.users }));
+Net.on("admin:scoreboardDiagnostics", (d) =>
+  renderAdminDashboard({ scoreboardDiagnostics: d.reports || [] }),
+);
 Net.on("admin:error", (d) => toast(d.message || "\u540e\u53f0\u64cd\u4f5c\u5931\u8d25"));
 
 if ($("adminLogoutBtn")) $("adminLogoutBtn").addEventListener("click", () => logoutUser());
 if ($("adminRefreshCatalog")) $("adminRefreshCatalog").addEventListener("click", () => Net.send("admin:getCatalog"));
 if ($("adminRefreshUsers")) $("adminRefreshUsers").addEventListener("click", () => Net.send("admin:listUsers"));
+if ($("adminRefreshDiagnostics")) {
+  $("adminRefreshDiagnostics").addEventListener("click", () =>
+    Net.send("admin:getScoreboardDiagnostics"),
+  );
+}
 if ($("adminAddCategory")) {
   $("adminAddCategory").addEventListener("click", () => {
     const name = prompt("分类名称");

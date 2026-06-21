@@ -26,6 +26,7 @@ Net.on("room:state", (d) => {
   roomCode = d.code;
   $("roomCodeDisplay").textContent = d.code;
   isHost = d.hostId === Net.playerId;
+  if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
   $("scoreboardToggle").classList.toggle("visible", !!d.gameRunning);
   if (!d.gameRunning && typeof clearMyHandView === "function") {
     clearMyHandView();
@@ -36,6 +37,7 @@ Net.on("room:players", (d) => {
   const container = $("roomPlayers");
   container.innerHTML = "";
   isHost = d.hostId === Net.playerId;
+  if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
 
   for (const p of d.players) {
     const card = document.createElement("div");
@@ -73,11 +75,25 @@ Net.on("room:scoreboard", (d) => {
   renderScoreboard(d.scores || []);
 });
 
+Net.on("room:scoreboardImbalance", (d) => {
+  const overlay = $("scoreAlertOverlay");
+  const text = $("scoreAlertText");
+  if (!overlay || !text) {
+    toast(d.message || "计分板异常，已记录到后台");
+    return;
+  }
+  text.textContent =
+    d.message ||
+    `计分板异常：正负分总和为 ${d.total || 0}，已记录到后台。`;
+  overlay.classList.add("active");
+});
+
 Net.on("room:playerJoined", () => toast("新玩家加入"));
 Net.on("room:playerLeft", (d) => toast(`${d.name} 离开了`));
 Net.on("room:playerDisconnected", (d) => toast(`${d.name} 断开连接`));
 Net.on("room:hostChanged", (d) => {
   isHost = d.hostId === Net.playerId;
+  if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
   $("startGameBtn").style.display = isHost ? "" : "none";
   if (isHost) toast("你成为了房主");
 });
@@ -86,6 +102,7 @@ Net.on("room:gameStarted", () => {
   showScreen("table");
   if (typeof clearMyHandView === "function") clearMyHandView();
   hideActions();
+  if (typeof hideNextHandBar === "function") hideNextHandBar();
   $("scoreboardToggle").classList.add("visible");
   if (isSpectator) $("spectatorBadge").classList.add("visible");
 });
@@ -241,6 +258,7 @@ Net.on("game:handStart", (d) => {
   if (typeof clearMyHandView === "function") clearMyHandView();
   hideActions();
   hideShowHandBar();
+  if (typeof hideNextHandBar === "function") hideNextHandBar();
   toast(`第 ${d.handNum} 手开始`);
   // Deal sounds staggered
   for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
@@ -324,6 +342,12 @@ Net.on("game:waitingForNext", (d) => {
   $("settlementOverlay").classList.remove("active");
   showNextHandBar(d.nextHandDelay || 15);
 });
+
+if ($("scoreAlertClose")) {
+  $("scoreAlertClose").addEventListener("click", () => {
+    $("scoreAlertOverlay")?.classList.remove("active");
+  });
+}
 
 Net.on("error", (d) => toast(d.message));
 Net.on("disconnect", () => {

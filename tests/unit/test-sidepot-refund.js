@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 const { Game } = require('../../server/game');
-const { Room } = require('../../server/room');
+const { Room, RoomRegistry } = require('../../server/room');
 
 function card(rankStr, suit = 0) {
   return { rankStr, suit, rank: 0, suitStr: String(suit) };
@@ -10,11 +10,15 @@ function card(rankStr, suit = 0) {
 
 function run() {
   testSidePotRefund();
+  testShowdownCannotAwardTwice();
   testFoldWinnerShowHandChoice();
   testFivePlayerFoldedSidePotLayerIsRefunded();
   testSixPlayerFoldedSidePotLayerIsRefunded();
   testZeroStackIsNotResetToStartStack();
+  testStatsReportUsesFinalStackBeforeZeroStackRefill();
   testZeroStackRefillDoesNotAffectScoreboard();
+  testSixPlayerZeroStackDuplicateEndDoesNotUnbalanceScoreboard();
+  testScoreboardImbalanceIsReportedBeforeNextHand();
   testSettledHandScoreboardIsVisibleBeforeGameEnd();
   testScoreboardBalancesAcrossManyPlayers();
   testRoomDoesNotStartWithOnlyOneFundedPlayer();
@@ -76,6 +80,40 @@ function testSidePotRefund() {
   assert.deepStrictEqual(showdownEvent.data.refunds, game.refunds);
 
   console.log('PASS side-pot unmatched bet refund is not shown as winner');
+}
+
+function testShowdownCannotAwardTwice() {
+  const game = new Game([
+    { id: 'winner', name: 'Winner', stack: 2000, connected: true },
+    { id: 'loser', name: 'Loser', stack: 2000, connected: true },
+  ]);
+
+  game.broadcastState = () => {};
+  game.phase = 'river';
+  game.community = [
+    card('2', 0),
+    card('7', 1),
+    card('9', 2),
+    card('J', 3),
+    card('K', 0),
+  ];
+  game.pot = 4000;
+
+  setPlayerShowdownState(game.players[0], 2000, 2000, [card('A', 1), card('A', 2)]);
+  setPlayerShowdownState(game.players[1], 2000, 2000, [card('3', 1), card('4', 2)]);
+
+  runShowdownWithoutTimers(game);
+  const stacksAfterFirstShowdown = game.players.map((player) => player.stack);
+
+  game.showdown();
+
+  assert.deepStrictEqual(
+    game.players.map((player) => player.stack),
+    stacksAfterFirstShowdown,
+    'duplicate showdown does not award the pot twice',
+  );
+
+  console.log('PASS showdown cannot award the same pot twice');
 }
 
 function testFoldWinnerShowHandChoice() {
@@ -285,6 +323,100 @@ function testZeroStackRefillDoesNotAffectScoreboard() {
   console.log('PASS zero stack refill does not affect scoreboard');
 }
 
+function testStatsReportUsesFinalStackBeforeZeroStackRefill() {
+  const hostWs = mockWs();
+  const p2Ws = mockWs();
+  const room = new Room('TEST', 'p1', 'Alice', hostWs, { startStack: 2000 });
+  assert.strictEqual(room.addPlayer('p2', 'Bob', p2Ws), true);
+
+  const records = [];
+  room.gameRunning = true;
+  room.handStartStacks = new Map([
+    ['p1', 2000],
+    ['p2', 2000],
+  ]);
+  room.game = {
+    handNum: 1,
+    winners: [{ id: 'p2', name: 'Bob', amount: 4000 }],
+    refunds: [],
+    broadcastState() {},
+    players: [
+      { id: 'p1', name: 'Alice', stack: 0, folded: true, allIn: true, bet: 0 },
+      { id: 'p2', name: 'Bob', stack: 4000 },
+    ],
+  };
+  room.game.onGameEnd = () => {
+    if (!room.gameRunning) return;
+    room.onStatsReport(room.game);
+    room.settleFinishedHand();
+  };
+  room.onStatsReport = (game) => {
+    for (const gp of game.players) {
+      const stackBefore = room.handStartStacks.get(gp.id) ?? gp.stack;
+      records.push({ id: gp.id, net: gp.stack - stackBefore, stackBefore });
+    }
+  };
+
+  room.game.onGameEnd();
+
+  const netById = new Map(records.map((record) => [record.id, record.net]));
+  assert.strictEqual(netById.get('p1'), -2000);
+  assert.strictEqual(netById.get('p2'), 2000);
+  assert.strictEqual(room.players.get('p1').stack, 2000);
+  assert.strictEqual(room.game.players[0].stack, 2000);
+
+  room.game.onGameEnd();
+  assert.strictEqual(records.length, 2, 'game end is ignored after the hand has already settled');
+
+  console.log('PASS stats report uses final stack before zero-stack refill');
+}
+
+function testSixPlayerZeroStackDuplicateEndDoesNotUnbalanceScoreboard() {
+  const room = new Room('TEST', 'p0', 'P0', mockWs(), { startStack: 2000 });
+  for (let i = 1; i < 6; i++) {
+    assert.strictEqual(room.addPlayer(`p${i}`, `P${i}`, mockWs()), true);
+  }
+
+  let reports = 0;
+  room.gameRunning = true;
+  room.handStartStacks = new Map(Array.from({ length: 6 }, (_, i) => [`p${i}`, 2000]));
+  room.game = {
+    handNum: 1,
+    winners: [{ id: 'p5', name: 'P5', amount: 12000 }],
+    refunds: [],
+    broadcastState() {},
+    players: [
+      { id: 'p0', name: 'P0', stack: 0, folded: false, allIn: true, bet: 0 },
+      { id: 'p1', name: 'P1', stack: 0, folded: false, allIn: true, bet: 0 },
+      { id: 'p2', name: 'P2', stack: 0, folded: false, allIn: true, bet: 0 },
+      { id: 'p3', name: 'P3', stack: 0, folded: false, allIn: true, bet: 0 },
+      { id: 'p4', name: 'P4', stack: 0, folded: false, allIn: true, bet: 0 },
+      { id: 'p5', name: 'P5', stack: 12000, folded: false, allIn: false, bet: 0 },
+    ],
+  };
+  const game = room.game;
+  game.onGameEnd = () => {
+    if (!room.gameRunning || room.game !== game) return;
+    reports++;
+    room.settleFinishedHand();
+  };
+
+  game.onGameEnd();
+  game.onGameEnd();
+
+  const scores = scoreMap(room.getScoreboard());
+  assert.strictEqual(reports, 1, 'duplicate game-end callbacks are ignored after settle');
+  assert.strictEqual(scores.get('p0'), -2000);
+  assert.strictEqual(scores.get('p1'), -2000);
+  assert.strictEqual(scores.get('p2'), -2000);
+  assert.strictEqual(scores.get('p3'), -2000);
+  assert.strictEqual(scores.get('p4'), -2000);
+  assert.strictEqual(scores.get('p5'), 10000);
+  assertScoreboardBalances(room.getScoreboard());
+
+  console.log('PASS 6-player zero-stack duplicate end keeps scoreboard balanced');
+}
+
 function testScoreboardBalancesAcrossManyPlayers() {
   const room = new Room('TEST', 'p1', 'Alice', mockWs(), { startStack: 1000 });
   assert.strictEqual(room.addPlayer('p2', 'Bob', mockWs()), true);
@@ -299,6 +431,46 @@ function testScoreboardBalancesAcrossManyPlayers() {
   assertScoreboardBalances(room.getScoreboard());
 
   console.log('PASS scoreboard positive and negative totals balance across many players');
+}
+
+function testScoreboardImbalanceIsReportedBeforeNextHand() {
+  const registry = new RoomRegistry();
+  const hostWs = mockWs();
+  const room = registry.createRoom('p1', 'Alice', hostWs, { startStack: 1000 });
+  assert.strictEqual(room.addPlayer('p2', 'Bob', mockWs()), true);
+
+  room.recordHandSnapshot([
+    { id: 'p1', name: 'Alice', startStack: 1000, finalStack: 1100, delta: 100 },
+    { id: 'p2', name: 'Bob', startStack: 1000, finalStack: 900, delta: -100 },
+  ]);
+  room.recordHandSnapshot([
+    { id: 'p1', name: 'Alice', startStack: 1100, finalStack: 950, delta: -150 },
+    { id: 'p2', name: 'Bob', startStack: 900, finalStack: 1050, delta: 150 },
+  ]);
+  room.scoreboard.get('p1').score = 300;
+  room.scoreboard.get('p2').score = -100;
+
+  const originalSetTimeout = global.setTimeout;
+  global.setTimeout = () => 0;
+  try {
+    room.startGame('p1');
+  } finally {
+    global.setTimeout = originalSetTimeout;
+    if (room.game?.actionTimeout) clearTimeout(room.game.actionTimeout);
+  }
+
+  const warning = hostWs.sent.find((msg) => msg.type === 'room:scoreboardImbalance');
+  const diagnostics = registry.getScoreboardDiagnostics();
+  assert.ok(warning, 'scoreboard imbalance warning is broadcast before next hand');
+  assert.strictEqual(warning.data.total, 200);
+  assert.strictEqual(diagnostics.length, 1);
+  assert.strictEqual(diagnostics[0].total, 200);
+  assert.strictEqual(diagnostics[0].handSnapshots.length, 2);
+  assert.strictEqual(diagnostics[0].handSnapshots[0].handNum, 0);
+  assert.strictEqual(diagnostics[0].handSnapshots[1].handNum, 0);
+  assert.strictEqual(room.gameRunning, true);
+
+  console.log('PASS scoreboard imbalance is reported before next hand');
 }
 
 function testRoomDoesNotStartWithOnlyOneFundedPlayer() {

@@ -544,7 +544,9 @@
   padding: 12px 24px;
   display: none;
   align-items: center;
+  justify-content: center;
   gap: 16px;
+  min-width: 220px;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -568,6 +570,9 @@
 }
 .next-hand-skip:hover {
   border-color: var(--gold);
+}
+.next-hand-skip[hidden] {
+  display: none;
 }
 
 .raise-slider {

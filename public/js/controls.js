@@ -235,16 +235,33 @@ $("showHandNo").addEventListener("click", () => {
 
 // ===== NEXT HAND BAR =====
 let nextHandCountdown = null;
+function syncNextHandSkipButton() {
+  const skip = $("nextHandSkip");
+  if (!skip) return;
+  skip.hidden = !isHost;
+  skip.disabled = !isHost;
+}
 function showNextHandBar(delay) {
   const bar = $("nextHandBar");
   if (!bar) return;
+  if (nextHandCountdown) {
+    clearInterval(nextHandCountdown);
+    nextHandCountdown = null;
+  }
   bar.classList.add("active");
+  syncNextHandSkipButton();
   let remaining = delay;
-  $("nextHandText").textContent = "下一手 " + remaining + "s";
+  $("nextHandText").textContent = isHost
+    ? "下一手 " + remaining + "s"
+    : "等待房主开始下一手 " + remaining + "s";
   nextHandCountdown = setInterval(() => {
     remaining--;
     $("nextHandText").textContent =
-      remaining > 0 ? "下一手 " + remaining + "s" : "开始中...";
+      remaining > 0
+        ? isHost
+          ? "下一手 " + remaining + "s"
+          : "等待房主开始下一手 " + remaining + "s"
+        : "开始中...";
     if (remaining <= 0) {
       clearInterval(nextHandCountdown);
       nextHandCountdown = null;
@@ -259,8 +276,10 @@ function hideNextHandBar() {
   }
   const bar = $("nextHandBar");
   if (bar) bar.classList.remove("active");
+  syncNextHandSkipButton();
 }
 $("nextHandSkip").addEventListener("click", () => {
+  if (!isHost) return;
   hideNextHandBar();
   Net.send("game:nextHand", {});
 });

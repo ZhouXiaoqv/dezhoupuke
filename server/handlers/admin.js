@@ -11,13 +11,21 @@ function requireAdmin(ws, userStore) {
 }
 
 function register(ws, ctx) {
-  const { userStore, catalogStore } = ctx;
+  const { userStore, catalogStore, registry } = ctx;
 
   ws._on('admin:getDashboard', () => {
     if (!requireAdmin(ws, userStore)) return;
     send(ws, 'admin:dashboard', {
       users: userStore.listUsers(),
       catalog: catalogStore.getAdminCatalog(),
+      scoreboardDiagnostics: registry.getScoreboardDiagnostics(),
+    });
+  });
+
+  ws._on('admin:getScoreboardDiagnostics', () => {
+    if (!requireAdmin(ws, userStore)) return;
+    send(ws, 'admin:scoreboardDiagnostics', {
+      reports: registry.getScoreboardDiagnostics(),
     });
   });
 

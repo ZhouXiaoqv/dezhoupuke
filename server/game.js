@@ -145,6 +145,9 @@ class Game {
     this.showHandPending = null;
     this.showHandTimeout = null;
     this.actionTimeout = null;
+    this.phaseTimeout = null;
+    this.handEndTimeout = null;
+    this.handSettled = false;
     this.onBroadcast = null; // callback(type, data)
     this.onGameEnd = null;
   }
@@ -166,6 +169,27 @@ class Game {
 
   broadcast(type, data = {}) {
     if (this.onBroadcast) this.onBroadcast(type, data);
+  }
+
+  clearActionTimeout() {
+    if (this.actionTimeout) {
+      clearTimeout(this.actionTimeout);
+      this.actionTimeout = null;
+    }
+  }
+
+  clearPhaseTimeout() {
+    if (this.phaseTimeout) {
+      clearTimeout(this.phaseTimeout);
+      this.phaseTimeout = null;
+    }
+  }
+
+  clearHandEndTimeout() {
+    if (this.handEndTimeout) {
+      clearTimeout(this.handEndTimeout);
+      this.handEndTimeout = null;
+    }
   }
 
   buildActionLogEntry(player, action, amount, extra = {}) {
@@ -240,7 +264,9 @@ class Game {
 
   // ===== Game Flow =====
   startHand() {
-    if (this.actionTimeout) clearTimeout(this.actionTimeout);
+    this.clearActionTimeout();
+    this.clearPhaseTimeout();
+    this.clearHandEndTimeout();
 
     this.handNum++;
     this.deck = shuffle(createDeck(this.shortDeck));
@@ -250,6 +276,7 @@ class Game {
     this.refunds = [];
     this.revealedHands = new Set();
     this.showHandPending = null;
+    this.handSettled = false;
     if (this.showHandTimeout) {
       clearTimeout(this.showHandTimeout);
       this.showHandTimeout = null;
@@ -343,10 +370,16 @@ class Game {
 
 
   scheduleNextAction() {
-    this.actionTimeout = setTimeout(() => this.processNextAction(), 500);
+    if (this.handSettled) return;
+    this.clearActionTimeout();
+    this.actionTimeout = setTimeout(() => {
+      this.actionTimeout = null;
+      this.processNextAction();
+    }, 500);
   }
 
   processNextAction() {
+    if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
     const inHand = this.inHandPlayers();
     if (inHand.length <= 1) { this.endHand(); return; }
 
@@ -381,7 +414,8 @@ class Game {
   }
 
   handleAction(playerId, actionData) {
-    if (this.actionTimeout) clearTimeout(this.actionTimeout);
+    if (this.handSettled) return;
+    this.clearActionTimeout();
 
     const player = this.players.find(p => p.id === playerId);
     if (!player || player.folded || player.allIn) return;
@@ -496,6 +530,8 @@ class Game {
   }
 
   advancePhase() {
+    if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
+    this.clearPhaseTimeout();
     for (const p of this.players) p.bet = 0;
     this.roundBet = 0;
     this.actedCount = 0;
@@ -527,7 +563,10 @@ class Game {
     if (canAct.length <= 1) {
       gameLogger.logPhaseChange(this, this.phase);
       this.broadcastState();
-      setTimeout(() => this.advancePhase(), 1000);
+      this.phaseTimeout = setTimeout(() => {
+        this.phaseTimeout = null;
+        this.advancePhase();
+      }, 1000);
       return;
     }
 
@@ -535,10 +574,17 @@ class Game {
     this.currentIdx = this.nextIdx(this.dealerIdx);
     gameLogger.logPhaseChange(this, this.phase);
     this.broadcastState();
-    setTimeout(() => this.processNextAction(), 1000);
+    this.actionTimeout = setTimeout(() => {
+      this.actionTimeout = null;
+      this.processNextAction();
+    }, 1000);
   }
 
   showdown() {
+    if (this.handSettled) return;
+    this.handSettled = true;
+    this.clearActionTimeout();
+    this.clearPhaseTimeout();
     this.phase = 'showdown';
     const inHand = this.inHandPlayers();
 
@@ -641,15 +687,20 @@ class Game {
     gameLogger.logPhaseChange(this, 'showdown');
     gameLogger.logResult(this, this.winners);
 
-    setTimeout(() => {
+    this.handEndTimeout = setTimeout(() => {
+      this.handEndTimeout = null;
       this.broadcast('game:handEnd', { winners: this.winners, refunds: this.refunds });
       if (this.onGameEnd) this.onGameEnd();
     }, 3000);
   }
 
   endHand() {
+    if (this.handSettled) return;
     const inHand = this.inHandPlayers();
     if (inHand.length === 1) {
+      this.handSettled = true;
+      this.clearActionTimeout();
+      this.clearPhaseTimeout();
       const winner = inHand[0];
       winner.stack += this.pot;
       winner.lastAction = 'winner';
@@ -710,6 +761,7 @@ class Game {
 
   // Player disconnected
   handleDisconnect(playerId) {
+    if (this.handSettled) return;
     const player = this.players.find(p => p.id === playerId);
     if (!player) return;
     player.connected = false;

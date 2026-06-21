@@ -30,6 +30,8 @@ class Room {
     this.handNum = 0;
     this.scoreboard = new Map();
     this.handStartStacks = new Map();
+    this.handSnapshots = [];
+    this.scoreboardImbalanceReports = [];
     this.autoStartTimer = null;
     this.nextHandTimer = null;
     this.lastVacantAt = null;
@@ -291,6 +293,8 @@ class Room {
       return;
     }
 
+    this.checkScoreboardBalanceBeforeHand();
+
     this.gameRunning = true;
 
     const gamePlayers = connected.map((p) => ({
@@ -314,38 +318,40 @@ class Room {
       allInOrFold: this.allInOrFold,
       gameMode: this.gameMode,
     });
+    const game = this.game;
     this.game.handNum = this.handNum;
 
-    this.game.onBroadcast = (type, data) => {
+    game.onBroadcast = (type, data) => {
       if (type === 'game:state') return;
       this.broadcast(type, data);
     };
 
-    this.game.broadcastState = () => {
-      for (const p of this.game.players) {
+    game.broadcastState = () => {
+      for (const p of game.players) {
         if (p._ws && p.connected && p._ws.readyState === 1) {
-          const state = this.game.getStateForPlayer(p.id);
+          const state = game.getStateForPlayer(p.id);
           p._ws.send(JSON.stringify({ type: 'game:state', data: state }));
         }
       }
 
       if (this.spectators.size > 0) {
-        const specState = this.game.getStateForSpectator();
+        const specState = game.getStateForSpectator();
         const msg = JSON.stringify({ type: 'game:state', data: specState });
         for (const spectator of this.spectators.values()) {
           if (spectator.ws && spectator.ws.readyState === 1) spectator.ws.send(msg);
         }
       }
 
-      if (this.isCurrentHandSettled()) this.broadcastScoreboard();
+      if (this.game === game && this.isCurrentHandSettled(game)) this.broadcastScoreboard();
     };
 
-    this.game.onGameEnd = () => {
-      this.settleFinishedHand();
-
-      if (this.game.winners.length > 0 && this.onStatsReport) {
-        this.onStatsReport(this.game);
+    game.onGameEnd = () => {
+      if (!this.gameRunning || this.game !== game) return;
+      if (game.winners.length > 0 && this.onStatsReport) {
+        this.onStatsReport(game);
       }
+
+      this.settleFinishedHand();
 
       this.broadcast('game:waitingForNext', { nextHandDelay: 15 });
       this.nextHandTimer = setTimeout(() => {
@@ -353,30 +359,41 @@ class Room {
       }, 15000);
     };
 
-    for (const gp of this.game.players) {
+    for (const gp of game.players) {
       const rp = this.players.get(gp.id);
       if (rp) gp._ws = rp.ws;
     }
-    this.handStartStacks = new Map(this.game.players.map((p) => [p.id, p.stack]));
+    this.handStartStacks = new Map(game.players.map((p) => [p.id, p.stack]));
 
     this.broadcast('room:gameStarted', {});
     this.broadcastScoreboard();
-    this.game.startHand();
+    game.startHand();
   }
 
   settleFinishedHand() {
-    if (!this.game) return;
+    if (!this.game || !this.gameRunning) return;
     let stacksRefilled = false;
+    const playerSnapshots = [];
     for (const gp of this.game.players) {
       const rp = this.players.get(gp.id);
       const startStack = this.handStartStacks.get(gp.id) ?? this.startStack;
       const delta = gp.stack - startStack;
+      const finalStack = gp.stack;
       if (!this.scoreboard.has(gp.id)) {
         this.scoreboard.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
       }
       const score = this.scoreboard.get(gp.id);
       score.name = gp.name;
       score.score += delta;
+      playerSnapshots.push({
+        id: gp.id,
+        name: gp.name,
+        startStack,
+        finalStack,
+        delta,
+        refilled: finalStack <= 0,
+        nextStack: finalStack <= 0 ? this.startStack : finalStack,
+      });
       if (rp) {
         const refill = gp.stack <= 0;
         const nextStack = refill ? this.startStack : gp.stack;
@@ -392,9 +409,79 @@ class Room {
     }
     this.handNum = this.game.handNum;
     this.gameRunning = false;
+    this.recordHandSnapshot(playerSnapshots);
     this.broadcastScoreboard();
     if (this.game.broadcastState) this.game.broadcastState();
     if (stacksRefilled) this.broadcastPlayerList();
+  }
+
+  recordHandSnapshot(players) {
+    const snapshot = {
+      roomCode: this.code,
+      handNum: this.game?.handNum ?? this.handNum,
+      recordedAt: Date.now(),
+      players: players.map((player) => ({ ...player })),
+      scoreboard: this.getScoreboard().map((score) => ({ ...score })),
+    };
+    this.handSnapshots.push(snapshot);
+    if (this.handSnapshots.length > 8) {
+      this.handSnapshots.splice(0, this.handSnapshots.length - 8);
+    }
+  }
+
+  getLastHandSnapshotsForReport() {
+    const snapshots = this.handSnapshots
+      .slice(-2)
+      .map((snapshot) => ({
+        ...snapshot,
+        players: snapshot.players.map((player) => ({ ...player })),
+        scoreboard: snapshot.scoreboard.map((score) => ({ ...score })),
+      }));
+    while (snapshots.length < 2) {
+      snapshots.unshift({ missing: true, label: '没有' });
+    }
+    return snapshots;
+  }
+
+  checkScoreboardBalanceBeforeHand() {
+    const scores = this.getScoreboard().map((score) => ({ ...score }));
+    const total = scores.reduce((sum, score) => sum + Number(score.score || 0), 0);
+    if (total === 0) return null;
+
+    const report = {
+      id: crypto.randomUUID(),
+      roomCode: this.code,
+      hostId: this.hostId,
+      hostName: this.players.get(this.hostId)?.name || '',
+      nextHandNum: this.handNum + 1,
+      total,
+      createdAt: Date.now(),
+      players: [...this.players.values()].map((player) => ({
+        id: player.id,
+        name: player.name,
+        stack: player.stack,
+        connected: !!player.connected,
+      })),
+      scoreboard: scores,
+      handSnapshots: this.getLastHandSnapshotsForReport(),
+    };
+
+    this.scoreboardImbalanceReports.push(report);
+    if (this.scoreboardImbalanceReports.length > 20) {
+      this.scoreboardImbalanceReports.splice(0, this.scoreboardImbalanceReports.length - 20);
+    }
+    if (this._registry && typeof this._registry.recordScoreboardImbalance === 'function') {
+      this._registry.recordScoreboardImbalance(report);
+    }
+
+    this.broadcast('room:scoreboardImbalance', {
+      reportId: report.id,
+      roomCode: report.roomCode,
+      nextHandNum: report.nextHandNum,
+      total: report.total,
+      message: `计分板异常：正负分总和为 ${report.total}，已记录到后台。`,
+    });
+    return report;
   }
 
   handlePlayerAction(playerId, actionData) {
@@ -512,10 +599,10 @@ class Room {
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
 
-  isCurrentHandSettled() {
-    if (!this.game) return false;
-    return (this.game.winners && this.game.winners.length > 0) ||
-      (this.game.refunds && this.game.refunds.length > 0);
+  isCurrentHandSettled(game = this.game) {
+    if (!game) return false;
+    return (game.winners && game.winners.length > 0) ||
+      (game.refunds && game.refunds.length > 0);
   }
 
   broadcastScoreboard() {
@@ -557,6 +644,7 @@ class RoomRegistry {
     this.rooms = new Map();
     this.playerRoom = new Map();
     this.userStore = userStore;
+    this.scoreboardImbalanceReports = [];
   }
 
   generateCode() {
@@ -656,6 +744,38 @@ class RoomRegistry {
       hostName: room.players.get(room.hostId)?.name || 'Unknown',
       gameMode: room.gameMode || 'classic',
     }));
+  }
+
+  recordScoreboardImbalance(report) {
+    this.scoreboardImbalanceReports.push({
+      ...report,
+      players: report.players.map((player) => ({ ...player })),
+      scoreboard: report.scoreboard.map((score) => ({ ...score })),
+      handSnapshots: report.handSnapshots.map((snapshot) => ({
+        ...snapshot,
+        players: snapshot.players ? snapshot.players.map((player) => ({ ...player })) : [],
+        scoreboard: snapshot.scoreboard ? snapshot.scoreboard.map((score) => ({ ...score })) : [],
+      })),
+    });
+    if (this.scoreboardImbalanceReports.length > 50) {
+      this.scoreboardImbalanceReports.splice(0, this.scoreboardImbalanceReports.length - 50);
+    }
+  }
+
+  getScoreboardDiagnostics() {
+    return this.scoreboardImbalanceReports
+      .slice()
+      .reverse()
+      .map((report) => ({
+        ...report,
+        players: report.players.map((player) => ({ ...player })),
+        scoreboard: report.scoreboard.map((score) => ({ ...score })),
+        handSnapshots: report.handSnapshots.map((snapshot) => ({
+          ...snapshot,
+          players: snapshot.players ? snapshot.players.map((player) => ({ ...player })) : [],
+          scoreboard: snapshot.scoreboard ? snapshot.scoreboard.map((score) => ({ ...score })) : [],
+        })),
+      }));
   }
 
   cleanup() {

@@ -154,6 +154,18 @@
           <button class="logout-btn" id="adminLogoutBtn" type="button">退出</button>
         </div>
         <div class="admin-grid">
+          <section class="admin-panel admin-pet-stage-panel">
+            <div class="admin-panel-head">
+              <h2>宠物展台</h2>
+              <select class="admin-input" id="adminPetSelect"></select>
+            </div>
+            <div class="admin-pet-stage" id="adminPetStage">
+              <div class="admin-pet-stage-empty" id="adminPetStageEmpty">
+                选择宠物预览模型
+              </div>
+            </div>
+            <div class="admin-pet-actions" id="adminPetActions"></div>
+          </section>
           <section class="admin-panel">
             <div class="admin-panel-head">
               <h2>商店分类</h2>
@@ -207,6 +219,13 @@
               <button class="admin-mini-btn" id="adminRefreshUsers">刷新</button>
             </div>
             <div class="admin-list" id="adminUserList"></div>
+          </section>
+          <section class="admin-panel admin-diagnostics-panel">
+            <div class="admin-panel-head">
+              <h2>计分板诊断</h2>
+              <button class="admin-mini-btn" id="adminRefreshDiagnostics">刷新</button>
+            </div>
+            <div class="admin-list admin-diagnostics-list" id="adminDiagnosticsList"></div>
           </section>
         </div>
       </div>
@@ -429,6 +448,14 @@
         <div class="settlement-hand" id="settlementHand"></div>
         <div class="settlement-amount" id="settlementAmount"></div>
         <button class="settlement-btn" id="settlementClose">继续</button>
+      </div>
+    </div>
+
+    <div class="score-alert-overlay" id="scoreAlertOverlay">
+      <div class="score-alert-card">
+        <div class="score-alert-title">计分板异常</div>
+        <div class="score-alert-text" id="scoreAlertText"></div>
+        <button class="settlement-btn" id="scoreAlertClose" type="button">知道了</button>
       </div>
     </div>
 
@@ -750,6 +777,7 @@
         }
       }
     </script>
+    <script type="module" src="js/adminPetStage.js"></script>
     <script type="module" src="js/pets3d.js"></script>
   </body>
 </html>
