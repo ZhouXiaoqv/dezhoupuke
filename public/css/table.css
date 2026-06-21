@@ -151,6 +151,20 @@
   border: 1.5px solid rgba(255, 255, 255, 0.06);
 }
 
+.pet-stage {
+  position: fixed;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.pet-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .pot-display {
   position: absolute;
   top: calc(

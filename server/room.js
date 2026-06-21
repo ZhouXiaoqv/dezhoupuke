@@ -55,6 +55,7 @@ class Room {
       avatar: ws._playerAvatar || 'A',
       avatarColor: ws._playerColor || null,
       cardBack: ws._playerCardBack || 'default-blue',
+      pet: ws._playerPet || '',
       publicProfile: this.getPublicProfileForUsername(ws._username),
     });
     if (!this.scoreboard.has(id)) {
@@ -145,6 +146,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      pet: p.pet || p.publicProfile?.pet || '',
       publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
     const spectators = [...this.spectators.values()].map((s) => ({ id: s.id, name: s.name }));
@@ -224,6 +226,7 @@ class Room {
     player.avatar = ws._playerAvatar || player.avatar;
     player.avatarColor = ws._playerColor || player.avatarColor || null;
     player.cardBack = ws._playerCardBack || player.cardBack || 'default-blue';
+    player.pet = ws._playerPet || player.pet || '';
     player.publicProfile = this.getPublicProfileForUsername(player._username);
     this.lastVacantAt = null;
 
@@ -299,6 +302,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      pet: p.pet || p.publicProfile?.pet || '',
       publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
 
@@ -337,21 +341,7 @@ class Room {
     };
 
     this.game.onGameEnd = () => {
-      for (const gp of this.game.players) {
-        const rp = this.players.get(gp.id);
-        const startStack = this.handStartStacks.get(gp.id) ?? this.startStack;
-        const delta = gp.stack - startStack;
-        if (!this.scoreboard.has(gp.id)) {
-          this.scoreboard.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
-        }
-        const score = this.scoreboard.get(gp.id);
-        score.name = gp.name;
-        score.score += delta;
-        if (rp) rp.stack = gp.stack;
-      }
-      this.handNum = this.game.handNum;
-      this.gameRunning = false;
-      this.broadcastScoreboard();
+      this.settleFinishedHand();
 
       if (this.game.winners.length > 0 && this.onStatsReport) {
         this.onStatsReport(this.game);
@@ -372,6 +362,39 @@ class Room {
     this.broadcast('room:gameStarted', {});
     this.broadcastScoreboard();
     this.game.startHand();
+  }
+
+  settleFinishedHand() {
+    if (!this.game) return;
+    let stacksRefilled = false;
+    for (const gp of this.game.players) {
+      const rp = this.players.get(gp.id);
+      const startStack = this.handStartStacks.get(gp.id) ?? this.startStack;
+      const delta = gp.stack - startStack;
+      if (!this.scoreboard.has(gp.id)) {
+        this.scoreboard.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
+      }
+      const score = this.scoreboard.get(gp.id);
+      score.name = gp.name;
+      score.score += delta;
+      if (rp) {
+        const refill = gp.stack <= 0;
+        const nextStack = refill ? this.startStack : gp.stack;
+        rp.stack = nextStack;
+        gp.stack = nextStack;
+        if (refill) {
+          gp.folded = false;
+          gp.allIn = false;
+          gp.bet = 0;
+        }
+        stacksRefilled = stacksRefilled || refill;
+      }
+    }
+    this.handNum = this.game.handNum;
+    this.gameRunning = false;
+    this.broadcastScoreboard();
+    if (this.game.broadcastState) this.game.broadcastState();
+    if (stacksRefilled) this.broadcastPlayerList();
   }
 
   handlePlayerAction(playerId, actionData) {
@@ -415,6 +438,7 @@ class Room {
       player.publicProfile = publicProfile;
       player.avatar = publicProfile.avatar || player.avatar;
       player.avatarColor = publicProfile.avatarColor || player.avatarColor || null;
+      player.pet = publicProfile.pet || '';
     }
 
     if (this.game && this.game.players) {
@@ -423,6 +447,7 @@ class Room {
         gp.publicProfile = publicProfile;
         gp.avatar = publicProfile.avatar || gp.avatar;
         gp.avatarColor = publicProfile.avatarColor || gp.avatarColor || null;
+        gp.pet = publicProfile.pet || '';
       }
       if (!options.silent && this.gameRunning && this.game.broadcastState) {
         this.game.broadcastState();
@@ -452,6 +477,7 @@ class Room {
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      pet: p.pet || p.publicProfile?.pet || '',
       publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
     }));
     const spectators = [...this.spectators.values()].map((s) => ({

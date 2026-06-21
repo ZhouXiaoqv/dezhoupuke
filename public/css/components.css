@@ -282,6 +282,35 @@
   background: rgba(255, 255, 255, 0.03);
   transition: all 0.2s;
 }
+.blindbox-option {
+  min-height: 154px;
+}
+.shop-preview-slot {
+  width: 50px;
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 66px;
+}
+.blindbox-option .pet-preview {
+  width: 50px;
+  height: 50px;
+}
+.blindbox-option .shop-item-name {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.25;
+}
+.blindbox-option .shop-price {
+  display: flex;
+  align-items: center;
+}
+.blindbox-option .shop-buy-btn {
+  margin-top: auto;
+}
 .shop-option:hover:not(.owned) {
   border-color: rgba(212, 168, 64, 0.35);
   transform: translateY(-2px);
@@ -401,6 +430,29 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 16px;
+}
+.blindbox-pet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 7px;
+  margin-top: 12px;
+}
+.blindbox-pet-item {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.blindbox-pet-item.owned {
+  border-color: rgba(96, 208, 128, 0.38);
+  background: rgba(96, 208, 128, 0.08);
+}
+.blindbox-pet-item.missing .pet-preview {
+  filter: grayscale(1);
+  opacity: 0.46;
 }
 .blindbox-shop-icon {
   width: 44px;

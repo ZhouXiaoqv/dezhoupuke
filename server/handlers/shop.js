@@ -44,9 +44,22 @@ function register(ws, ctx) {
       send(ws, 'shop:error', { message: result.error });
       return;
     }
+    if (result.rewardType === 'pet') {
+      send(ws, 'shop:blindBoxResult', {
+        id: result.blindBox.id,
+        name: result.blindBox.name,
+        rewardType: 'pet',
+        petId: result.petId,
+        price: result.price,
+        pool: result.pool,
+        profile: result.profile,
+      });
+      return;
+    }
     send(ws, 'shop:blindBoxResult', {
       id: result.blindBox.id,
       name: result.blindBox.name,
+      rewardType: 'cardBack',
       price: result.price,
       cardBackId: result.cardBackId,
       pool: result.pool,

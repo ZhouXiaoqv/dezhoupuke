@@ -125,6 +125,7 @@ class Game {
       avatar: p.avatar || '🦊',
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
+      pet: p.pet || p.publicProfile?.pet || '',
       publicProfile: p.publicProfile || null,
     }));
     this.deck = [];
@@ -194,6 +195,7 @@ class Game {
         avatar: p.avatar || '🦊',
         avatarColor: p.avatarColor || null,
         cardBack: p.cardBack || 'default-blue',
+        pet: p.pet || p.publicProfile?.pet || '',
         publicProfile: p.publicProfile || null,
         // Only send hand cards to the owning player (handled per-client)
         hand: p.hand,

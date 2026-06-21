@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { CARD_BACK_SHOP, DEFAULT_CARD_BACK } = require('./userStore');
+const { PET_CATALOG, PET_IDS } = require('./petCatalog');
 
 const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'catalog.json');
 
@@ -31,10 +32,12 @@ function buildDefaultCatalog() {
   return {
     version: 1,
     shopCategories: [
+      { id: 'pets', name: '宠物', order: 3, enabled: true },
       { id: 'card-backs', name: '牌背', order: 1, enabled: true },
       { id: 'blind-box', name: '盲盒', order: 2, enabled: true },
     ],
     cardBacks: buildDefaultCardBacks(),
+    pets: PET_CATALOG.map((pet, index) => ({ order: index + 1, ...pet })),
     shopItems: CARD_BACK_SHOP.map((item, index) => ({
       id: `cardback-${item.id}`,
       type: 'cardBack',
@@ -45,6 +48,15 @@ function buildDefaultCatalog() {
       order: index + 1,
     })),
     blindBoxes: [
+      {
+        id: 'pet-blindbox',
+        name: '宠物盲盒',
+        categoryId: 'blind-box',
+        price: 1000,
+        enabled: true,
+        order: 2,
+        dropType: 'pet',
+      },
       {
         id: 'cardback-blindbox',
         name: '牌背盲盒',
@@ -103,12 +115,13 @@ class CatalogStore {
 
   _normalize() {
     const defaults = buildDefaultCatalog();
-    for (const key of ['shopCategories', 'cardBacks', 'shopItems', 'blindBoxes', 'holidayGifts']) {
+    for (const key of ['shopCategories', 'cardBacks', 'pets', 'shopItems', 'blindBoxes', 'holidayGifts']) {
       if (!Array.isArray(this.catalog[key])) this.catalog[key] = [];
     }
 
     this._mergeById('shopCategories', defaults.shopCategories);
     this._mergeById('cardBacks', defaults.cardBacks);
+    this._mergeById('pets', defaults.pets);
     this._mergeById('shopItems', defaults.shopItems);
     this._mergeById('blindBoxes', defaults.blindBoxes);
 
@@ -127,6 +140,14 @@ class CatalogStore {
       order: cleanInt(item.order, index),
     })).filter((item) => item.id && item.name && !REMOVED_CARD_BACK_IDS.has(item.id));
 
+    this.catalog.pets = this.catalog.pets.map((item, index) => ({
+      id: String(item.id || '').trim(),
+      name: String(item.name || item.id || '').trim(),
+      modelUrl: String(item.modelUrl || '').trim(),
+      previewUrl: String(item.previewUrl || '').trim(),
+      order: cleanInt(item.order, index + 1),
+    })).filter((item) => item.id && item.name && PET_IDS.has(item.id));
+
     this.catalog.shopItems = this.catalog.shopItems.map((item, index) => ({
       id: String(item.id || '').trim(),
       type: 'cardBack',
@@ -140,11 +161,13 @@ class CatalogStore {
     this.catalog.blindBoxes = this.catalog.blindBoxes.map((item, index) => ({
       id: String(item.id || '').trim(),
       name: String(item.name || item.id || '').trim(),
-      categoryId: String(item.categoryId || 'blind-box').trim(),
+      categoryId: String(item.id || '').trim() === 'pet-blindbox'
+        ? 'blind-box'
+        : String(item.categoryId || 'blind-box').trim(),
       price: cleanInt(item.price, 300),
       enabled: toBool(item.enabled, true),
       order: cleanInt(item.order, index + 1),
-      dropType: 'shopCardBack',
+      dropType: item.dropType === 'pet' ? 'pet' : 'shopCardBack',
     })).filter((item) => item.id && item.name);
 
     this.catalog.holidayGifts = this.catalog.holidayGifts.map((gift) =>
@@ -207,6 +230,14 @@ class CatalogStore {
     return this.catalog.cardBacks.find((item) => item.id === id) || null;
   }
 
+  getAllPetIds() {
+    return this.catalog.pets.map((item) => item.id);
+  }
+
+  getPet(id) {
+    return this.catalog.pets.find((item) => item.id === id) || null;
+  }
+
   getEmotionRewardIds() {
     return ['coffee', 'rose', 'egg', 'slipper'];
   }
@@ -228,6 +259,7 @@ class CatalogStore {
     return {
       shopCategories: categories,
       cardBacks: [...this.catalog.cardBacks].sort((a, b) => a.order - b.order),
+      pets: [...this.catalog.pets].sort((a, b) => a.order - b.order),
       shopItems,
       blindBoxes,
     };
@@ -272,7 +304,11 @@ class CatalogStore {
     const box = this.catalog.blindBoxes.find((entry) => entry.id === id);
     if (!box) return { error: '盲盒不存在' };
     if (input.name !== undefined) box.name = String(input.name || '').trim() || box.name;
-    if (input.categoryId !== undefined) box.categoryId = String(input.categoryId || '').trim() || box.categoryId;
+    if (input.categoryId !== undefined) {
+      box.categoryId = id === 'pet-blindbox'
+        ? 'blind-box'
+        : String(input.categoryId || '').trim() || box.categoryId;
+    }
     if (input.price !== undefined) box.price = cleanInt(input.price, box.price);
     if (input.enabled !== undefined) box.enabled = !!input.enabled;
     this._save();
@@ -297,6 +333,13 @@ class CatalogStore {
       .filter((item) => item.enabled && this._categoryEnabled(item.categoryId))
       .filter((item) => !owned.has(item.cardBackId))
       .filter((item) => !!this.getCardBack(item.cardBackId));
+  }
+
+  getPetBlindBoxDropPool(ownedPets = []) {
+    const owned = new Set(ownedPets);
+    return this.catalog.pets
+      .filter((pet) => !owned.has(pet.id))
+      .filter((pet) => !!this.getPet(pet.id));
   }
 
   createHolidayGift(input = {}) {

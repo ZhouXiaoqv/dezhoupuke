@@ -54,6 +54,7 @@ function buildLayoutTestState() {
     "pattern-geo-party",
     "pattern-night-stars",
   ];
+  const pets = ["fox", "cat", "dog", "panda", "bee", "penguin", "lion", "tiger"];
   return {
     handNum: 1,
     phase: "river",
@@ -85,10 +86,12 @@ function buildLayoutTestState() {
       avatar: "AI",
       avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
       cardBack: cardBacks[i % cardBacks.length],
+      pet: pets[i % pets.length],
       publicProfile: {
         username: `\u7535\u8111 ${i + 1}`,
         avatar: "AI",
         avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
+        pet: pets[i % pets.length],
         charm: 12 - i,
         stats: {
           handsPlayed: 80 + i * 9,
@@ -161,6 +164,7 @@ function leaveLayoutTestRoom() {
   $("actionLogPanel")?.classList.remove("open");
   $("scoreboardToggle")?.classList.remove("visible");
   $("scoreboardPanel")?.classList.remove("open");
+  window.Pets3D?.clear();
   showScreen("lobbyScreen");
   toast("\u5df2\u9000\u51fa\u5e03\u5c40\u6d4b\u8bd5\u623f\u95f4");
   return true;
@@ -263,6 +267,7 @@ function playActionSound(action) {
 
 function handleActionLog(entry) {
   if (!entry) return;
+  window.Pets3D?.handleAction(entry);
   addLogPhaseIfNeeded(entry.phase);
   playActionSound(entry.action);
   addLogEntry(
@@ -830,6 +835,7 @@ function renderGame(state) {
 
   // Hand rank label
   updateHandLabel(state);
+  requestAnimationFrame(() => window.Pets3D?.sync(state));
 }
 
 function updateHandLabel(state) {

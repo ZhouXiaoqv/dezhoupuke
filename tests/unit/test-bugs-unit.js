@@ -4,6 +4,7 @@
 const WebSocket = require('ws');
 const URL = 'ws://localhost:3000';
 let passed = 0, failed = 0;
+const RUN_ID = Date.now().toString(36);
 
 function assert(cond, msg) {
   if (cond) { console.log(`  PASS ${msg}`); passed++; }
@@ -14,7 +15,8 @@ function createClient(name) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(URL);
     const messages = [];
-    ws.on('open', () => ws.send(JSON.stringify({ type: 'user:register', data: { username: name, password: 'test123' } })));
+    const username = `${name}${RUN_ID}`.slice(0, 12);
+    ws.on('open', () => ws.send(JSON.stringify({ type: 'user:register', data: { username, password: 'test123' } })));
     ws.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
       messages.push(msg);
@@ -125,8 +127,8 @@ async function run() {
   assert(pl && pl.hostId === bob.id, 'Carol sees Bob as host');
   assert(pl.hostId !== carol.id, 'isHost would be false for Carol → start button hidden');
 
-  // Test host transfer on disconnect (not just leave)
-  console.log('\n--- Bonus: Host transfer on disconnect ---');
+  // Registered-user disconnect keeps reconnect grace instead of immediate host transfer.
+  console.log('\n--- Bonus: Host disconnect grace period ---');
   const dave = await createClient('Dave');
   dave.send('room:join', { code: code2, name: 'Dave' });
   await sleep(300);
@@ -137,11 +139,12 @@ async function run() {
   bob.ws.close();
   await sleep(500);
 
-  // Dave or Carol should become host
   const daveHostChanged = dave.messages.find(m => m.type === 'room:hostChanged');
   const carolHostChanged = carol.messages.find(m => m.type === 'room:hostChanged');
-  const transferWorked = daveHostChanged || carolHostChanged;
-  assert(!!transferWorked, 'Host transfer triggered on disconnect');
+  const latestPlayers =
+    [...dave.messages, ...carol.messages].reverse().find(m => m.type === 'room:players');
+  assert(!daveHostChanged && !carolHostChanged, 'Host is preserved during reconnect grace period');
+  assert(!latestPlayers || latestPlayers.data.hostId === bob.id, 'room:players keeps disconnected host during grace');
 
   // Cleanup
   carol.ws.close();

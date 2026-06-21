@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { PET_IDS } = require('./petCatalog');
 
 const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
 const CHECKIN_TIME_ZONE = 'Asia/Shanghai';
@@ -150,6 +151,13 @@ class UserStore {
     return CARD_BACK_IDS;
   }
 
+  _getValidPetIds() {
+    if (this.catalogStore && typeof this.catalogStore.getAllPetIds === 'function') {
+      return new Set(this.catalogStore.getAllPetIds());
+    }
+    return PET_IDS;
+  }
+
   _getCheckInDay(now = new Date()) {
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: CHECKIN_TIME_ZONE,
@@ -209,6 +217,16 @@ class UserStore {
     }
   }
 
+  _ensurePets(user) {
+    const validPetIds = this._getValidPetIds();
+    if (!Array.isArray(user.ownedPets)) user.ownedPets = [];
+    user.ownedPets = [...new Set(user.ownedPets)].filter((id) =>
+      typeof id === 'string' && id.trim() && validPetIds.has(id),
+    );
+    const equipped = typeof user.equippedPet === 'string' ? user.equippedPet.trim() : '';
+    user.equippedPet = equipped && user.ownedPets.includes(equipped) ? equipped : '';
+  }
+
   _ensureEmotions(user) {
     if (typeof user.charm !== 'number') user.charm = 0;
     if (!user.emotionInventory || typeof user.emotionInventory !== 'object') {
@@ -258,6 +276,7 @@ class UserStore {
     if (!Array.isArray(user.claimedHolidayGiftIds)) user.claimedHolidayGiftIds = [];
     this._ensureCheckIn(user);
     this._ensureCardBacks(user);
+    this._ensurePets(user);
     this._ensureEmotions(user);
     this._ensureStats(user);
   }
@@ -287,6 +306,8 @@ class UserStore {
       emotionInventory: Object.fromEntries(STOCKED_EMOTION_IDS.map((id) => [id, 0])),
       ownedCardBacks: [DEFAULT_CARD_BACK],
       equippedCardBack: DEFAULT_CARD_BACK,
+      ownedPets: [],
+      equippedPet: '',
       claimedHolidayGiftIds: [],
       checkIn: { lastDate: '', weekStart: '', days: [], fullWeekBonusWeek: '' },
       stats: {
@@ -339,6 +360,8 @@ class UserStore {
       emotionInventory: Object.fromEntries(STOCKED_EMOTION_IDS.map((id) => [id, 0])),
       ownedCardBacks: [DEFAULT_CARD_BACK],
       equippedCardBack: DEFAULT_CARD_BACK,
+      ownedPets: [],
+      equippedPet: '',
       checkIn: {
         lastDate: '',
         weekStart: '',
@@ -558,6 +581,9 @@ class UserStore {
 
     const box = this.catalogStore.getBlindBox(boxId || 'cardback-blindbox');
     if (!box) return { error: 'Blind box not found' };
+    if (box.dropType === 'pet') {
+      return this.buyPetBlindBox(username, box.id, rng);
+    }
     const pool = this.catalogStore.getBlindBoxDropPool(user.ownedCardBacks);
     if (pool.length === 0) return { error: 'No available card backs in blind box' };
     if (user.coins < box.price) return { error: 'Not enough coins' };
@@ -577,6 +603,35 @@ class UserStore {
     };
   }
 
+  buyPetBlindBox(username, boxId = 'pet-blindbox', rng = Math.random) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    if (user.disabled || user.role !== 'player') return { error: 'Permission denied' };
+    if (!this.catalogStore) return { error: 'Shop not ready' };
+
+    const box = this.catalogStore.getBlindBox(boxId || 'pet-blindbox');
+    if (!box || box.dropType !== 'pet') return { error: 'Blind box not found' };
+    const pool = this.catalogStore.getPetBlindBoxDropPool(user.ownedPets);
+    if (pool.length === 0) return { error: '宠物已收集完' };
+    if (user.coins < box.price) return { error: 'Not enough coins' };
+
+    const index = Math.max(0, Math.min(pool.length - 1, Math.floor(rng() * pool.length)));
+    const picked = pool[index];
+    user.coins -= box.price;
+    user.ownedPets.push(picked.id);
+    this._ensureAccountState(user);
+    this._save();
+    return {
+      blindBox: box,
+      rewardType: 'pet',
+      petId: picked.id,
+      price: box.price,
+      pool: pool.map((item) => item.id),
+      profile: this._sanitize(user),
+    };
+  }
+
   updateCardBack(username, cardBackId) {
     const user = this.users.get(username);
     if (!user) return { error: 'User not found' };
@@ -591,6 +646,31 @@ class UserStore {
     return {
       equippedCardBack: user.equippedCardBack,
       ownedCardBacks: [...user.ownedCardBacks],
+      profile: this._sanitize(user),
+    };
+  }
+
+  updatePet(username, petId) {
+    const user = this.users.get(username);
+    if (!user) return { error: 'User not found' };
+    this._ensureAccountState(user);
+    const nextId = String(petId || '').trim();
+    if (!nextId) {
+      user.equippedPet = '';
+      this._save();
+      return {
+        equippedPet: '',
+        ownedPets: [...user.ownedPets],
+        profile: this._sanitize(user),
+      };
+    }
+    if (!this._getValidPetIds().has(nextId)) return { error: '宠物不存在' };
+    if (!user.ownedPets.includes(nextId)) return { error: '尚未拥有该宠物' };
+    user.equippedPet = nextId;
+    this._save();
+    return {
+      equippedPet: user.equippedPet,
+      ownedPets: [...user.ownedPets],
       profile: this._sanitize(user),
     };
   }
@@ -834,6 +914,8 @@ class UserStore {
       emotionInventory: { ...user.emotionInventory },
       ownedCardBacks: [...user.ownedCardBacks],
       equippedCardBack: user.equippedCardBack || DEFAULT_CARD_BACK,
+      ownedPets: [...user.ownedPets],
+      equippedPet: user.equippedPet || '',
       checkIn: user.checkIn
         ? {
             lastDate: user.checkIn.lastDate || '',
@@ -856,6 +938,7 @@ class UserStore {
       username: user.username,
       avatar: user.avatar || 'A',
       avatarColor: user.avatarColor || '#4fc3f7',
+      pet: user.equippedPet || '',
       charm: user.charm || 0,
       stats: {
         handsPlayed: s.handsPlayed || 0,

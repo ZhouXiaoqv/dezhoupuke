@@ -524,6 +524,7 @@ const COLOR_OPTIONS = [
 let selectedAvatar = "🦊";
 let selectedColor = "#4fc3f7";
 let selectedCardBack = DEFAULT_CARD_BACK;
+let selectedPet = "";
 
 function initAvatarSelector() {
   const avatarGrid = $("avatarGrid");
@@ -569,6 +570,7 @@ function initAvatarSelector() {
 
   updateAvatarPreview();
   renderOwnedCardBacks();
+  renderOwnedPets();
 }
 
 function updateAvatarPreview() {
@@ -588,6 +590,7 @@ function openAvatarModal() {
     selectedAvatar = userProfile.avatar || "🦊";
     selectedColor = userProfile.avatarColor || "#4fc3f7";
     selectedCardBack = getEquippedCardBack(userProfile);
+    selectedPet = getEquippedPet(userProfile);
   }
   initAvatarSelector();
   modal.classList.add("active");
@@ -613,14 +616,17 @@ if ($("avatarSaveBtn")) {
   $("avatarSaveBtn").addEventListener("click", () => {
     const cardBackChanged =
       selectedCardBack !== getEquippedCardBack(userProfile);
+    const petChanged = selectedPet !== getEquippedPet(userProfile);
     Net.send("user:setAvatar", {
       avatar: selectedAvatar,
       color: selectedColor,
     });
     if (cardBackChanged) Net.send("user:setCardBack", { id: selectedCardBack });
+    if (petChanged) Net.send("user:setPet", { id: selectedPet });
     userProfile.avatar = selectedAvatar;
     userProfile.avatarColor = selectedColor;
     userProfile.equippedCardBack = selectedCardBack;
+    userProfile.equippedPet = selectedPet;
     const ab = $("avatarBtn");
     if (ab) ab.textContent = selectedAvatar + " 换装";
     closeAvatarModal();
@@ -652,10 +658,30 @@ Net.on("user:cardBackUpdated", (d) => {
   toast("牌背已保存");
 });
 
+Net.on("user:petUpdated", (d) => {
+  if (userProfile && d.profile) {
+    userProfile = d.profile;
+  } else if (userProfile) {
+    userProfile.equippedPet = d.equippedPet || "";
+    userProfile.ownedPets = d.ownedPets || userProfile.ownedPets || [];
+  }
+  selectedPet = getEquippedPet(userProfile);
+  renderOwnedPets();
+  if (gameState && Net.playerId) {
+    const me = gameState.players?.find((p) => p.id === Net.playerId);
+    if (me) {
+      me.pet = selectedPet;
+      me.publicProfile = { ...(me.publicProfile || {}), pet: selectedPet };
+    }
+  }
+  toast("小宠物已保存");
+});
+
 Net.on("shop:purchaseResult", (d) => {
   if (userProfile && d.profile) userProfile = d.profile;
   renderShop();
   renderOwnedCardBacks();
+  renderOwnedPets();
   updateUserArea();
   toast("购买成功");
 });
@@ -665,6 +691,7 @@ Net.on("shop:catalog", (d) => {
   if (d.profile) userProfile = d.profile;
   renderShop();
   renderOwnedCardBacks();
+  renderOwnedPets();
 });
 
 Net.on("shop:error", (d) => {
@@ -675,6 +702,7 @@ Net.on("shop:blindBoxResult", (d) => {
   if (userProfile && d.profile) userProfile = d.profile;
   updateUserArea();
   renderOwnedCardBacks();
+  renderOwnedPets();
   renderShop();
   playBlindBoxResult(d);
 });
@@ -702,14 +730,62 @@ function renderOwnedCardBacks() {
   });
 }
 
+function renderOwnedPets() {
+  const grid = $("petGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const owned = getOwnedPets(userProfile);
+  selectedPet = owned.includes(selectedPet) ? selectedPet : getEquippedPet(userProfile);
+
+  const none = document.createElement("button");
+  none.type = "button";
+  none.className = "pet-option" + (!selectedPet ? " selected" : "");
+  none.appendChild(createPetPreview(""));
+  const noneLabel = document.createElement("div");
+  noneLabel.className = "pet-option-label";
+  noneLabel.textContent = "未装备";
+  none.appendChild(noneLabel);
+  none.addEventListener("click", () => {
+    selectedPet = "";
+    renderOwnedPets();
+  });
+  grid.appendChild(none);
+
+  if (!owned.length) {
+    const empty = document.createElement("div");
+    empty.className = "pet-empty";
+    empty.textContent = "还没有小宠物，可以去商城抽宠物盲盒。";
+    grid.appendChild(empty);
+    return;
+  }
+
+  owned.forEach((id) => {
+    const def = getPetDef(id);
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "pet-option" + (id === selectedPet ? " selected" : "");
+    opt.appendChild(createPetPreview(id));
+    const label = document.createElement("div");
+    label.className = "pet-option-label";
+    label.textContent = def?.name || id;
+    opt.appendChild(label);
+    opt.addEventListener("click", () => {
+      selectedPet = id;
+      renderOwnedPets();
+    });
+    grid.appendChild(opt);
+  });
+}
+
 function renderShop() {
   const grid = $("shopGrid");
   if (!grid) return;
   grid.innerHTML = "";
-  renderShopCategories();
   const owned = new Set(getOwnedCardBacks(userProfile));
+  const ownedPets = new Set(getOwnedPets(userProfile));
   const coins = userProfile?.coins || 0;
   const catalog = shopCatalog || {
+    shopCategories: [{ id: "card-backs", name: "\u724c\u80cc" }],
     shopItems: CARD_BACK_SHOP.map((item) => ({
       id: item.id,
       cardBackId: item.id,
@@ -719,6 +795,7 @@ function renderShop() {
     })),
     blindBoxes: [],
   };
+  renderShopCategories(catalog);
   const selectedCategory = renderShop.selectedCategory || "";
   const items = (catalog.shopItems || [])
     .filter((item) => !selectedCategory || item.categoryId === selectedCategory)
@@ -754,18 +831,28 @@ function renderShop() {
     .filter((box) => !selectedCategory || box.categoryId === selectedCategory)
     .forEach((box) => {
       const canBuy = coins >= box.price;
+      const soldOut = isPetBlindBoxSoldOut(box);
       const opt = document.createElement("div");
-      opt.className = "shop-option blindbox-option" + (!canBuy ? " unaffordable" : "");
-      const icon = document.createElement("div");
-      icon.className = "blindbox-shop-icon";
-      opt.appendChild(icon);
+      opt.className =
+        "shop-option blindbox-option" + (!canBuy || soldOut ? " unaffordable" : "");
+      const previewSlot = document.createElement("div");
+      previewSlot.className = "shop-preview-slot";
+      if (box.dropType === "pet") {
+        const petPool = (catalog.pets || []).filter((pet) => !ownedPets.has(pet.id));
+        previewSlot.appendChild(createPetPreview(petPool[0]?.id || "fox"));
+      } else {
+        const icon = document.createElement("div");
+        icon.className = "blindbox-shop-icon";
+        previewSlot.appendChild(icon);
+      }
+      opt.appendChild(previewSlot);
       const name = document.createElement("div");
       name.className = "shop-item-name";
       name.textContent = box.name || "\u724c\u80cc\u76f2\u76d2";
       opt.appendChild(name);
       const price = document.createElement("div");
       price.className = "shop-price";
-      price.textContent = box.price + "\u91d1\u5e01";
+      price.textContent = soldOut ? "\u5df2\u6536\u96c6\u5b8c" : box.price + "\u91d1\u5e01";
       opt.appendChild(price);
       const buyBtn = document.createElement("button");
       buyBtn.type = "button";
@@ -780,12 +867,21 @@ function renderShop() {
   }
 }
 
-function renderShopCategories() {
+function renderShopCategories(catalog = shopCatalog) {
   const tabs = $("shopCategoryTabs");
   if (!tabs) return;
-  const categories = shopCatalog?.shopCategories || [];
+  const visibleCategoryIds = new Set([
+    ...(catalog?.shopItems || []).map((item) => item.categoryId),
+    ...(catalog?.blindBoxes || []).map((box) => box.categoryId),
+  ]);
+  const categories = (catalog?.shopCategories || []).filter((category) =>
+    visibleCategoryIds.has(category.id),
+  );
   tabs.innerHTML = "";
-  if (!categories.length) return;
+  if (!categories.length) {
+    renderShop.selectedCategory = "";
+    return;
+  }
   const categoryIds = new Set(categories.map((category) => category.id));
   const activeId = categoryIds.has(renderShop.selectedCategory)
     ? renderShop.selectedCategory
@@ -825,23 +921,76 @@ if ($("shopModal")) {
 
 let currentBlindBox = null;
 let blindBoxResultReady = false;
+
+function createBlindBoxRewardPreview(type, id) {
+  if (type === "pet") return createPetPreview(id);
+  return createCardBackPreview(id || DEFAULT_CARD_BACK);
+}
+
+function getBlindBoxPetCatalog() {
+  return shopCatalog?.pets?.length ? shopCatalog.pets : PET_CATALOG;
+}
+
+function isPetBlindBoxSoldOut(box) {
+  if (box?.dropType !== "pet") return false;
+  const ownedPets = new Set(getOwnedPets(userProfile));
+  return getBlindBoxPetCatalog().every((pet) => ownedPets.has(pet.id));
+}
+
+function renderBlindBoxDesc(box) {
+  const desc = $("blindBoxDesc");
+  if (!desc) return;
+  desc.innerHTML = "";
+  const text = document.createElement("div");
+  text.textContent =
+    box.dropType === "pet"
+      ? `\u82b1\u8d39 ${box.price} \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u53ea\u672a\u62e5\u6709\u7684\u5c0f\u5ba0\u7269\u3002\u62bd\u5230\u540e\u52a0\u5165\u4ed3\u5e93\uff0c\u9700\u8981\u5728\u6362\u88c5\u91cc\u624b\u52a8\u88c5\u5907\u3002`
+      : "\u82b1\u8d39 " +
+        box.price +
+        " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
+  desc.appendChild(text);
+  if (box.dropType !== "pet") return;
+  const ownedPets = new Set(getOwnedPets(userProfile));
+  const grid = document.createElement("div");
+  grid.className = "blindbox-pet-grid";
+  getBlindBoxPetCatalog().forEach((pet) => {
+    const item = document.createElement("div");
+    const isOwned = ownedPets.has(pet.id);
+    item.className = "blindbox-pet-item" + (isOwned ? " owned" : " missing");
+    item.title = `${pet.name || pet.id}${isOwned ? " \u5df2\u62e5\u6709" : " \u672a\u62e5\u6709"}`;
+    item.appendChild(createPetPreview(pet.id));
+    grid.appendChild(item);
+  });
+  desc.appendChild(grid);
+}
+
 function openBlindBoxModal(box) {
   currentBlindBox = box;
   blindBoxResultReady = false;
   $("blindBoxTitle").textContent = box.name || "\u724c\u80cc\u76f2\u76d2";
   $("blindBoxDesc").textContent =
-    "\u82b1\u8d39 " +
-    box.price +
-    " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
+    box.dropType === "pet"
+      ? `花费 ${box.price} 金币，随机获得一只未拥有的小宠物。抽到后会加入仓库，需要在换装里手动装备。`
+      : "\u82b1\u8d39 " +
+        box.price +
+        " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
   const buy = $("blindBoxBuyBtn");
+  renderBlindBoxDesc(box);
+  const soldOut = isPetBlindBoxSoldOut(box);
   if (buy) {
-    buy.textContent = box.price + "\u91d1\u5e01\u8d2d\u4e70";
-    buy.disabled = (userProfile?.coins || 0) < box.price;
+    buy.textContent = soldOut ? "\u5ba0\u7269\u5df2\u6536\u96c6\u5b8c" : box.price + "\u91d1\u5e01\u8d2d\u4e70";
+    buy.disabled = soldOut || (userProfile?.coins || 0) < box.price;
   }
   const stage = $("blindBoxStage");
   if (stage) {
     stage.innerHTML = "";
-    stage.appendChild(createCardBackPreview(DEFAULT_CARD_BACK));
+    const firstPet = (shopCatalog?.pets || [])[0]?.id || "fox";
+    stage.appendChild(
+      createBlindBoxRewardPreview(
+        box.dropType,
+        box.dropType === "pet" ? firstPet : DEFAULT_CARD_BACK,
+      ),
+    );
   }
   $("blindBoxOverlay")?.classList.add("active");
 }
@@ -857,12 +1006,14 @@ function playBlindBoxResult(result) {
   if (!stage) return;
   $("blindBoxOverlay")?.classList.add("active");
   stage.innerHTML = "";
-  const pool = result.pool && result.pool.length ? result.pool : [result.cardBackId];
+  const rewardType = result.rewardType === "pet" ? "pet" : "cardBack";
+  const finalId = rewardType === "pet" ? result.petId : result.cardBackId;
+  const pool = result.pool && result.pool.length ? result.pool : [finalId];
   let tick = 0;
   const timer = setInterval(() => {
     const id = pool[tick % pool.length];
     stage.innerHTML = "";
-    const next = createCardBackPreview(id);
+    const next = createBlindBoxRewardPreview(rewardType, id);
     next.classList.add("blindbox-rolling-card");
     stage.appendChild(next);
     tick += 1;
@@ -870,7 +1021,7 @@ function playBlindBoxResult(result) {
   setTimeout(() => {
     clearInterval(timer);
     stage.innerHTML = "";
-    const finalCard = createCardBackPreview(result.cardBackId);
+    const finalCard = createBlindBoxRewardPreview(rewardType, finalId);
     finalCard.classList.add("blindbox-final-card");
     stage.appendChild(finalCard);
     const buy = $("blindBoxBuyBtn");
@@ -880,7 +1031,7 @@ function playBlindBoxResult(result) {
     }
     currentBlindBox = null;
     blindBoxResultReady = true;
-    toast("\u83b7\u5f97\u65b0\u724c\u80cc");
+    toast(rewardType === "pet" ? "获得新小宠物" : "\u83b7\u5f97\u65b0\u724c\u80cc");
   }, 1500);
 }
 

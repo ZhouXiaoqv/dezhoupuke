@@ -14,6 +14,7 @@ function run() {
   testFivePlayerFoldedSidePotLayerIsRefunded();
   testSixPlayerFoldedSidePotLayerIsRefunded();
   testZeroStackIsNotResetToStartStack();
+  testZeroStackRefillDoesNotAffectScoreboard();
   testSettledHandScoreboardIsVisibleBeforeGameEnd();
   testScoreboardBalancesAcrossManyPlayers();
   testRoomDoesNotStartWithOnlyOneFundedPlayer();
@@ -243,6 +244,45 @@ function testSettledHandScoreboardIsVisibleBeforeGameEnd() {
   assert.strictEqual(finalScores.get('p2'), -225);
 
   console.log('PASS settled hand scoreboard includes pending net score exactly once');
+}
+
+function testZeroStackRefillDoesNotAffectScoreboard() {
+  const hostWs = mockWs();
+  const p2Ws = mockWs();
+  const room = new Room('TEST', 'p1', 'Alice', hostWs, { startStack: 2000 });
+  assert.strictEqual(room.addPlayer('p2', 'Bob', p2Ws), true);
+
+  room.gameRunning = true;
+  room.handStartStacks = new Map([
+    ['p1', 2000],
+    ['p2', 2000],
+  ]);
+  room.game = {
+    handNum: 1,
+    winners: [{ id: 'p2', name: 'Bob', amount: 4000 }],
+    refunds: [],
+    broadcastState() {
+      this.stateBroadcasted = true;
+    },
+    players: [
+      { id: 'p1', name: 'Alice', stack: 0, folded: true, allIn: true, bet: 0 },
+      { id: 'p2', name: 'Bob', stack: 4000 },
+    ],
+  };
+  room.settleFinishedHand();
+
+  const scores = scoreMap(room.getScoreboard());
+  assert.strictEqual(room.players.get('p1').stack, 2000);
+  assert.strictEqual(room.game.players[0].stack, 2000);
+  assert.strictEqual(room.game.players[0].folded, false);
+  assert.strictEqual(room.game.players[0].allIn, false);
+  assert.strictEqual(room.game.stateBroadcasted, true);
+  assert.strictEqual(room.players.get('p2').stack, 4000);
+  assert.strictEqual(scores.get('p1'), -2000);
+  assert.strictEqual(scores.get('p2'), 2000);
+  assertScoreboardBalances(room.getScoreboard());
+
+  console.log('PASS zero stack refill does not affect scoreboard');
 }
 
 function testScoreboardBalancesAcrossManyPlayers() {

@@ -41,6 +41,7 @@ function register(ws, ctx) {
     ws._playerAvatar = result.profile.avatar || 'A';
     ws._playerColor = result.profile.avatarColor || null;
     ws._playerCardBack = result.profile.equippedCardBack || DEFAULT_CARD_BACK;
+    ws._playerPet = result.profile.equippedPet || '';
 
     let resume = null;
 
@@ -187,6 +188,28 @@ function register(ws, ctx) {
       data: {
         equippedCardBack: result.equippedCardBack,
         ownedCardBacks: result.ownedCardBacks,
+        profile: result.profile,
+      },
+    }));
+  });
+
+  ws._on('user:setPet', (data) => {
+    if (!requireLogin()) return;
+    const result = userStore.updatePet(ws._currentUser.username, data && data.id);
+    if (result.error) {
+      ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
+      return;
+    }
+    ws._playerPet = result.equippedPet || '';
+    if (ws._currentRoom && ws._playerId) {
+      const publicProfile = userStore.getPublicProfile(ws._currentUser.username);
+      ws._currentRoom.updatePlayerPublicProfile(ws._playerId, publicProfile);
+    }
+    ws.send(JSON.stringify({
+      type: 'user:petUpdated',
+      data: {
+        equippedPet: result.equippedPet,
+        ownedPets: result.ownedPets,
         profile: result.profile,
       },
     }));

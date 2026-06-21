@@ -446,6 +446,8 @@
         <div class="color-grid" id="colorGrid"></div>
         <div class="avatar-section-label">牌背更换</div>
         <div class="cardback-grid" id="cardBackGrid"></div>
+        <div class="avatar-section-label">小宠物</div>
+        <div class="pet-grid" id="petGrid"></div>
         <button class="avatar-save-btn" id="avatarSaveBtn">保存</button>
       </div>
     </div>
@@ -740,5 +742,14 @@
     <script src="js/controls.js"></script>
     <script src="js/auto-call.js"></script>
     <script src="js/app.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="js/pets3d.js"></script>
   </body>
 </html>

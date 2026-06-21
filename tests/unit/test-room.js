@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 
 const URL = 'ws://localhost:3000';
 let passed = 0, failed = 0;
+const RUN_ID = Date.now().toString(36);
 
 function assert(cond, msg) {
   if (cond) { console.log(`  PASS ${msg}`); passed++; }
@@ -15,8 +16,9 @@ function createClient(name) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(URL);
     const messages = [];
+    const username = `${name}${RUN_ID}`.slice(0, 12);
     ws.on('open', () => {
-      ws.send(JSON.stringify({ type: 'user:register', data: { username: name, password: 'test123' } }));
+      ws.send(JSON.stringify({ type: 'user:register', data: { username, password: 'test123' } }));
     });
     ws.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
@@ -144,9 +146,13 @@ async function run() {
   const roomAfterDisconnect = list5 && list5.data.rooms.some(r => r.code === code);
   assert(roomAfterDisconnect, 'Room survives with remaining player');
 
-  // Player4 should see disconnect notification
-  const disconnectNotice = p4.messages.find(m => m.type === 'room:playerLeft' || m.type === 'room:playerDisconnected');
-  assert(!!disconnectNotice, 'Player4 notified of Player3 disconnect');
+  checker.send('room:list');
+  await sleep(500);
+  const listAfterDisconnect = checker.messages.find(m => m.type === 'room:list');
+  assert(
+    listAfterDisconnect && listAfterDisconnect.data.rooms.some(r => r.code === code),
+    'Room remains discoverable during Player3 reconnect grace period',
+  );
   drainMessages(p4);
   drainMessages(checker);
 

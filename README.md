@@ -200,6 +200,14 @@ bash auto-deploy.sh --watch
 - **音效**: Web Audio API 合成
 - **部署**: Docker / PM2 / Nginx 反向代理
 
+## 3D Seat Pets
+
+- Pet models live in `public/assets/pets/models/`, previews in `public/assets/pets/previews/`, and the Kenney CC0 license is kept at `public/assets/pets/License.txt`.
+- The frontend uses local Three.js `0.184.0` from `/vendor/three/...`; `public/js/pets3d.js` renders equipped pets as a WebGL overlay on the existing DOM table.
+- Player profiles store `ownedPets` and `equippedPet`; public profiles and `game:state.players[]` expose `pet`.
+- `user:setPet { id }` equips an owned pet, and `id: ""` unequips.
+- `shop:buyBlindBox { id: "pet-blindbox" }` costs 1000 coins, draws only unowned pets, returns `rewardType: "pet"` and `petId`, and does not auto-equip.
+
 ## Road Map
 
 - [x] 基础德州扑克（经典/急速/短牌/高额/All-in 模式）

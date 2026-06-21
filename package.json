@@ -9,6 +9,7 @@
     "test": "node tests/unit/test-sidepot-refund.js && node tests/unit/test-admin-gift-shop.js && node tests/unit/test-admin-ws-smoke.js && node tests/integration/test-all-scenarios.js && node tests/unit/test-room.js && node tests/unit/test-bugs-unit.js && node tests/integration/test-turn.js"
   },
   "dependencies": {
+    "three": "0.184.0",
     "ws": "^8.18.0"
   },
   "engines": {

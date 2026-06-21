@@ -4,6 +4,7 @@
 const WebSocket = require('ws');
 const URL = 'ws://localhost:3000';
 let passed = 0, failed = 0;
+const RUN_ID = Date.now().toString(36);
 
 function assert(cond, msg) {
   if (cond) { console.log(`  PASS ${msg}`); passed++; }
@@ -14,7 +15,8 @@ function createClient(name) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(URL);
     const messages = [];
-    ws.on('open', () => ws.send(JSON.stringify({ type: 'user:register', data: { username: name, password: 'test123' } })));
+    const username = `${name}${RUN_ID}`.slice(0, 12);
+    ws.on('open', () => ws.send(JSON.stringify({ type: 'user:register', data: { username, password: 'test123' } })));
     ws.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
       messages.push(msg);

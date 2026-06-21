@@ -59,3 +59,10 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 - `AGENTS.md` is a symlink to `CLAUDE.md` — keep them identical
 - After any code change, check and sync relevant content in `CLAUDE.md` and `README.md` (project structure, protocol tables, commands, etc.)
 - After adding a new test file, add it to the `test` script in `package.json`
+
+## Pet Customization Notes
+
+- Frontend module `public/js/pets3d.js` is an ES module Three.js overlay for equipped seat pets. It loads local Three.js from `/vendor/three/...`, GLB models from `public/assets/pets/models/`, and previews from `public/assets/pets/previews/`.
+- User profiles include `ownedPets` and `equippedPet`; public profiles and game players expose `pet`.
+- `user:setPet { id }` equips an owned pet or unequips with an empty id.
+- `shop:buyBlindBox` supports `pet-blindbox`; pet results return `rewardType: "pet"` and `petId`, add the pet to inventory, and do not auto-equip.

@@ -251,6 +251,7 @@ Net.on("game:handStart", (d) => {
   prevActions = {};
   prevMyHandIds = null;
   window._prevOtherHands = {};
+  window.Pets3D?.resetEvents();
   // Action log
   clearActionLog();
   $("actionLogToggle").classList.add("visible");
@@ -266,6 +267,7 @@ Net.on("game:showdown", (d) => {
     .join(", ");
   toast(`摊牌: ${winners}`);
   showLogResult(d.winners);
+  window.Pets3D?.celebrateWinners(d.winners);
   // Win celebration particles
   setTimeout(() => {
     for (const w of d.winners) {
@@ -286,6 +288,7 @@ Net.on("game:handEnd", (d) => {
     .join(", ");
   toast(winners ? `本手结束: ${winners}` : "本手结束");
   showLogResult(d.winners);
+  window.Pets3D?.celebrateWinners(d.winners);
   const myId = Net.playerId;
   const iWon = d.winners.some((w) => w.id === myId);
   if (iWon) SFX.win();
