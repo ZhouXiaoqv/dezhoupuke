@@ -3,6 +3,7 @@
  */
 
 const { WebSocketServer } = require('ws');
+const logger = require('./logger');
 
 const HEARTBEAT_INTERVAL_MS = 30000;
 const HEARTBEAT_TIMEOUT_MS = 10 * 60 * 1000;
@@ -20,7 +21,11 @@ class WebSocketManager {
     this._heartbeatInterval = setInterval(() => {
       this.wss.clients.forEach((ws) => {
         if (Date.now() - (ws.lastPongAt || 0) > HEARTBEAT_TIMEOUT_MS) {
-          console.log(`Terminating dead connection: ${ws.playerId}`);
+          logger.warn('NET', 'heartbeat_timeout', {
+            playerId: ws._playerId || ws.playerId || null,
+            playerName: ws.playerName || null,
+            msg: `心跳超时，强制断开 ${ws._playerId || ws.playerId || '(unknown)'}`,
+          });
           ws.terminate();
           return;
         }

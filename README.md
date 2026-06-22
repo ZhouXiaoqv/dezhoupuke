@@ -34,7 +34,8 @@ dezhoupuke/
 │   ├── room.js                 # Room + RoomRegistry 类
 │   ├── game.js                 # 德州扑克游戏引擎
 │   ├── userStore.js            # 用户数据持久化（JSON 文件）
-│   └── gameLogger.js           # 牌局日志记录（JSONL）
+│   ├── gameLogger.js           # 牌局日志（对接统一 logger）
+│   └── logger.js               # 统一日志模块（按日期轮转写入 data/logs/）
 ├── public/                     # 前端
 │   ├── index.html              # HTML 骨架
 │   ├── css/                    # 样式文件
@@ -190,6 +191,81 @@ bash auto-deploy.sh
 
 # 持续监测模式（每60秒检查一次）
 bash auto-deploy.sh --watch
+```
+
+## 日志系统
+
+服务端日志统一写入 `data/logs/server-YYYY-MM-DD.log`，每天自动新建文件，保留最近 7 天。格式为 JSONL（每行一条 JSON），方便 `grep`/`jq` 过滤。
+
+### 日志级别
+
+| 级别 | 含义 |
+|------|------|
+| `DEBUG` | 牌局详细过程（每个行动、阶段切换） |
+| `INFO` | 常规运营事件（登录、创建房间、每手结果） |
+| `WARN` | 需要关注的异常（断线、心跳超时、认证失败） |
+| `ERROR` | 需要排查的错误（存储失败、计分板失衡、运行时异常） |
+
+可通过环境变量 `LOG_LEVEL` 控制最低写入级别（默认 `DEBUG`）。
+
+### 日志分类（category）与事件（event）
+
+**AUTH — 认证**
+| event | level | 说明 |
+|-------|-------|------|
+| `user_register` | INFO | 用户注册成功 |
+| `user_login` | INFO | 密码登录成功 |
+| `user_token_login` | INFO | Token 自动登录成功 |
+| `auth_fail` | WARN | 登录/Token 校验失败 |
+
+**ROOM — 房间**
+| event | level | 说明 |
+|-------|-------|------|
+| `room_create` | INFO | 创建房间 |
+| `player_join` | INFO | 玩家加入房间 |
+| `player_leave` | INFO | 玩家主动离开 |
+| `player_disconnect` | WARN | 玩家断线，等待重连 |
+| `player_reconnect` | INFO | 玩家重连成功 |
+| `scoreboard_imbalance` | ERROR | 计分板盈亏总和不为零 |
+
+**GAME — 牌局**
+| event | level | 说明 |
+|-------|-------|------|
+| `hand_start` | INFO | 一手牌开始（含座位、盲注配置） |
+| `hand_action` | DEBUG | 玩家行动（弃牌/过牌/跟注/加注/All-in） |
+| `hand_phase` | DEBUG | 阶段切换（翻牌/转牌/河牌/摊牌，含公共牌、底池） |
+| `hand_end` | INFO | 一手牌结束（含赢家、底池分配） |
+
+**NET — 网络**
+| event | level | 说明 |
+|-------|-------|------|
+| `heartbeat_timeout` | WARN | 心跳超时，强制断开连接 |
+
+**SYS — 系统**
+| event | level | 说明 |
+|-------|-------|------|
+| `server_start` | INFO | 服务器启动 |
+| `ws_error` | ERROR | WebSocket 连接异常 |
+| `userstore_load_fail` | ERROR | 用户数据文件加载失败 |
+| `userstore_save_fail` | ERROR | 用户数据文件保存失败 |
+
+### 常用查询示例
+
+```bash
+# 查看今天所有 WARN/ERROR
+grep -E '"level":"(WARN|ERROR)"' data/logs/server-$(date +%F).log | jq .
+
+# 查某房间的所有事件
+grep '"roomCode":"ABCD"' data/logs/server-$(date +%F).log | jq .
+
+# 查计分板失衡记录
+grep '"event":"scoreboard_imbalance"' data/logs/server-$(date +%F).log | jq .
+
+# 查某手牌的完整过程（handNum=5）
+grep '"handNum":5' data/logs/server-$(date +%F).log | jq .
+
+# 查某玩家的所有断线记录
+grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 ```
 
 ## 技术栈

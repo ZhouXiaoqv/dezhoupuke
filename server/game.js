@@ -323,15 +323,6 @@ class Game {
       }
     }
 
-    // Record dealt hands in the logger
-    if (gameLogger.currentHand) {
-      for (const p of this.players) {
-        if (p.hand && p.hand.length === 2) {
-          gameLogger.currentHand.hands[p.id] = p.hand.map(c => c ? `${c.rankStr}${c.suitStr}` : null);
-        }
-      }
-    }
-
     this.currentIdx = this.nextIdx(bbIdx);
     this.actedCount = 0;
 

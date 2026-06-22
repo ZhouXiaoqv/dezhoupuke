@@ -2,6 +2,8 @@
  * Room Message Handlers — room creation, joining, spectating, leaving
  */
 
+const logger = require('../logger');
+
 function register(ws, ctx) {
   const { registry, wsManager, wireStatsReporting, userStore } = ctx;
 
@@ -50,6 +52,12 @@ function register(ws, ctx) {
     if (roomPlayer) roomPlayer._username = ws._currentUser.username;
 
     wireStatsReporting(room);
+    logger.info('ROOM', 'room_create', {
+      roomCode: room.code,
+      host: ws._currentUser.username,
+      gameMode: data.gameMode || 'classic',
+      msg: `房间 ${room.code} 创建，房主: ${ws._currentUser.username}`,
+    });
     ws.send(JSON.stringify({
       type: 'room:created',
       data: { code: room.code, gameMode: data.gameMode || 'classic' },
