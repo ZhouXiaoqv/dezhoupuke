@@ -4,6 +4,7 @@
  */
 
 const path = require('path');
+const logger = require('./logger');
 const { httpServer } = require('./http');
 const { WebSocketManager } = require('./ws');
 const { RoomRegistry } = require('./room');
@@ -166,7 +167,11 @@ wsManager.wss.on('connection', (ws) => {
   });
 
   ws.on('error', (err) => {
-    console.error(`WebSocket error for ${ws._playerId}:`, err.message);
+    logger.error('NET', 'websocket_error', {
+      playerId: ws._playerId || null,
+      playerName: ws.playerName || null,
+      err: err.message,
+    });
   });
 });
 
@@ -174,10 +179,18 @@ wsManager.wss.on('connection', (ws) => {
 wsManager.start();
 
 httpServer.listen(PORT, () => {
+  const staticDir = path.join(__dirname, '..', 'public');
+  const dataDir   = path.join(__dirname, '..', 'data');
+  logger.info('SYS', 'server_start', {
+    port: PORT,
+    staticDir,
+    dataDir,
+    msg: `服务器启动，监听端口 ${PORT}`,
+  });
   console.log(`
 Server listening on http://localhost:${PORT}
-Static files: ${path.join(__dirname, '..', 'public')}
-User data: ${path.join(__dirname, '..', 'data')}
+Static files: ${staticDir}
+User data: ${dataDir}
   `);
 });
 

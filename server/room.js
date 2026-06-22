@@ -4,6 +4,7 @@
 
 const { Game, START_STACK } = require('./game');
 const crypto = require('crypto');
+const logger = require('./logger');
 
 const ROOM_RESUME_TTL = 30 * 60 * 1000;
 const MAX_PLAYERS = 8;
@@ -77,6 +78,14 @@ class Room {
       type: 'room:state',
       data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
     }));
+
+    logger.info('ROOM', 'player_join', {
+      roomCode: this.code,
+      playerId: id,
+      playerName: name,
+      playerCount: this.players.size,
+      msg: `${name} 加入房间 ${this.code}`,
+    });
 
     this.broadcastPlayerList();
     this.broadcastScoreboard();
@@ -170,6 +179,14 @@ class Room {
       this.game.handleDisconnect(id);
     }
 
+    logger.warn('ROOM', 'player_disconnect', {
+      roomCode: this.code,
+      playerId: id,
+      playerName: player.name,
+      gameRunning: !!this.gameRunning,
+      msg: `${player.name} 断线，等待重连（15分钟）[房间 ${this.code}]`,
+    });
+
     this.broadcast('room:playerDisconnected', {
       playerId: id,
       name: player.name,
@@ -189,6 +206,13 @@ class Room {
     if (this.game && this.gameRunning) {
       this.game.handleDisconnect(id);
     }
+
+    logger.info('ROOM', 'player_leave', {
+      roomCode: this.code,
+      playerId: id,
+      playerName: player.name,
+      msg: `${player.name} 离开房间 ${this.code}`,
+    });
 
     this.broadcast('room:playerLeft', {
       playerId: id,
@@ -231,6 +255,14 @@ class Room {
     player.pet = ws._playerPet || player.pet || '';
     player.publicProfile = this.getPublicProfileForUsername(player._username);
     this.lastVacantAt = null;
+
+    logger.info('ROOM', 'player_reconnect', {
+      roomCode: this.code,
+      playerId: id,
+      playerName: player.name,
+      gameRunning: !!this.gameRunning,
+      msg: `${player.name} 重连成功 [房间 ${this.code}]`,
+    });
 
     ws.send(JSON.stringify({
       type: 'room:state',
@@ -319,7 +351,16 @@ class Room {
       gameMode: this.gameMode,
     });
     const game = this.game;
+    game.roomCode = this.code;        // inject roomCode for gameLogger
     this.game.handNum = this.handNum;
+
+    logger.info('ROOM', 'game_start', {
+      roomCode: this.code,
+      playerCount: gamePlayers.length,
+      players: gamePlayers.map((p) => p.name),
+      config: { sb: this.sb, bb: this.bb, startStack: this.startStack, mode: this.gameMode },
+      msg: `游戏开始 [房间 ${this.code}]，${gamePlayers.length}人参与`,
+    });
 
     game.onBroadcast = (type, data) => {
       if (type === 'game:state') return;
@@ -473,6 +514,16 @@ class Room {
     if (this._registry && typeof this._registry.recordScoreboardImbalance === 'function') {
       this._registry.recordScoreboardImbalance(report);
     }
+
+    logger.error('ROOM', 'scoreboard_imbalance', {
+      reportId: report.id,
+      roomCode: report.roomCode,
+      nextHandNum: report.nextHandNum,
+      total,
+      players: report.players,
+      scoreboard: scores,
+      msg: `计分板失衡：房间 ${report.roomCode} 第 ${report.nextHandNum} 手开始前，所有玩家盈亏总和为 ${total}（应为 0）`,
+    });
 
     this.broadcast('room:scoreboardImbalance', {
       reportId: report.id,

@@ -4,6 +4,7 @@
 
 const crypto = require('crypto');
 const { ACHIEVEMENTS, DEFAULT_CARD_BACK } = require('../userStore');
+const logger = require('../logger');
 
 function register(ws, ctx) {
   const { userStore, registry, wsManager, playerSockets } = ctx;
@@ -102,30 +103,36 @@ function register(ws, ctx) {
   ws._on('user:register', (data) => {
     const result = userStore.register(data.username, data.password);
     if (result.error) {
+      logger.warn('AUTH', 'register_fail', { username: data.username, err: result.error });
       ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
       return;
     }
+    logger.info('AUTH', 'user_register', { username: result.username, msg: `新用户注册: ${result.username}` });
     finalizeAuthenticatedSession(result, result.token, 'user:registered');
   });
 
   ws._on('user:login', (data) => {
     const result = userStore.login(data.username, data.password);
     if (result.error) {
+      logger.warn('AUTH', 'login_fail', { username: data.username, err: result.error });
       ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
       return;
     }
+    logger.info('AUTH', 'user_login', { username: result.username, msg: `用户登录: ${result.username}` });
     finalizeAuthenticatedSession(result, result.token, 'user:loggedIn');
   });
 
   ws._on('user:tokenLogin', (data) => {
     const result = userStore.validateToken(data.token);
     if (!result) {
+      logger.warn('AUTH', 'token_login_fail', { msg: 'Token 已过期或无效' });
       ws.send(JSON.stringify({
         type: 'user:error',
         data: { code: 'TOKEN_EXPIRED', message: '登录已过期，请重新登录' },
       }));
       return;
     }
+    logger.info('AUTH', 'token_login', { username: result.username, msg: `Token 登录成功: ${result.username}` });
     finalizeAuthenticatedSession(result, data.token, 'user:loggedIn');
   });
 

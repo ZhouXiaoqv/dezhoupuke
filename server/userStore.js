@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { PET_IDS } = require('./petCatalog');
+const logger = require('./logger');
 
 const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
 const CHECKIN_TIME_ZONE = 'Asia/Shanghai';
@@ -115,7 +116,7 @@ class UserStore {
         console.log(`[UserStore] Loaded ${this.users.size} users`);
       }
     } catch (err) {
-      console.error('[UserStore] Load error:', err.message);
+      logger.error('SYS', 'userstore_load_fail', { err: err.message });
     }
   }
 
@@ -126,7 +127,7 @@ class UserStore {
       const data = [...this.users.values()];
       fs.writeFileSync(this.dataFile, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('[UserStore] Save error:', err.message);
+      logger.error('SYS', 'userstore_save_fail', { err: err.message });
     }
   }
 
