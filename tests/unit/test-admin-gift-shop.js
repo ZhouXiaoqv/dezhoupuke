@@ -14,7 +14,8 @@ const {
 } = require(path.join(repoRoot, 'server', 'userStore'));
 const {
   CatalogStore,
-  PREMIUM_BLIND_BOX_ID,
+  ONEPIECE_BLIND_BOX_ID,
+  CUTE_BLIND_BOX_ID,
 } = require(path.join(repoRoot, 'server', 'catalogStore'));
 
 function assertOk(value, message) {
@@ -72,12 +73,24 @@ for (const id of cuteCardBackIds) {
 const premiumCardBackIds = [...onePieceCardBackIds, ...cuteCardBackIds];
 assert.deepStrictEqual(PREMIUM_CARD_BACK_IDS, premiumCardBackIds);
 const publicCatalog = catalogStore.getPublicCatalog();
-const premiumBlindBox = publicCatalog.blindBoxes.find((box) => box.id === PREMIUM_BLIND_BOX_ID);
-assert(premiumBlindBox);
-assert.strictEqual(premiumBlindBox.name, '精品主题盲盒');
-assert.strictEqual(premiumBlindBox.price, 1000);
-assert.strictEqual(premiumBlindBox.dropType, 'cardBackPool');
-assert.deepStrictEqual(premiumBlindBox.cardBackIds, premiumCardBackIds);
+const onePieceBlindBox = publicCatalog.blindBoxes.find((box) => box.id === ONEPIECE_BLIND_BOX_ID);
+const cuteBlindBox = publicCatalog.blindBoxes.find((box) => box.id === CUTE_BLIND_BOX_ID);
+assert(onePieceBlindBox);
+assert(cuteBlindBox);
+assert.strictEqual(onePieceBlindBox.name, '海贼王主题盲盒');
+assert.strictEqual(cuteBlindBox.name, '可爱水果动物盲盒');
+assert.strictEqual(onePieceBlindBox.price, 1000);
+assert.strictEqual(cuteBlindBox.price, 1000);
+assert.strictEqual(onePieceBlindBox.dropType, 'cardBackPool');
+assert.strictEqual(cuteBlindBox.dropType, 'cardBackPool');
+assert.deepStrictEqual(onePieceBlindBox.cardBackIds, onePieceCardBackIds);
+assert.deepStrictEqual(cuteBlindBox.cardBackIds, cuteCardBackIds);
+assert.strictEqual(onePieceBlindBox.coverCardBackId, onePieceCardBackIds[0]);
+assert.strictEqual(cuteBlindBox.coverCardBackId, cuteCardBackIds[0]);
+assert.strictEqual(
+  publicCatalog.blindBoxes.some((box) => box.id === 'premium-cardback-blindbox'),
+  false,
+);
 assert(publicCatalog.shopItems.every((item) => !premiumCardBackIds.includes(item.cardBackId)));
 assert.strictEqual(
   catalogStore.updateShopItem({ cardBackId: premiumCardBackIds[0], enabled: true }).error,
@@ -113,6 +126,64 @@ assert.strictEqual(
   migratedCatalogStore.getCardBack(premiumCardBackIds[0]).imageUrl,
   'assets/cardbacks/onepiece/straw-hat.webp',
 );
+
+const legacyBlindBoxPath = path.join(dataDir, 'legacy-premium-blindbox.json');
+fs.writeFileSync(legacyBlindBoxPath, JSON.stringify({
+  blindBoxes: [{
+    id: 'premium-cardback-blindbox',
+    name: '精品主题盲盒',
+    categoryId: 'blind-box',
+    price: 1200,
+    enabled: true,
+    order: 4,
+    dropType: 'cardBackPool',
+    cardBackIds: premiumCardBackIds,
+  }],
+}, null, 2));
+const splitLegacyStore = new CatalogStore({ dataFile: legacyBlindBoxPath });
+assert.strictEqual(splitLegacyStore.getBlindBox('premium-cardback-blindbox'), null);
+assert.deepStrictEqual(
+  splitLegacyStore.getBlindBox(ONEPIECE_BLIND_BOX_ID).cardBackIds,
+  onePieceCardBackIds,
+);
+assert.deepStrictEqual(
+  splitLegacyStore.getBlindBox(CUTE_BLIND_BOX_ID).cardBackIds,
+  cuteCardBackIds,
+);
+
+const createdBlindBox = catalogStore.createBlindBox({
+  name: '管理员测试盲盒',
+  price: 888,
+  categoryId: 'blind-box',
+  dropType: 'cardBackPool',
+  cardBackIds: [onePieceCardBackIds[0], cuteCardBackIds[0]],
+  coverCardBackId: cuteCardBackIds[0],
+});
+assertOk(createdBlindBox, 'create blindbox');
+assert.strictEqual(createdBlindBox.blindBox.enabled, false);
+assert.deepStrictEqual(createdBlindBox.blindBox.cardBackIds, [
+  onePieceCardBackIds[0],
+  cuteCardBackIds[0],
+]);
+assert.strictEqual(createdBlindBox.blindBox.coverCardBackId, cuteCardBackIds[0]);
+assert.strictEqual(
+  catalogStore.updateBlindBox({
+    id: createdBlindBox.blindBox.id,
+    coverCardBackId: onePieceCardBackIds[1],
+  }).error,
+  '盲盒封面必须来自当前牌背奖池',
+);
+const publishedBlindBox = catalogStore.updateBlindBox({
+  id: createdBlindBox.blindBox.id,
+  enabled: true,
+  cardBackIds: [cuteCardBackIds[0]],
+  coverCardBackId: cuteCardBackIds[0],
+});
+assertOk(publishedBlindBox, 'publish blindbox');
+assert.strictEqual(publishedBlindBox.blindBox.enabled, true);
+assert.deepStrictEqual(publishedBlindBox.blindBox.cardBackIds, [cuteCardBackIds[0]]);
+assert.strictEqual(publishedBlindBox.blindBox.coverCardBackId, cuteCardBackIds[0]);
+assert(catalogStore.getPublicCatalog().blindBoxes.some((box) => box.id === createdBlindBox.blindBox.id));
 const petBlindBoxCatalogItem = catalogStore
   .getPublicCatalog()
   .blindBoxes.find((box) => box.id === 'pet-blindbox');
@@ -201,25 +272,25 @@ userStore._save();
 assert(userStore.getProfile('bob').ownedCardBacks.includes(retainedPremiumId));
 assert.strictEqual(userStore.buyCardBack('bob', retainedPremiumId).error, 'Card back not found');
 const firstPremiumPool = catalogStore.getCardBackBlindBoxDropPool(
-  premiumBlindBox,
+  onePieceBlindBox,
   userStore.getProfile('bob').ownedCardBacks,
 );
-assert.strictEqual(firstPremiumPool.length, premiumCardBackIds.length - 1);
+assert.strictEqual(firstPremiumPool.length, onePieceCardBackIds.length - 1);
 assert(!firstPremiumPool.some((item) => item.cardBackId === retainedPremiumId));
-const firstPremiumBlind = userStore.buyBlindBox('bob', PREMIUM_BLIND_BOX_ID, () => 0);
+const firstPremiumBlind = userStore.buyBlindBox('bob', ONEPIECE_BLIND_BOX_ID, () => 0);
 assertOk(firstPremiumBlind, 'premium blindbox buy');
 assert.strictEqual(firstPremiumBlind.price, 1000);
-assert(premiumCardBackIds.includes(firstPremiumBlind.cardBackId));
+assert(onePieceCardBackIds.includes(firstPremiumBlind.cardBackId));
 assert.notStrictEqual(firstPremiumBlind.cardBackId, retainedPremiumId);
 assert.strictEqual(firstPremiumBlind.profile.coins, 0);
 
 bobUser.coins = 1000;
 userStore._save();
-const secondPremiumBlind = userStore.buyBlindBox('bob', PREMIUM_BLIND_BOX_ID, () => 0);
+const secondPremiumBlind = userStore.buyBlindBox('bob', ONEPIECE_BLIND_BOX_ID, () => 0);
 assertOk(secondPremiumBlind, 'second premium blindbox buy');
 assert.notStrictEqual(secondPremiumBlind.cardBackId, firstPremiumBlind.cardBackId);
 assert.strictEqual(
-  new Set(secondPremiumBlind.profile.ownedCardBacks.filter((id) => premiumCardBackIds.includes(id))).size,
+  new Set(secondPremiumBlind.profile.ownedCardBacks.filter((id) => onePieceCardBackIds.includes(id))).size,
   3,
 );
 
@@ -257,7 +328,7 @@ assert.strictEqual(
 );
 
 for (const item of catalogStore.getCardBackBlindBoxDropPool(
-  premiumBlindBox,
+  onePieceBlindBox,
   userStore.getProfile('bob').ownedCardBacks,
 )) {
   bobUser.ownedCardBacks.push(item.cardBackId);
@@ -265,7 +336,7 @@ for (const item of catalogStore.getCardBackBlindBoxDropPool(
 bobUser.coins = 1000;
 userStore._save();
 assert.strictEqual(
-  userStore.buyBlindBox('bob', PREMIUM_BLIND_BOX_ID, () => 0).error,
+  userStore.buyBlindBox('bob', ONEPIECE_BLIND_BOX_ID, () => 0).error,
   'No available card backs in blind box',
 );
 

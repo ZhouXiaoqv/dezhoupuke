@@ -296,6 +296,17 @@
   justify-content: center;
   flex: 0 0 66px;
 }
+.blindbox-cover-preview {
+  width: 44px;
+  height: 62px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 18px rgba(212, 168, 64, 0.18);
+}
+.blindbox-cover-stage {
+  width: 74px;
+  height: 104px;
+  box-shadow: 0 0 24px rgba(212, 168, 64, 0.24);
+}
 .blindbox-option .pet-preview {
   width: 50px;
   height: 50px;
@@ -863,6 +874,68 @@
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+.admin-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-form-row > * {
+  min-width: 0;
+  flex: 1 1 120px;
+}
+.admin-blindbox-cover-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-blindbox-cover-field .admin-input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.admin-blindbox-panel {
+  grid-column: 1 / -1;
+}
+.admin-blindbox-form {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.admin-blindbox-cardback-picker {
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  max-height: 240px;
+  padding: 2px;
+}
+.admin-blindbox-cardback-picker .admin-pick-option {
+  min-height: 112px;
+}
+.admin-blindbox-list {
+  max-height: 760px;
+}
+.admin-blindbox-row {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+}
+.admin-blindbox-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.admin-blindbox-row-head .admin-input {
+  flex: 1 1 180px;
+}
+.admin-blindbox-row-head .admin-num {
+  flex: 0 0 86px;
+}
+.admin-blindbox-pool-picker {
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  max-height: 220px;
+}
+.admin-blindbox-pool-picker .admin-pick-option {
+  min-height: 100px;
 }
 .admin-input,
 .admin-num,

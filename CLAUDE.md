@@ -71,6 +71,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 
 - Image card backs use `type: "image"` plus a public `imageUrl`; the shared renderer applies them through `decorateCardBack()`.
 - The fifteen One Piece backs in `public/assets/cardbacks/onepiece/` and nine pastel kawaii backs in `public/assets/cardbacks/cute/` are 700x1000 WebP assets registered in both server and client catalogs.
-- These 24 premium backs are excluded from direct-sale `shopItems` and the standard card-back blind box. `premium-cardback-blindbox` costs 1000 coins, uses `dropType: "cardBackPool"` with fixed `cardBackIds`, and only draws unowned entries.
-- The public catalog exposes fixed `cardBackIds` so the client can preview the complete premium pool and ownership progress.
+- These 24 premium backs are excluded from direct-sale `shopItems` and the standard card-back blind box. They are split into `onepiece-cardback-blindbox` (15 One Piece backs) and `cute-cardback-blindbox` (9 fruit/animal backs), each costing 1000 coins and drawing only unowned entries from its fixed `cardBackIds` pool.
+- Admins can create a `cardBackPool` blind box through `admin:createBlindBox`, edit its name, price, category, order, enabled state, selected card-back pool, and `coverCardBackId` through `admin:updateBlindBox`, then publish it by setting `enabled: true`. The cover must be one of the box's `cardBackIds`.
+- The public catalog exposes each blind box's `cardBackIds` so the client can preview the complete pool and ownership progress. Existing `premium-cardback-blindbox` data is migrated to the two themed boxes at startup.
 - Every enabled `shopItems` card back is automatically eligible for the standard card-back blind box.

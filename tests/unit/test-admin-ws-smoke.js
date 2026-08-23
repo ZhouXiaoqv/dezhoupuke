@@ -8,6 +8,8 @@ const PORT = 3998;
 const URL = `ws://localhost:${PORT}`;
 const USER_PREFIX = 'wstest';
 const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
+const CATALOG_FILE = path.join(process.cwd(), 'data', 'catalog.json');
+const TEST_BLIND_BOX_ID = 'wstest-blindbox';
 
 function cleanupUsers() {
   if (!fs.existsSync(USERS_FILE)) return;
@@ -15,6 +17,17 @@ function cleanupUsers() {
   const filtered = users.filter((user) => !String(user.username || '').startsWith(USER_PREFIX));
   if (filtered.length !== users.length) {
     fs.writeFileSync(USERS_FILE, JSON.stringify(filtered, null, 2), 'utf8');
+  }
+}
+
+function cleanupCatalog() {
+  if (!fs.existsSync(CATALOG_FILE)) return;
+  const catalog = JSON.parse(fs.readFileSync(CATALOG_FILE, 'utf8'));
+  if (!Array.isArray(catalog.blindBoxes)) return;
+  const filtered = catalog.blindBoxes.filter((box) => box.id !== TEST_BLIND_BOX_ID);
+  if (filtered.length !== catalog.blindBoxes.length) {
+    catalog.blindBoxes = filtered;
+    fs.writeFileSync(CATALOG_FILE, JSON.stringify(catalog, null, 2), 'utf8');
   }
 }
 
@@ -54,6 +67,7 @@ function connectClient() {
 
 async function run() {
   cleanupUsers();
+  cleanupCatalog();
   const server = spawn(process.execPath, ['server/index.js'], {
     cwd: process.cwd(),
     env: { ...process.env, PORT: String(PORT) },
@@ -78,6 +92,25 @@ async function run() {
     assert(dashboard.data.catalog);
     assert(Array.isArray(dashboard.data.users));
 
+    admin.send('admin:createBlindBox', {
+      id: TEST_BLIND_BOX_ID,
+      name: 'WebSocket 测试盲盒',
+      price: 888,
+      categoryId: 'blind-box',
+      dropType: 'cardBackPool',
+      cardBackIds: ['onepiece-straw-hat'],
+      coverCardBackId: 'onepiece-straw-hat',
+      enabled: true,
+    });
+    const createdCatalog = await admin.waitFor('admin:catalog');
+    const createdBox = createdCatalog.data.catalog.blindBoxes.find(
+      (box) => box.id === TEST_BLIND_BOX_ID,
+    );
+    assert(createdBox);
+    assert.strictEqual(createdBox.enabled, true);
+    assert.deepStrictEqual(createdBox.cardBackIds, ['onepiece-straw-hat']);
+    assert.strictEqual(createdBox.coverCardBackId, 'onepiece-straw-hat');
+
     const player = await connectClient();
     const username = USER_PREFIX + Date.now().toString(36).slice(-6);
     player.send('user:register', { username, password: 'test123' });
@@ -89,13 +122,20 @@ async function run() {
 
     player.send('shop:getCatalog');
     const shopCatalog = await player.waitFor('shop:catalog');
-    const premiumBox = shopCatalog.data.catalog.blindBoxes.find(
-      (box) => box.id === 'premium-cardback-blindbox',
+    const onePieceBox = shopCatalog.data.catalog.blindBoxes.find(
+      (box) => box.id === 'onepiece-cardback-blindbox',
     );
-    assert(premiumBox);
-    assert.strictEqual(premiumBox.price, 1000);
-    assert.strictEqual(premiumBox.dropType, 'cardBackPool');
-    assert.strictEqual(premiumBox.cardBackIds.length, 24);
+    const cuteBox = shopCatalog.data.catalog.blindBoxes.find(
+      (box) => box.id === 'cute-cardback-blindbox',
+    );
+    assert(onePieceBox);
+    assert(cuteBox);
+    assert(Number.isInteger(onePieceBox.price) && onePieceBox.price >= 0);
+    assert(Number.isInteger(cuteBox.price) && cuteBox.price >= 0);
+    assert.strictEqual(onePieceBox.dropType, 'cardBackPool');
+    assert.strictEqual(cuteBox.dropType, 'cardBackPool');
+    assert.strictEqual(onePieceBox.cardBackIds.length, 15);
+    assert.strictEqual(cuteBox.cardBackIds.length, 9);
     assert(shopCatalog.data.catalog.shopItems.every((item) =>
       !item.cardBackId.startsWith('onepiece-') && !item.cardBackId.startsWith('cute-')
     ));
@@ -106,6 +146,7 @@ async function run() {
   } finally {
     server.kill();
     cleanupUsers();
+    cleanupCatalog();
   }
 }
 

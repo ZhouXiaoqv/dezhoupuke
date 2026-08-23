@@ -180,6 +180,33 @@
             </div>
             <div class="admin-list admin-shop-list" id="adminShopList"></div>
           </section>
+          <section class="admin-panel admin-blindbox-panel">
+            <div class="admin-panel-head">
+              <h2>盲盒管理</h2>
+              <button class="admin-mini-btn" id="adminAddBlindBox" type="button">新增盲盒</button>
+            </div>
+            <div class="admin-form admin-blindbox-form" id="adminBlindBoxForm">
+              <input id="adminBlindBoxName" placeholder="盲盒名称" />
+              <div class="admin-form-row">
+                <input id="adminBlindBoxPrice" type="number" min="0" value="1000" placeholder="价格" />
+                <input id="adminBlindBoxOrder" type="number" min="0" value="1" placeholder="排序" />
+                <select class="admin-input" id="adminBlindBoxType">
+                  <option value="cardBackPool">牌背奖池</option>
+                  <option value="shopCardBack">商城牌背池</option>
+                  <option value="pet">宠物奖池</option>
+                </select>
+                <select class="admin-input" id="adminBlindBoxCategory"></select>
+                <label class="admin-check admin-blindbox-cover-field">封面
+                  <select class="admin-input" id="adminBlindBoxCover" aria-label="盲盒封面"></select>
+                </label>
+                <label class="admin-check"><input id="adminBlindBoxEnabled" type="checkbox" /> 上架</label>
+              </div>
+              <div class="admin-row-sub" id="adminBlindBoxHelper">选择会进入奖池的牌背，用户抽中后会自动加入牌背库。</div>
+              <div class="admin-pick-grid admin-blindbox-cardback-picker" id="adminBlindBoxCardBackPicker"></div>
+              <button class="admin-mini-btn" id="adminCreateBlindBox" type="button">创建盲盒</button>
+            </div>
+            <div class="admin-list admin-blindbox-list" id="adminBlindBoxList"></div>
+          </section>
           <section class="admin-panel">
             <div class="admin-panel-head">
               <h2>节日礼物</h2>

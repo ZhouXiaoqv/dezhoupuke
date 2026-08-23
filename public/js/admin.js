@@ -5,6 +5,8 @@ let adminGiftDraftRewards = [];
 let selectedGiftRewardType = "coins";
 let selectedGiftEmotionId = "rose";
 let selectedGiftCardBackId = "";
+let adminBlindBoxDraftCardBackIds = new Set();
+let adminBlindBoxDraftCoverCardBackId = "";
 
 function loadAdminDashboard() {
   Net.send("admin:getDashboard");
@@ -19,6 +21,7 @@ function renderAdminDashboard(data = {}) {
   window.adminCatalog = adminCatalog;
   renderAdminCategories();
   renderAdminShop();
+  renderAdminBlindBoxes();
   renderGiftRewardBuilder();
   renderAdminGifts();
   renderAdminUsers();
@@ -180,9 +183,173 @@ function getCategoryOptions(selected) {
   return (adminCatalog?.shopCategories || [])
     .map(
       (category) =>
-        `<option value="${category.id}" ${category.id === selected ? "selected" : ""}>${category.name}</option>`,
+        `<option value="${escapeAdminHtml(category.id)}" ${category.id === selected ? "selected" : ""}>${escapeAdminHtml(category.name)}</option>`,
     )
     .join("");
+}
+
+function escapeAdminHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[char]);
+}
+
+function getAdminCardBacksForBlindBox() {
+  return (adminCatalog?.cardBacks || []).filter((item) => item.id !== DEFAULT_CARD_BACK);
+}
+
+function renderAdminCardBackPicker(container, selectedIds, onChange, className = "") {
+  if (!container) return;
+  container.innerHTML = "";
+  getAdminCardBacksForBlindBox().forEach((cardBack) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "admin-pick-option cardback-pick" +
+      (className ? " " + className : "") +
+      (selectedIds.has(cardBack.id) ? " selected" : "");
+    button.appendChild(createCardBackPreview(cardBack.id));
+    const label = document.createElement("strong");
+    label.textContent = cardBack.name || cardBack.id;
+    button.appendChild(label);
+    button.addEventListener("click", () => {
+      if (selectedIds.has(cardBack.id)) selectedIds.delete(cardBack.id);
+      else selectedIds.add(cardBack.id);
+      onChange();
+    });
+    container.appendChild(button);
+  });
+}
+
+function renderAdminBlindBoxTypeFields(type, picker, helper) {
+  const isCardBackPool = type === "cardBackPool";
+  if (picker) picker.style.display = isCardBackPool ? "grid" : "none";
+  if (helper) {
+    helper.textContent = isCardBackPool
+      ? "选择会进入奖池的牌背，用户抽中后会自动加入牌背库。"
+      : type === "pet"
+        ? "宠物盲盒使用当前宠物目录，不需要选择牌背。"
+        : "商城牌背盲盒会从已上架且用户未拥有的商城牌背中抽取。";
+  }
+}
+
+function getBlindBoxCoverOptions(selectedId, selectedIds) {
+  const cardBacks = getAdminCardBacksForBlindBox().filter((item) => selectedIds.has(item.id));
+  if (!cardBacks.length) return '<option value="">请先选择牌背</option>';
+  return cardBacks
+    .map((item) => `<option value="${escapeAdminHtml(item.id)}" ${item.id === selectedId ? "selected" : ""}>${escapeAdminHtml(item.name || item.id)}</option>`)
+    .join("");
+}
+
+function syncBlindBoxCoverSelect(select, selectedIds, preferredId = "") {
+  if (!select) return "";
+  const cardBacks = getAdminCardBacksForBlindBox().filter((item) => selectedIds.has(item.id));
+  const coverId = cardBacks.some((item) => item.id === preferredId)
+    ? preferredId
+    : cardBacks[0]?.id || "";
+  select.innerHTML = getBlindBoxCoverOptions(coverId, selectedIds);
+  select.value = coverId;
+  return coverId;
+}
+
+function renderAdminBlindBoxes() {
+  const list = $("adminBlindBoxList");
+  const picker = $("adminBlindBoxCardBackPicker");
+  const category = $("adminBlindBoxCategory");
+  if (!list || !adminCatalog) return;
+
+  if (category) {
+    const current = category.value;
+    category.innerHTML = getCategoryOptions(current || "blind-box");
+  }
+  const createCover = $("adminBlindBoxCover");
+  const renderCreatePicker = () => {
+    renderAdminCardBackPicker(
+      picker,
+      adminBlindBoxDraftCardBackIds,
+      renderCreatePicker,
+    );
+    adminBlindBoxDraftCoverCardBackId = syncBlindBoxCoverSelect(
+      createCover,
+      adminBlindBoxDraftCardBackIds,
+      adminBlindBoxDraftCoverCardBackId || createCover?.value || "",
+    );
+  };
+  if (picker) renderCreatePicker();
+  adminBlindBoxDraftCoverCardBackId = syncBlindBoxCoverSelect(
+    createCover,
+    adminBlindBoxDraftCardBackIds,
+    adminBlindBoxDraftCoverCardBackId || createCover?.value || "",
+  );
+  const type = $("adminBlindBoxType")?.value || "cardBackPool";
+  renderAdminBlindBoxTypeFields(type, picker, $("adminBlindBoxHelper"));
+  if (createCover) createCover.parentElement.style.display = type === "cardBackPool" ? "flex" : "none";
+
+  list.innerHTML = "";
+  (adminCatalog.blindBoxes || []).forEach((box) => {
+    const row = document.createElement("div");
+    row.className = "admin-row admin-blindbox-row";
+    const selectedIds = new Set(box.cardBackIds || []);
+    row.innerHTML = `
+      <div class="admin-blindbox-row-head">
+        <input class="admin-input" data-field="name" value="${escapeAdminHtml(box.name)}" />
+        <input class="admin-num" type="number" min="0" data-field="price" value="${box.price || 0}" />
+        <input class="admin-num" type="number" min="0" data-field="order" value="${box.order || 0}" />
+        <select class="admin-input" data-field="categoryId">${getCategoryOptions(box.categoryId)}</select>
+        <select class="admin-input" data-field="dropType">
+          <option value="cardBackPool" ${box.dropType === "cardBackPool" ? "selected" : ""}>牌背奖池</option>
+          <option value="shopCardBack" ${box.dropType === "shopCardBack" ? "selected" : ""}>商城牌背池</option>
+          <option value="pet" ${box.dropType === "pet" ? "selected" : ""}>宠物奖池</option>
+        </select>
+        <select class="admin-input" data-field="coverCardBackId" aria-label="盲盒封面"></select>
+        <label class="admin-check"><input type="checkbox" data-field="enabled" ${box.enabled ? "checked" : ""} /> 上架</label>
+        <button class="admin-mini-btn" data-action="save" type="button">保存</button>
+      </div>
+      <div class="admin-row-sub" data-field="helper"></div>
+      <div class="admin-pick-grid admin-blindbox-pool-picker" data-field="picker"></div>
+    `;
+    const rowPicker = row.querySelector('[data-field="picker"]');
+    const rowHelper = row.querySelector('[data-field="helper"]');
+    const rowType = row.querySelector('[data-field="dropType"]');
+    const rowCover = row.querySelector('[data-field="coverCardBackId"]');
+    const syncRowCover = () => {
+      syncBlindBoxCoverSelect(rowCover, selectedIds, rowCover.value || box.coverCardBackId || "");
+    };
+    const renderRowPicker = () => renderAdminCardBackPicker(
+      rowPicker,
+      selectedIds,
+      () => {
+        renderRowPicker();
+        syncRowCover();
+      },
+    );
+    const syncRowType = () => {
+      renderAdminBlindBoxTypeFields(rowType.value, rowPicker, rowHelper);
+      rowCover.style.display = rowType.value === "cardBackPool" ? "" : "none";
+    };
+    rowType.addEventListener("change", syncRowType);
+    row.querySelector('[data-action="save"]').addEventListener("click", () => {
+      Net.send("admin:updateBlindBox", {
+        id: box.id,
+        name: row.querySelector('[data-field="name"]').value,
+        price: Number(row.querySelector('[data-field="price"]').value),
+        order: Number(row.querySelector('[data-field="order"]').value),
+        categoryId: row.querySelector('[data-field="categoryId"]').value,
+        dropType: rowType.value,
+        coverCardBackId: rowCover.value,
+        enabled: row.querySelector('[data-field="enabled"]').checked,
+        cardBackIds: [...selectedIds],
+      });
+    });
+    renderRowPicker();
+    syncRowCover();
+    syncRowType();
+    list.appendChild(row);
+  });
 }
 
 function renderAdminShop() {
@@ -230,29 +397,6 @@ function renderAdminShop() {
     list.appendChild(row);
   });
 
-  (adminCatalog.blindBoxes || []).forEach((box) => {
-    const row = document.createElement("div");
-    row.className = "admin-row admin-shop-row";
-    row.innerHTML = `
-      <div class="blindbox-shop-icon"></div>
-      <div class="admin-shop-name">${box.name}</div>
-      <div class="admin-shop-controls">
-        <select class="admin-input" data-field="categoryId">${getCategoryOptions(box.categoryId)}</select>
-        <input class="admin-num" type="number" min="0" value="${box.price || 0}" data-field="price" />
-        <label class="admin-check"><input type="checkbox" ${box.enabled ? "checked" : ""} data-field="enabled" /> 上架</label>
-        <button class="admin-mini-btn">保存</button>
-      </div>
-    `;
-    row.querySelector("button").addEventListener("click", () => {
-      Net.send("admin:updateBlindBox", {
-        id: box.id,
-        categoryId: row.querySelector('[data-field="categoryId"]').value,
-        price: Number(row.querySelector('[data-field="price"]').value),
-        enabled: row.querySelector('[data-field="enabled"]').checked,
-      });
-    });
-    list.appendChild(row);
-  });
 }
 
 function renderAdminGifts() {
@@ -416,6 +560,52 @@ if ($("adminAddCategory")) {
   $("adminAddCategory").addEventListener("click", () => {
     const name = prompt("分类名称");
     if (name) Net.send("admin:updateCategory", { name, enabled: true });
+  });
+}
+if ($("adminAddBlindBox")) {
+  $("adminAddBlindBox").addEventListener("click", () => {
+    $("adminBlindBoxForm")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    $("adminBlindBoxName")?.focus();
+  });
+}
+if ($("adminBlindBoxType")) {
+  $("adminBlindBoxType").addEventListener("change", () => {
+    renderAdminBlindBoxTypeFields(
+      $("adminBlindBoxType").value,
+      $("adminBlindBoxCardBackPicker"),
+      $("adminBlindBoxHelper"),
+    );
+    const cover = $("adminBlindBoxCover");
+    if (cover) cover.parentElement.style.display = $("adminBlindBoxType").value === "cardBackPool" ? "flex" : "none";
+  });
+}
+if ($("adminBlindBoxCover")) {
+  $("adminBlindBoxCover").addEventListener("change", () => {
+    adminBlindBoxDraftCoverCardBackId = $("adminBlindBoxCover").value;
+  });
+}
+if ($("adminCreateBlindBox")) {
+  $("adminCreateBlindBox").addEventListener("click", () => {
+    const name = $("adminBlindBoxName")?.value.trim();
+    if (!name) {
+      toast("请输入盲盒名称");
+      return;
+    }
+    const type = $("adminBlindBoxType")?.value || "cardBackPool";
+    if (type === "cardBackPool" && !adminBlindBoxDraftCardBackIds.size) {
+      toast("请至少选择一张牌背");
+      return;
+    }
+    Net.send("admin:createBlindBox", {
+      name,
+      price: Number($("adminBlindBoxPrice")?.value || 0),
+      order: Number($("adminBlindBoxOrder")?.value || 0),
+      categoryId: $("adminBlindBoxCategory")?.value || "blind-box",
+      dropType: type,
+      coverCardBackId: $("adminBlindBoxCover")?.value || "",
+      enabled: !!$("adminBlindBoxEnabled")?.checked,
+      cardBackIds: [...adminBlindBoxDraftCardBackIds],
+    });
   });
 }
 if ($("giftRewardTabs")) {

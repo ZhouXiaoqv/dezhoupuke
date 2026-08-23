@@ -20,6 +20,16 @@ const IMAGE_CARD_BACKS = [
 const REMOVED_CARD_BACK_IDS = new Set(['dragonboat-2']);
 const PREMIUM_CARD_BACK_ID_SET = new Set(PREMIUM_CARD_BACK_IDS);
 const PREMIUM_BLIND_BOX_ID = 'premium-cardback-blindbox';
+const ONEPIECE_BLIND_BOX_ID = 'onepiece-cardback-blindbox';
+const CUTE_BLIND_BOX_ID = 'cute-cardback-blindbox';
+const LEGACY_PREMIUM_BLIND_BOX_ID = PREMIUM_BLIND_BOX_ID;
+
+const ONEPIECE_CARD_BACK_IDS = PREMIUM_CARD_BACK_IDS.filter((id) =>
+  id.startsWith('onepiece-'),
+);
+const CUTE_CARD_BACK_IDS = PREMIUM_CARD_BACK_IDS.filter((id) =>
+  id.startsWith('cute-'),
+);
 
 function buildDefaultCardBacks() {
   const entries = [
@@ -63,7 +73,7 @@ function buildDefaultCatalog() {
         categoryId: 'blind-box',
         price: 1000,
         enabled: true,
-        order: 2,
+        order: 4,
         dropType: 'pet',
       },
       {
@@ -76,14 +86,26 @@ function buildDefaultCatalog() {
         dropType: 'shopCardBack',
       },
       {
-        id: PREMIUM_BLIND_BOX_ID,
-        name: '精品主题盲盒',
+        id: ONEPIECE_BLIND_BOX_ID,
+        name: '海贼王主题盲盒',
         categoryId: 'blind-box',
         price: 1000,
         enabled: true,
         order: 2,
         dropType: 'cardBackPool',
-        cardBackIds: [...PREMIUM_CARD_BACK_IDS],
+        cardBackIds: [...ONEPIECE_CARD_BACK_IDS],
+        coverCardBackId: ONEPIECE_CARD_BACK_IDS[0],
+      },
+      {
+        id: CUTE_BLIND_BOX_ID,
+        name: '可爱水果动物盲盒',
+        categoryId: 'blind-box',
+        price: 1000,
+        enabled: true,
+        order: 3,
+        dropType: 'cardBackPool',
+        cardBackIds: [...CUTE_CARD_BACK_IDS],
+        coverCardBackId: CUTE_CARD_BACK_IDS[0],
       },
     ],
     holidayGifts: [],
@@ -138,6 +160,7 @@ class CatalogStore {
       if (!Array.isArray(this.catalog[key])) this.catalog[key] = [];
     }
 
+    this._migrateLegacyPremiumBlindBox();
     this._mergeById('shopCategories', defaults.shopCategories);
     this._mergeById('cardBacks', defaults.cardBacks);
     this._mergeById('pets', defaults.pets);
@@ -192,7 +215,6 @@ class CatalogStore {
     this.catalog.blindBoxes = this.catalog.blindBoxes.map((item, index) => {
       const id = String(item.id || '').trim();
       let dropType = item.dropType;
-      if (id === PREMIUM_BLIND_BOX_ID) dropType = 'cardBackPool';
       if (!['pet', 'cardBackPool'].includes(dropType)) dropType = 'shopCardBack';
       const box = {
         id,
@@ -206,11 +228,13 @@ class CatalogStore {
         dropType,
       };
       if (dropType === 'cardBackPool') {
-        const sourceIds = id === PREMIUM_BLIND_BOX_ID
-          ? PREMIUM_CARD_BACK_IDS
-          : Array.isArray(item.cardBackIds) ? item.cardBackIds : [];
+        const sourceIds = Array.isArray(item.cardBackIds) ? item.cardBackIds : [];
         box.cardBackIds = [...new Set(sourceIds.map((cardBackId) => String(cardBackId || '').trim()))]
-          .filter((cardBackId) => validCardBackIds.has(cardBackId));
+          .filter((cardBackId) => cardBackId !== DEFAULT_CARD_BACK && validCardBackIds.has(cardBackId));
+        const configuredCover = String(item.coverCardBackId || '').trim();
+        box.coverCardBackId = box.cardBackIds.includes(configuredCover)
+          ? configuredCover
+          : box.cardBackIds[0] || '';
       }
       return box;
     }).filter((item) => item.id && item.name);
@@ -225,6 +249,48 @@ class CatalogStore {
     for (const item of defaults) {
       if (!existing.has(item.id)) this.catalog[key].push(item);
     }
+  }
+
+  _migrateLegacyPremiumBlindBox() {
+    const legacy = this.catalog.blindBoxes.find(
+      (item) => item && item.id === LEGACY_PREMIUM_BLIND_BOX_ID,
+    );
+    if (!legacy) return;
+
+    const existingIds = new Set(
+      this.catalog.blindBoxes
+        .filter((item) => item && item.id !== LEGACY_PREMIUM_BLIND_BOX_ID)
+        .map((item) => item.id),
+    );
+    const base = {
+      categoryId: legacy.categoryId || 'blind-box',
+      price: legacy.price || 1000,
+      enabled: legacy.enabled !== false,
+      dropType: 'cardBackPool',
+    };
+    if (!existingIds.has(ONEPIECE_BLIND_BOX_ID)) {
+      this.catalog.blindBoxes.push({
+        ...base,
+        id: ONEPIECE_BLIND_BOX_ID,
+        name: '海贼王主题盲盒',
+        order: legacy.order || 2,
+        cardBackIds: [...ONEPIECE_CARD_BACK_IDS],
+        coverCardBackId: ONEPIECE_CARD_BACK_IDS[0],
+      });
+    }
+    if (!existingIds.has(CUTE_BLIND_BOX_ID)) {
+      this.catalog.blindBoxes.push({
+        ...base,
+        id: CUTE_BLIND_BOX_ID,
+        name: '可爱水果动物盲盒',
+        order: (legacy.order || 2) + 1,
+        cardBackIds: [...CUTE_CARD_BACK_IDS],
+        coverCardBackId: CUTE_CARD_BACK_IDS[0],
+      });
+    }
+    this.catalog.blindBoxes = this.catalog.blindBoxes.filter(
+      (item) => item && item.id !== LEGACY_PREMIUM_BLIND_BOX_ID,
+    );
   }
 
   _normalizeGift(gift = {}) {
@@ -349,16 +415,72 @@ class CatalogStore {
     const id = String(input.id || 'cardback-blindbox').trim();
     const box = this.catalog.blindBoxes.find((entry) => entry.id === id);
     if (!box) return { error: '盲盒不存在' };
-    if (input.name !== undefined) box.name = String(input.name || '').trim() || box.name;
-    if (input.categoryId !== undefined) {
-      box.categoryId = id === 'pet-blindbox'
-        ? 'blind-box'
-        : String(input.categoryId || '').trim() || box.categoryId;
-    }
-    if (input.price !== undefined) box.price = cleanInt(input.price, box.price);
-    if (input.enabled !== undefined) box.enabled = !!input.enabled;
+    const next = this._normalizeBlindBoxInput(input, box);
+    if (next.error) return next;
+    Object.assign(box, next.blindBox);
     this._save();
     return { blindBox: box, catalog: this.getAdminCatalog() };
+  }
+
+  createBlindBox(input = {}) {
+    const next = this._normalizeBlindBoxInput(input, null);
+    if (next.error) return next;
+    this.catalog.blindBoxes.push(next.blindBox);
+    this._save();
+    return { blindBox: next.blindBox, catalog: this.getAdminCatalog() };
+  }
+
+  _normalizeBlindBoxInput(input = {}, current = null) {
+    const name = String(input.name ?? current?.name ?? '').trim();
+    if (!name) return { error: '盲盒名称不能为空' };
+
+    const dropType = String(input.dropType ?? current?.dropType ?? 'cardBackPool').trim();
+    if (!['pet', 'cardBackPool', 'shopCardBack'].includes(dropType)) {
+      return { error: '盲盒奖励类型不正确' };
+    }
+
+    const categoryId = String(
+      input.categoryId ?? current?.categoryId ?? 'blind-box',
+    ).trim() || 'blind-box';
+    const cardBackIds = [...new Set(
+      (Array.isArray(input.cardBackIds)
+        ? input.cardBackIds
+        : Array.isArray(current?.cardBackIds) ? current.cardBackIds : [])
+        .map((id) => String(id || '').trim())
+        .filter((id) => id !== DEFAULT_CARD_BACK && !!this.getCardBack(id)),
+    )];
+    if (dropType === 'cardBackPool' && cardBackIds.length === 0) {
+      return { error: '牌背盲盒至少需要添加一张牌背' };
+    }
+
+    const id = String(input.id || current?.id || '').trim() || this._nextId('blindbox');
+    const duplicate = this.catalog.blindBoxes.find(
+      (item) => item.id === id && item !== current,
+    );
+    if (duplicate) return { error: '盲盒 ID 已存在' };
+
+    const blindBox = {
+      id,
+      name,
+      categoryId: id === 'pet-blindbox' ? 'blind-box' : categoryId,
+      price: cleanInt(input.price, current?.price ?? 300),
+      enabled: input.enabled === undefined
+        ? (current?.enabled ?? false)
+        : !!input.enabled,
+      order: cleanInt(input.order, current?.order ?? this.catalog.blindBoxes.length + 1),
+      dropType,
+    };
+    if (dropType === 'cardBackPool') {
+      blindBox.cardBackIds = cardBackIds;
+      const requestedCover = String(
+        input.coverCardBackId ?? current?.coverCardBackId ?? '',
+      ).trim();
+      if (requestedCover && !cardBackIds.includes(requestedCover)) {
+        return { error: '盲盒封面必须来自当前牌背奖池' };
+      }
+      blindBox.coverCardBackId = requestedCover || cardBackIds[0];
+    }
+    return { blindBox };
   }
 
   getShopItem(id) {
@@ -485,5 +607,9 @@ module.exports = {
   CatalogStore,
   IMAGE_CARD_BACKS,
   PREMIUM_BLIND_BOX_ID,
+  ONEPIECE_BLIND_BOX_ID,
+  CUTE_BLIND_BOX_ID,
+  ONEPIECE_CARD_BACK_IDS,
+  CUTE_CARD_BACK_IDS,
   buildDefaultCatalog,
 };

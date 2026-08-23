@@ -843,9 +843,14 @@ function renderShop() {
         const petPool = (catalog.pets || []).filter((pet) => !ownedPets.has(pet.id));
         previewSlot.appendChild(createPetPreview(petPool[0]?.id || "fox"));
       } else {
-        const icon = document.createElement("div");
-        icon.className = "blindbox-shop-icon" + (box.dropType === "cardBackPool" ? " premium" : "");
-        previewSlot.appendChild(icon);
+        const coverPreview = createBlindBoxCoverPreview(box);
+        if (coverPreview) {
+          previewSlot.appendChild(coverPreview);
+        } else {
+          const icon = document.createElement("div");
+          icon.className = "blindbox-shop-icon" + (box.dropType === "cardBackPool" ? " premium" : "");
+          previewSlot.appendChild(icon);
+        }
       }
       opt.appendChild(previewSlot);
       const name = document.createElement("div");
@@ -945,6 +950,21 @@ function getBlindBoxCardBackIds(box) {
     : [];
 }
 
+function getBlindBoxCoverCardBackId(box) {
+  const ids = getBlindBoxCardBackIds(box);
+  if (!ids.length) return "";
+  return ids.includes(box?.coverCardBackId) ? box.coverCardBackId : ids[0];
+}
+
+function createBlindBoxCoverPreview(box, className = "") {
+  const coverId = getBlindBoxCoverCardBackId(box);
+  if (!coverId) return null;
+  const preview = createCardBackPreview(coverId);
+  preview.classList.add("blindbox-cover-preview");
+  if (className) preview.classList.add(className);
+  return preview;
+}
+
 function isCardBackPoolSoldOut(box) {
   if (box?.dropType !== "cardBackPool") return false;
   const ids = getBlindBoxCardBackIds(box);
@@ -964,7 +984,7 @@ function renderBlindBoxDesc(box) {
   if (box.dropType === "pet") {
     text.textContent = `花费 ${box.price} 金币，随机获得一只未拥有的小宠物。抽到后加入仓库，需要在换装里手动装备。`;
   } else if (box.dropType === "cardBackPool") {
-    text.textContent = `花费 ${box.price} 金币，等概率获得一张尚未拥有的精品牌背。不会抽到重复牌背，奖池牌背仅可通过该盲盒获得。`;
+    text.textContent = `花费 ${box.price} 金币，等概率获得一张尚未拥有的奖池牌背。不会抽到重复牌背，奖池牌背仅可通过该盲盒获得。`;
   } else {
     text.textContent = `花费 ${box.price} 金币，随机获得一张已上架且未拥有的牌背。如果商城牌背已全部拥有，则不能购买。`;
   }
@@ -979,7 +999,7 @@ function renderBlindBoxDesc(box) {
     summary.className = "blindbox-pool-summary";
     summary.textContent = remaining > 0
       ? `已收集 ${ownedCount}/${ids.length}`
-      : `已收集 ${ownedCount}/${ids.length} · 精品牌背已全部集齐`;
+      : `已收集 ${ownedCount}/${ids.length} · 奖池牌背已全部集齐`;
     desc.appendChild(summary);
 
     const grid = document.createElement("div");
@@ -1035,9 +1055,14 @@ function openBlindBoxModal(box) {
   if (stage) {
     stage.innerHTML = "";
     if (box.dropType === "cardBackPool") {
-      const icon = document.createElement("div");
-      icon.className = "blindbox-shop-icon premium";
-      stage.appendChild(icon);
+      const coverPreview = createBlindBoxCoverPreview(box, "blindbox-cover-stage");
+      if (coverPreview) {
+        stage.appendChild(coverPreview);
+      } else {
+        const icon = document.createElement("div");
+        icon.className = "blindbox-shop-icon premium";
+        stage.appendChild(icon);
+      }
     } else {
       const firstPet = (shopCatalog?.pets || [])[0]?.id || "fox";
       stage.appendChild(
