@@ -285,6 +285,13 @@ grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 - `user:setPet { id }` equips an owned pet, and `id: ""` unequips.
 - `shop:buyBlindBox { id: "pet-blindbox" }` costs 1000 coins, draws only unowned pets, returns `rewardType: "pet"` and `petId`, and does not auto-equip.
 
+## 精品主题牌背
+
+- “精品主题盲盒”售价 1000 金币，固定包含 15 张海贼王牌背和 9 张可爱牌背。
+- 24 张精品牌背不公开单独售卖，也不会进入普通牌背盲盒；玩家已经拥有的牌背不受影响。
+- 每次从尚未拥有的精品牌背中等概率抽取，不会重复；全部集齐后不能继续购买。
+- 点击盲盒可查看更大的牌背预览、完整奖池、拥有状态和收集进度。
+
 ## Road Map
 
 - [x] 基础德州扑克（经典/急速/短牌/高额/All-in 模式）

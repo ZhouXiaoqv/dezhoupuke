@@ -70,6 +70,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 ## Card Back Customization Notes
 
 - Image card backs use `type: "image"` plus a public `imageUrl`; the shared renderer applies them through `decorateCardBack()`.
-- The fifteen One Piece pirate and personal-flag backs live in `public/assets/cardbacks/onepiece/` as 700x1000 WebP files, cost 800 coins each, and are registered in both server and client fallback catalogs.
-- The nine pastel kawaii backs live in `public/assets/cardbacks/cute/` with the same 700x1000 WebP format and 800-coin price, and are also registered in both catalogs.
+- The fifteen One Piece backs in `public/assets/cardbacks/onepiece/` and nine pastel kawaii backs in `public/assets/cardbacks/cute/` are 700x1000 WebP assets registered in both server and client catalogs.
+- These 24 premium backs are excluded from direct-sale `shopItems` and the standard card-back blind box. `premium-cardback-blindbox` costs 1000 coins, uses `dropType: "cardBackPool"` with fixed `cardBackIds`, and only draws unowned entries.
+- The public catalog exposes fixed `cardBackIds` so the client can preview the complete premium pool and ownership progress.
 - Every enabled `shopItems` card back is automatically eligible for the standard card-back blind box.

@@ -786,13 +786,15 @@ function renderShop() {
   const coins = userProfile?.coins || 0;
   const catalog = shopCatalog || {
     shopCategories: [{ id: "card-backs", name: "\u724c\u80cc" }],
-    shopItems: CARD_BACK_SHOP.map((item) => ({
-      id: item.id,
-      cardBackId: item.id,
-      price: item.price,
-      categoryId: "card-backs",
-      enabled: true,
-    })),
+    shopItems: CARD_BACK_SHOP
+      .filter((item) => !PREMIUM_CARD_BACK_IDS.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        cardBackId: item.id,
+        price: item.price,
+        categoryId: "card-backs",
+        enabled: true,
+      })),
     blindBoxes: [],
   };
   renderShopCategories(catalog);
@@ -831,7 +833,7 @@ function renderShop() {
     .filter((box) => !selectedCategory || box.categoryId === selectedCategory)
     .forEach((box) => {
       const canBuy = coins >= box.price;
-      const soldOut = isPetBlindBoxSoldOut(box);
+      const soldOut = isBlindBoxSoldOut(box);
       const opt = document.createElement("div");
       opt.className =
         "shop-option blindbox-option" + (!canBuy || soldOut ? " unaffordable" : "");
@@ -842,7 +844,7 @@ function renderShop() {
         previewSlot.appendChild(createPetPreview(petPool[0]?.id || "fox"));
       } else {
         const icon = document.createElement("div");
-        icon.className = "blindbox-shop-icon";
+        icon.className = "blindbox-shop-icon" + (box.dropType === "cardBackPool" ? " premium" : "");
         previewSlot.appendChild(icon);
       }
       opt.appendChild(previewSlot);
@@ -937,18 +939,72 @@ function isPetBlindBoxSoldOut(box) {
   return getBlindBoxPetCatalog().every((pet) => ownedPets.has(pet.id));
 }
 
+function getBlindBoxCardBackIds(box) {
+  return Array.isArray(box?.cardBackIds)
+    ? box.cardBackIds.filter((id) => CARD_BACK_CATALOG.some((item) => item.id === id))
+    : [];
+}
+
+function isCardBackPoolSoldOut(box) {
+  if (box?.dropType !== "cardBackPool") return false;
+  const ids = getBlindBoxCardBackIds(box);
+  const owned = new Set(getOwnedCardBacks(userProfile));
+  return ids.length > 0 && ids.every((id) => owned.has(id));
+}
+
+function isBlindBoxSoldOut(box) {
+  return isPetBlindBoxSoldOut(box) || isCardBackPoolSoldOut(box);
+}
+
 function renderBlindBoxDesc(box) {
   const desc = $("blindBoxDesc");
   if (!desc) return;
   desc.innerHTML = "";
   const text = document.createElement("div");
-  text.textContent =
-    box.dropType === "pet"
-      ? `\u82b1\u8d39 ${box.price} \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u53ea\u672a\u62e5\u6709\u7684\u5c0f\u5ba0\u7269\u3002\u62bd\u5230\u540e\u52a0\u5165\u4ed3\u5e93\uff0c\u9700\u8981\u5728\u6362\u88c5\u91cc\u624b\u52a8\u88c5\u5907\u3002`
-      : "\u82b1\u8d39 " +
-        box.price +
-        " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
+  if (box.dropType === "pet") {
+    text.textContent = `花费 ${box.price} 金币，随机获得一只未拥有的小宠物。抽到后加入仓库，需要在换装里手动装备。`;
+  } else if (box.dropType === "cardBackPool") {
+    text.textContent = `花费 ${box.price} 金币，等概率获得一张尚未拥有的精品牌背。不会抽到重复牌背，奖池牌背仅可通过该盲盒获得。`;
+  } else {
+    text.textContent = `花费 ${box.price} 金币，随机获得一张已上架且未拥有的牌背。如果商城牌背已全部拥有，则不能购买。`;
+  }
   desc.appendChild(text);
+
+  if (box.dropType === "cardBackPool") {
+    const ids = getBlindBoxCardBackIds(box);
+    const owned = new Set(getOwnedCardBacks(userProfile));
+    const ownedCount = ids.filter((id) => owned.has(id)).length;
+    const remaining = ids.length - ownedCount;
+    const summary = document.createElement("div");
+    summary.className = "blindbox-pool-summary";
+    summary.textContent = remaining > 0
+      ? `已收集 ${ownedCount}/${ids.length}`
+      : `已收集 ${ownedCount}/${ids.length} · 精品牌背已全部集齐`;
+    desc.appendChild(summary);
+
+    const grid = document.createElement("div");
+    grid.className = "blindbox-cardback-grid";
+    ids.forEach((id) => {
+      const def = getCardBackDef(id);
+      const isOwned = owned.has(id);
+      const item = document.createElement("div");
+      item.className = "blindbox-cardback-item " + (isOwned ? "owned" : "missing");
+      item.title = `${def.name || def.id} ${isOwned ? "已拥有" : "未拥有"}`;
+      item.appendChild(createCardBackPreview(id));
+      const name = document.createElement("div");
+      name.className = "blindbox-cardback-name";
+      name.textContent = def.name || def.id;
+      item.appendChild(name);
+      const state = document.createElement("div");
+      state.className = "blindbox-cardback-status";
+      state.textContent = isOwned ? "已拥有" : "未拥有";
+      item.appendChild(state);
+      grid.appendChild(item);
+    });
+    desc.appendChild(grid);
+    return;
+  }
+
   if (box.dropType !== "pet") return;
   const ownedPets = new Set(getOwnedPets(userProfile));
   const grid = document.createElement("div");
@@ -968,29 +1024,29 @@ function openBlindBoxModal(box) {
   currentBlindBox = box;
   blindBoxResultReady = false;
   $("blindBoxTitle").textContent = box.name || "\u724c\u80cc\u76f2\u76d2";
-  $("blindBoxDesc").textContent =
-    box.dropType === "pet"
-      ? `花费 ${box.price} 金币，随机获得一只未拥有的小宠物。抽到后会加入仓库，需要在换装里手动装备。`
-      : "\u82b1\u8d39 " +
-        box.price +
-        " \u91d1\u5e01\uff0c\u968f\u673a\u83b7\u5f97\u4e00\u5f20\u5df2\u4e0a\u67b6\u4e14\u672a\u62e5\u6709\u7684\u724c\u80cc\u3002\u5982\u679c\u5546\u5e97\u724c\u80cc\u5df2\u5168\u90e8\u62e5\u6709\uff0c\u5219\u4e0d\u80fd\u8d2d\u4e70\u3002";
   const buy = $("blindBoxBuyBtn");
   renderBlindBoxDesc(box);
-  const soldOut = isPetBlindBoxSoldOut(box);
+  const soldOut = isBlindBoxSoldOut(box);
   if (buy) {
-    buy.textContent = soldOut ? "\u5ba0\u7269\u5df2\u6536\u96c6\u5b8c" : box.price + "\u91d1\u5e01\u8d2d\u4e70";
+    buy.textContent = soldOut ? "已收集完" : box.price + "\u91d1\u5e01\u8d2d\u4e70";
     buy.disabled = soldOut || (userProfile?.coins || 0) < box.price;
   }
   const stage = $("blindBoxStage");
   if (stage) {
     stage.innerHTML = "";
-    const firstPet = (shopCatalog?.pets || [])[0]?.id || "fox";
-    stage.appendChild(
-      createBlindBoxRewardPreview(
-        box.dropType,
-        box.dropType === "pet" ? firstPet : DEFAULT_CARD_BACK,
-      ),
-    );
+    if (box.dropType === "cardBackPool") {
+      const icon = document.createElement("div");
+      icon.className = "blindbox-shop-icon premium";
+      stage.appendChild(icon);
+    } else {
+      const firstPet = (shopCatalog?.pets || [])[0]?.id || "fox";
+      stage.appendChild(
+        createBlindBoxRewardPreview(
+          box.dropType,
+          box.dropType === "pet" ? firstPet : DEFAULT_CARD_BACK,
+        ),
+      );
+    }
   }
   $("blindBoxOverlay")?.classList.add("active");
 }

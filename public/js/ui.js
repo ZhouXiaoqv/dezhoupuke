@@ -280,6 +280,11 @@ const CARD_BACK_SHOP = [
   { id: "pattern-checker-classic-beige", price: 400 },
   { id: "pattern-checker-classic-red", price: 400 },
 ];
+const PREMIUM_CARD_BACK_IDS = new Set(
+  CARD_BACK_SHOP
+    .filter((item) => item.id.startsWith("onepiece-") || item.id.startsWith("cute-"))
+    .map((item) => item.id),
+);
 const CARD_BACK_CATALOG = [
   { id: DEFAULT_CARD_BACK, price: 0 },
   ...CARD_BACK_SHOP,

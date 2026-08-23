@@ -232,6 +232,33 @@ const CARD_BACK_SHOP = [
   { id: 'pattern-checker-classic-beige', price: 400 },
   { id: 'pattern-checker-classic-red', price: 400 },
 ];
+const PREMIUM_CARD_BACK_IDS = [
+  'onepiece-straw-hat',
+  'onepiece-red-hair',
+  'onepiece-heart',
+  'onepiece-whitebeard',
+  'onepiece-roger',
+  'onepiece-blackbeard',
+  'onepiece-beasts',
+  'onepiece-zoro',
+  'onepiece-nami',
+  'onepiece-usopp',
+  'onepiece-sanji',
+  'onepiece-chopper',
+  'onepiece-robin',
+  'onepiece-franky',
+  'onepiece-brook',
+  'cute-strawberry-milk',
+  'cute-cloud-bear',
+  'cute-matcha-dango',
+  'cute-lemon-soda',
+  'cute-cherry-rabbit',
+  'cute-mint-cat',
+  'cute-honey-duck',
+  'cute-peach-fox',
+  'cute-blueberry-penguin',
+];
+const PREMIUM_CARD_BACK_ID_SET = new Set(PREMIUM_CARD_BACK_IDS);
 const CARD_BACK_IDS = new Set([DEFAULT_CARD_BACK, ...CARD_BACK_SHOP.map((item) => item.id)]);
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'adminjujku';
@@ -719,6 +746,9 @@ class UserStore {
     this._ensureAccountState(user);
     if (user.disabled || user.role !== 'player') return { error: 'Permission denied' };
 
+    if (PREMIUM_CARD_BACK_ID_SET.has(cardBackId)) {
+      return { error: 'Card back not found' };
+    }
     const item = this.catalogStore
       ? this.catalogStore.getShopItem(cardBackId)
       : CARD_BACK_SHOP.find((entry) => entry.id === cardBackId);
@@ -753,7 +783,7 @@ class UserStore {
     if (box.dropType === 'pet') {
       return this.buyPetBlindBox(username, box.id, rng);
     }
-    const pool = this.catalogStore.getBlindBoxDropPool(user.ownedCardBacks);
+    const pool = this.catalogStore.getCardBackBlindBoxDropPool(box, user.ownedCardBacks);
     if (pool.length === 0) return { error: 'No available card backs in blind box' };
     if (user.coins < box.price) return { error: 'Not enough coins' };
 
@@ -1137,6 +1167,7 @@ module.exports = {
   UserStore,
   ACHIEVEMENTS,
   CARD_BACK_SHOP,
+  PREMIUM_CARD_BACK_IDS,
   DEFAULT_CARD_BACK,
   EMOTION_CATALOG,
   ADMIN_USERNAME,

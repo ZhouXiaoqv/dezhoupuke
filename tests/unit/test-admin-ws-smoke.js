@@ -87,6 +87,19 @@ async function run() {
     const denied = await player.waitFor('admin:error');
     assert(denied.data.message);
 
+    player.send('shop:getCatalog');
+    const shopCatalog = await player.waitFor('shop:catalog');
+    const premiumBox = shopCatalog.data.catalog.blindBoxes.find(
+      (box) => box.id === 'premium-cardback-blindbox',
+    );
+    assert(premiumBox);
+    assert.strictEqual(premiumBox.price, 1000);
+    assert.strictEqual(premiumBox.dropType, 'cardBackPool');
+    assert.strictEqual(premiumBox.cardBackIds.length, 24);
+    assert(shopCatalog.data.catalog.shopItems.every((item) =>
+      !item.cardBackId.startsWith('onepiece-') && !item.cardBackId.startsWith('cute-')
+    ));
+
     admin.ws.close();
     player.ws.close();
     console.log('PASS admin websocket smoke');

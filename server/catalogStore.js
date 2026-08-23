@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const { CARD_BACK_SHOP, DEFAULT_CARD_BACK } = require('./userStore');
+const {
+  CARD_BACK_SHOP,
+  DEFAULT_CARD_BACK,
+  PREMIUM_CARD_BACK_IDS,
+} = require('./userStore');
 const { PET_CATALOG, PET_IDS } = require('./petCatalog');
 
 const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'catalog.json');
@@ -14,6 +18,8 @@ const IMAGE_CARD_BACKS = [
   },
 ];
 const REMOVED_CARD_BACK_IDS = new Set(['dragonboat-2']);
+const PREMIUM_CARD_BACK_ID_SET = new Set(PREMIUM_CARD_BACK_IDS);
+const PREMIUM_BLIND_BOX_ID = 'premium-cardback-blindbox';
 
 function buildDefaultCardBacks() {
   const entries = [
@@ -39,15 +45,17 @@ function buildDefaultCatalog() {
     ],
     cardBacks: buildDefaultCardBacks(),
     pets: PET_CATALOG.map((pet, index) => ({ order: index + 1, ...pet })),
-    shopItems: CARD_BACK_SHOP.map((item, index) => ({
-      id: `cardback-${item.id}`,
-      type: 'cardBack',
-      cardBackId: item.id,
-      categoryId: 'card-backs',
-      price: item.price,
-      enabled: true,
-      order: index + 1,
-    })),
+    shopItems: CARD_BACK_SHOP
+      .filter((item) => !PREMIUM_CARD_BACK_ID_SET.has(item.id))
+      .map((item, index) => ({
+        id: `cardback-${item.id}`,
+        type: 'cardBack',
+        cardBackId: item.id,
+        categoryId: 'card-backs',
+        price: item.price,
+        enabled: true,
+        order: index + 1,
+      })),
     blindBoxes: [
       {
         id: 'pet-blindbox',
@@ -66,6 +74,16 @@ function buildDefaultCatalog() {
         enabled: true,
         order: 1,
         dropType: 'shopCardBack',
+      },
+      {
+        id: PREMIUM_BLIND_BOX_ID,
+        name: '精品主题盲盒',
+        categoryId: 'blind-box',
+        price: 1000,
+        enabled: true,
+        order: 2,
+        dropType: 'cardBackPool',
+        cardBackIds: [...PREMIUM_CARD_BACK_IDS],
       },
     ],
     holidayGifts: [],
@@ -133,13 +151,19 @@ class CatalogStore {
       enabled: toBool(item.enabled, true),
     })).filter((item) => item.id && item.name);
 
-    this.catalog.cardBacks = this.catalog.cardBacks.map((item, index) => ({
-      id: String(item.id || '').trim(),
-      name: String(item.name || item.id || '').trim(),
-      type: item.type === 'image' ? 'image' : 'css',
-      imageUrl: item.imageUrl || '',
-      order: cleanInt(item.order, index),
-    })).filter((item) => item.id && item.name && !REMOVED_CARD_BACK_IDS.has(item.id));
+    const defaultCardBacksById = new Map(defaults.cardBacks.map((item) => [item.id, item]));
+    this.catalog.cardBacks = this.catalog.cardBacks.map((item, index) => {
+      const id = String(item.id || '').trim();
+      const currentDefault = defaultCardBacksById.get(id);
+      const type = currentDefault?.type || item.type;
+      return {
+        id,
+        name: String(currentDefault?.name || item.name || item.id || '').trim(),
+        type: type === 'image' ? 'image' : 'css',
+        imageUrl: currentDefault?.imageUrl || item.imageUrl || '',
+        order: cleanInt(item.order, index),
+      };
+    }).filter((item) => item.id && item.name && !REMOVED_CARD_BACK_IDS.has(item.id));
 
     this.catalog.pets = this.catalog.pets.map((item, index) => ({
       id: String(item.id || '').trim(),
@@ -157,19 +181,39 @@ class CatalogStore {
       price: cleanInt(item.price, 0),
       enabled: toBool(item.enabled, true),
       order: cleanInt(item.order, index + 1),
-    })).filter((item) => item.id && item.cardBackId && !REMOVED_CARD_BACK_IDS.has(item.cardBackId));
+    })).filter((item) =>
+      item.id &&
+      item.cardBackId &&
+      !REMOVED_CARD_BACK_IDS.has(item.cardBackId) &&
+      !PREMIUM_CARD_BACK_ID_SET.has(item.cardBackId)
+    );
 
-    this.catalog.blindBoxes = this.catalog.blindBoxes.map((item, index) => ({
-      id: String(item.id || '').trim(),
-      name: String(item.name || item.id || '').trim(),
-      categoryId: String(item.id || '').trim() === 'pet-blindbox'
-        ? 'blind-box'
-        : String(item.categoryId || 'blind-box').trim(),
-      price: cleanInt(item.price, 300),
-      enabled: toBool(item.enabled, true),
-      order: cleanInt(item.order, index + 1),
-      dropType: item.dropType === 'pet' ? 'pet' : 'shopCardBack',
-    })).filter((item) => item.id && item.name);
+    const validCardBackIds = new Set(this.getAllCardBackIds());
+    this.catalog.blindBoxes = this.catalog.blindBoxes.map((item, index) => {
+      const id = String(item.id || '').trim();
+      let dropType = item.dropType;
+      if (id === PREMIUM_BLIND_BOX_ID) dropType = 'cardBackPool';
+      if (!['pet', 'cardBackPool'].includes(dropType)) dropType = 'shopCardBack';
+      const box = {
+        id,
+        name: String(item.name || item.id || '').trim(),
+        categoryId: id === 'pet-blindbox'
+          ? 'blind-box'
+          : String(item.categoryId || 'blind-box').trim(),
+        price: cleanInt(item.price, 300),
+        enabled: toBool(item.enabled, true),
+        order: cleanInt(item.order, index + 1),
+        dropType,
+      };
+      if (dropType === 'cardBackPool') {
+        const sourceIds = id === PREMIUM_BLIND_BOX_ID
+          ? PREMIUM_CARD_BACK_IDS
+          : Array.isArray(item.cardBackIds) ? item.cardBackIds : [];
+        box.cardBackIds = [...new Set(sourceIds.map((cardBackId) => String(cardBackId || '').trim()))]
+          .filter((cardBackId) => validCardBackIds.has(cardBackId));
+      }
+      return box;
+    }).filter((item) => item.id && item.name);
 
     this.catalog.holidayGifts = this.catalog.holidayGifts.map((gift) =>
       this._normalizeGift(gift),
@@ -282,6 +326,7 @@ class CatalogStore {
   updateShopItem(input = {}) {
     const cardBackId = String(input.cardBackId || '').trim();
     if (!this.getCardBack(cardBackId)) return { error: '牌背不存在' };
+    if (PREMIUM_CARD_BACK_ID_SET.has(cardBackId)) return { error: '精品牌背仅可通过盲盒获得' };
     const id = String(input.id || '').trim() || `cardback-${cardBackId}`;
     const item = this.catalog.shopItems.find((entry) => entry.id === id);
     const next = item || {
@@ -334,6 +379,17 @@ class CatalogStore {
       .filter((item) => item.enabled && this._categoryEnabled(item.categoryId))
       .filter((item) => !owned.has(item.cardBackId))
       .filter((item) => !!this.getCardBack(item.cardBackId));
+  }
+
+  getCardBackBlindBoxDropPool(box, ownedCardBacks = []) {
+    if (!box || box.dropType !== 'cardBackPool') {
+      return this.getBlindBoxDropPool(ownedCardBacks);
+    }
+    const owned = new Set(ownedCardBacks);
+    return box.cardBackIds
+      .filter((cardBackId) => !owned.has(cardBackId))
+      .filter((cardBackId) => !!this.getCardBack(cardBackId))
+      .map((cardBackId) => ({ cardBackId }));
   }
 
   getPetBlindBoxDropPool(ownedPets = []) {
@@ -428,5 +484,6 @@ class CatalogStore {
 module.exports = {
   CatalogStore,
   IMAGE_CARD_BACKS,
+  PREMIUM_BLIND_BOX_ID,
   buildDefaultCatalog,
 };

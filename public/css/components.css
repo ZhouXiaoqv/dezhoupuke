@@ -282,6 +282,9 @@
   background: rgba(255, 255, 255, 0.03);
   transition: all 0.2s;
 }
+.shop-option > .card-back-preview {
+  width: 52px;
+}
 .blindbox-option {
   min-height: 154px;
 }
@@ -454,6 +457,56 @@
   filter: grayscale(1);
   opacity: 0.46;
 }
+.blindbox-pool-summary {
+  margin-top: 10px;
+  color: var(--gold);
+  font-weight: 800;
+}
+.blindbox-cardback-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 7px;
+  margin-top: 12px;
+}
+.blindbox-cardback-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.blindbox-cardback-item .card-back-preview {
+  width: 58px;
+}
+.blindbox-cardback-item.owned {
+  border-color: rgba(96, 208, 128, 0.42);
+  background: rgba(96, 208, 128, 0.08);
+}
+.blindbox-cardback-item.owned .card-back-preview {
+  opacity: 0.62;
+}
+.blindbox-cardback-name {
+  width: 100%;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 9px;
+  line-height: 1.25;
+}
+.blindbox-cardback-status {
+  color: var(--dim);
+  font-size: 8px;
+  line-height: 1;
+}
+.blindbox-cardback-item.owned .blindbox-cardback-status {
+  color: #60d080;
+}
 .blindbox-shop-icon {
   width: 44px;
   height: 62px;
@@ -463,6 +516,13 @@
     linear-gradient(135deg, #0d0d0d 0 42%, #d4a840 42% 58%, #111 58% 100%);
   border: 2px solid rgba(212, 168, 64, 0.62);
   box-shadow: 0 0 20px rgba(212, 168, 64, 0.16);
+}
+.blindbox-shop-icon.premium {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 245, 190, 0.9), transparent 27%),
+    linear-gradient(145deg, #78bfe8 0 34%, #f3b2cb 34% 48%, #d4a840 48% 60%, #79b68a 60% 100%);
+  border-color: rgba(255, 226, 142, 0.9);
+  box-shadow: 0 0 26px rgba(212, 168, 64, 0.28);
 }
 .blindbox-rolling-card {
   transform: scale(1.45);
