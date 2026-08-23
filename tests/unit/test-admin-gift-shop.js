@@ -45,6 +45,26 @@ for (const id of onePieceCardBackIds) {
   assert.strictEqual(shopItem.price, 800);
   assert(catalogStore.getBlindBoxDropPool().some((item) => item.cardBackId === id));
 }
+const cuteCardBackIds = [
+  'cute-strawberry-milk',
+  'cute-cloud-bear',
+  'cute-matcha-dango',
+  'cute-lemon-soda',
+  'cute-cherry-rabbit',
+  'cute-mint-cat',
+  'cute-honey-duck',
+  'cute-peach-fox',
+  'cute-blueberry-penguin',
+];
+for (const id of cuteCardBackIds) {
+  const cardBack = catalogStore.getCardBack(id);
+  const shopItem = catalogStore.getShopItem(id);
+  assert.strictEqual(cardBack.type, 'image');
+  assert(cardBack.imageUrl.startsWith('assets/cardbacks/cute/'));
+  assert(cardBack.imageUrl.endsWith('.webp'));
+  assert.strictEqual(shopItem.price, 800);
+  assert(catalogStore.getBlindBoxDropPool().some((item) => item.cardBackId === id));
+}
 const petBlindBoxCatalogItem = catalogStore
   .getPublicCatalog()
   .blindBoxes.find((box) => box.id === 'pet-blindbox');
