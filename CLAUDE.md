@@ -66,3 +66,9 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 - User profiles include `ownedPets` and `equippedPet`; public profiles and game players expose `pet`.
 - `user:setPet { id }` equips an owned pet or unequips with an empty id.
 - `shop:buyBlindBox` supports `pet-blindbox`; pet results return `rewardType: "pet"` and `petId`, add the pet to inventory, and do not auto-equip.
+
+## Card Back Customization Notes
+
+- Image card backs use `type: "image"` plus a public `imageUrl`; the shared renderer applies them through `decorateCardBack()`.
+- The fifteen One Piece pirate and personal-flag backs live in `public/assets/cardbacks/onepiece/` as 700x1000 WebP files, cost 800 coins each, and are registered in both server and client fallback catalogs.
+- Every enabled `shopItems` card back is automatically eligible for the standard card-back blind box.

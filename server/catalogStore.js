@@ -20,8 +20,9 @@ function buildDefaultCardBacks() {
     { id: DEFAULT_CARD_BACK, name: '默认蓝色', type: 'css' },
     ...CARD_BACK_SHOP.map((item) => ({
       id: item.id,
-      name: item.id,
-      type: 'css',
+      name: item.name || item.id,
+      type: item.type === 'image' ? 'image' : 'css',
+      imageUrl: item.imageUrl || '',
     })),
     ...IMAGE_CARD_BACKS,
   ];

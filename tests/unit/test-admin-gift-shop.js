@@ -19,6 +19,32 @@ const userStore = new UserStore({ dataFile: path.join(dataDir, 'users.json') });
 const catalogStore = new CatalogStore({ dataFile: path.join(dataDir, 'catalog.json') });
 userStore.setCatalogStore(catalogStore);
 assert(!catalogStore.getAllCardBackIds().includes('dragonboat-2'));
+const onePieceCardBackIds = [
+  'onepiece-straw-hat',
+  'onepiece-red-hair',
+  'onepiece-heart',
+  'onepiece-whitebeard',
+  'onepiece-roger',
+  'onepiece-blackbeard',
+  'onepiece-beasts',
+  'onepiece-zoro',
+  'onepiece-nami',
+  'onepiece-usopp',
+  'onepiece-sanji',
+  'onepiece-chopper',
+  'onepiece-robin',
+  'onepiece-franky',
+  'onepiece-brook',
+];
+for (const id of onePieceCardBackIds) {
+  const cardBack = catalogStore.getCardBack(id);
+  const shopItem = catalogStore.getShopItem(id);
+  assert.strictEqual(cardBack.type, 'image');
+  assert(cardBack.imageUrl.startsWith('assets/cardbacks/onepiece/'));
+  assert(cardBack.imageUrl.endsWith('.webp'));
+  assert.strictEqual(shopItem.price, 800);
+  assert(catalogStore.getBlindBoxDropPool().some((item) => item.cardBackId === id));
+}
 const petBlindBoxCatalogItem = catalogStore
   .getPublicCatalog()
   .blindBoxes.find((box) => box.id === 'pet-blindbox');

@@ -39,5 +39,6 @@ build/
 *.crt
 nginx/ssl/
 
-# Claude Code
+# Agents
 .claude/
+.workbuddy

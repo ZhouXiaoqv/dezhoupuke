@@ -46,6 +46,7 @@ dezhoupuke/
 │   │   ├── components.css      # 头像、排行榜、成就、弹窗
 │   │   ├── responsive.css      # 移动端适配
 │   │   └── extras.css          # 头像选择、场景切换、操作记录
+│   ├── assets/cardbacks/       # 图片牌背资源
 │   └── js/                     # JavaScript 模块
 │       ├── net.js              # WebSocket 网络层
 │       ├── ui.js               # UI 工具函数、全局变量
