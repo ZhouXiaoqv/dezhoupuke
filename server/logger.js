@@ -18,7 +18,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const LOG_DIR      = path.join(__dirname, '..', 'data', 'logs');
+const LOG_DIR      = path.join(require('./dataDir'), 'logs');
 const KEEP_DAYS    = 7;
 const LEVEL_ORDER  = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
 const MIN_LEVEL    = (process.env.LOG_LEVEL || 'DEBUG').toUpperCase();

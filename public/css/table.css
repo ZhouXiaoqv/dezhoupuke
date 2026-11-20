@@ -866,3 +866,73 @@
     transform: translateX(-50%) translateY(-8px);
   }
 }
+
+/* Ivory enamel table and counters */
+#table-container {
+  background: radial-gradient(circle, #c8c4b9 .8px, transparent 1px) 0 0 / 15px 15px, #faf9f5;
+}
+#table { border-radius: clamp(22px, 5vw, 64px); }
+.scene-ivory #table {
+  border-color: #beb7a7;
+  background:
+    repeating-linear-gradient(35deg, transparent 0 4px, #b4aa9320 4.5px 5px),
+    radial-gradient(ellipse at 42% 35%, #fbf9f1, #e7e2d5);
+  box-shadow: inset 0 0 0 2px #ab8542, inset 0 0 0 5px #ece7db,
+    inset 0 0 20px #aa9d8070, 0 0 0 1px #938976, 0 0 0 5px #f6f3eb,
+    0 0 0 6px #c6beb0, 0 9px 14px #615c4738;
+}
+.scene-ivory #table.table-your-turn { animation: none; border-color: #c4a366; }
+#table::before { border-radius: inherit; border: 1px solid #b6aa9066; pointer-events: none; }
+#table .pot-display, #table-container .status-bar, #table .seat-info {
+  color: #302e29;
+  background: linear-gradient(#fffefa, #eeeae0);
+  border: 1px solid #b9b1a1;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px #fffdf7, 0 2px 0 #c3bbac, 0 4px 8px #60564026;
+}
+#table .pot-display {
+  display: flex;
+  gap: .5em;
+  align-items: center;
+  padding: 3px 9px;
+  border-color: #b58f4a;
+}
+#table .pot-label { color: #695d45; letter-spacing: .08em; white-space: nowrap; }
+#table .pot-amount { color: #292822; text-shadow: none; font-variant-numeric: tabular-nums; }
+#table .pot-display::before {
+  content: "";
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fcfaf1 40%, #baa474 43% 49%, transparent 52%),
+    repeating-conic-gradient(#335b85 0 30deg, #f3edda 30deg 60deg);
+  box-shadow: 0 2px #294866, 0 4px #c7bdab, 0 5px #34597a;
+}
+#table .seat-info { position: relative; padding-inline: .5em; }
+#table .seat-name { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.seat-medallion {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  background: #fffdf8;
+  border: 2px solid;
+  border-radius: 50%;
+}
+#table .seat-stack {
+  margin-top: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 11px, #d9d3c54d 11px 12px), #faf8f1;
+  border: 1px solid #d6cebd;
+  border-radius: 3px;
+  color: #302b23;
+  letter-spacing: .14em;
+  font-weight: bold;
+}
+#table .seat-action:empty { display: none; }
+#table .seat-action { color: #57514a; }
+#table .act-call { color: #24587b; }
+#table .act-raise { color: #805611; }
+#table .act-check, #table .act-winner { color: #286440; }
+#table .act-allin { color: #a42f35; }
+#table .card-front { box-shadow: inset 0 0 0 2px #fffaf0, 0 2px 1px #aa9f89, 0 4px 7px #776c5126; }
+#table .community .suit { text-align: center; }

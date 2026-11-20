@@ -1,6 +1,13 @@
 // ===== TABLE SCENE SELECTOR =====
 const TABLE_SCENES = [
   {
+    id: "ivory",
+    name: "象牙白",
+    desc: "Ivory Enamel",
+    cls: "scene-ivory",
+    preview: "linear-gradient(135deg,#fbf9f1,#d5cab4)",
+  },
+  {
     id: "classic",
     name: "经典绿毡",
     desc: "Casino Classic",
@@ -72,7 +79,7 @@ const TABLE_SCENES = [
   },
 ];
 
-let currentScene = "classic";
+let currentScene = "ivory";
 let customTableImage = localStorage.getItem("poker_custom_table_image") || "";
 
 function refreshSceneSelection() {
@@ -163,7 +170,7 @@ function selectCustomTableImage(imageData) {
 function clearCustomTableImage() {
   customTableImage = "";
   localStorage.removeItem("poker_custom_table_image");
-  if (currentScene === "custom") selectScene("classic");
+  if (currentScene === "custom") selectScene("ivory");
   updateCustomScenePreview();
   refreshSceneSelection();
   toast("自定义桌面已清除");

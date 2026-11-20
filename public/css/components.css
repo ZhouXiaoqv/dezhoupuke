@@ -1982,13 +1982,28 @@
 
 .seat-bet {
   position: absolute;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 12px;
-  color: var(--gold);
-  background: rgba(0, 0, 0, 0.5);
-  padding: 2px 8px;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border: 1px solid #b4a587;
+  border-radius: 5px;
+  background: #fffcf4;
+  box-shadow: 0 2px 3px #53452d33;
+  color: #302b23;
+  font: bold 12px/1.2 monospace;
   white-space: nowrap;
+  pointer-events: none;
+}
+.seat-bet::before {
+  content: "";
+  width: 1.3em;
+  height: .85em;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #faf5df 36%, #aa925e 40% 46%, transparent 50%),
+    repeating-conic-gradient(#305780 0 30deg, #f6ecd0 30deg 60deg);
+  box-shadow: 0 1px #24415c, 0 2px #dfd1b1, 0 3px #315680;
+  margin-bottom: 3px;
 }
 
 .dealer-btn {
@@ -2049,16 +2064,15 @@
     )
   );
   --seat-col-1: var(--seat-left-edge-offset);
-  --seat-col-2: 30%;
+  --seat-col-2: 27%;
   --seat-col-3: 50%;
-  --seat-col-4: 70%;
+  --seat-col-4: 73%;
   --seat-col-5: calc(100% - var(--seat-right-edge-offset));
   --seat-row-1: 0%;
   --seat-row-2: 10%;
   --seat-row-3: 50%;
   --seat-row-4: 90%;
   --seat-row-5: 100%;
-  --seat-bet-gap: 30px;
 }
 .seat-pos-0,
 .seat-pos-1,
@@ -2110,38 +2124,11 @@
 .seat-pos-0 {
   --seat-y: var(--seat-row-5);
 }
-.seat-pos-0 .seat-bet {
-  left: 50%;
-  top: calc(-1 * var(--seat-bet-gap));
-  right: auto;
-  bottom: auto;
-  transform: translateX(-50%);
-}
-.seat-pos-4 .seat-bet {
-  left: 50%;
-  bottom: calc(-1 * var(--seat-bet-gap));
-  top: auto;
-  right: auto;
-  transform: translateX(-50%);
-}
-.seat-pos-1 .seat-bet,
-.seat-pos-2 .seat-bet,
-.seat-pos-3 .seat-bet {
-  right: calc(-1 * var(--seat-bet-gap));
-  left: auto;
-  top: 50%;
-  bottom: auto;
-  transform: translateY(-50%);
-}
-.seat-pos-5 .seat-bet,
-.seat-pos-6 .seat-bet,
-.seat-pos-7 .seat-bet {
-  left: calc(-1 * var(--seat-bet-gap));
-  right: auto;
-  top: 50%;
-  bottom: auto;
-  transform: translateY(-50%);
-}
+.seat-bet { left: 50%; transform: translateX(-50%); }
+:is(.seat-pos-0, .seat-pos-1, .seat-pos-7) .seat-bet { bottom: calc(100% + 3px); }
+:is(.seat-pos-3, .seat-pos-4, .seat-pos-5) .seat-bet { top: calc(100% + 3px); }
+.seat-pos-2 .seat-bet { left: calc(100% + 4px); top: 50%; transform: translateY(-50%); }
+.seat-pos-6 .seat-bet { left: auto; right: calc(100% + 4px); top: 50%; transform: translateY(-50%); }
 
 /* My hand — fixed at bottom, outside table */
 .my-hand {

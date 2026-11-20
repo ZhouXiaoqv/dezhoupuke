@@ -7,7 +7,7 @@ const {
 } = require('./userStore');
 const { PET_CATALOG, PET_IDS } = require('./petCatalog');
 
-const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'catalog.json');
+const DEFAULT_DATA_FILE = path.join(require('./dataDir'), 'catalog.json');
 
 const IMAGE_CARD_BACKS = [
   {

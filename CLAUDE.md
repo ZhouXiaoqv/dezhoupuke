@@ -7,10 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm start                  # Start server on port 3000 (configurable via PORT env var)
 npm run dev                # Start with --watch for auto-restart on file changes
-npm test                   # Run all tests (server must be running for some)
+npm test                  # Rules, isolated WebSocket tests, and Chrome display regressions
+npm run test:unit         # Direct engine/store tests
+npm run test:network      # WebSocket integration tests
+npm run test:browser      # Automated display regressions
+npm run test:screenshots  # Optional multiplayer screenshot walkthroughs
 ```
 
-WebSocket-based tests (`test-room.js`, `test-bugs-unit.js`, `test-turn.js`) require a running server. Unit tests that directly import `server/game.js` (`test-sidepot-refund.js`, `test-all-scenarios.js`) do not.
+`tests/run.js` registers the suites used by npm. It starts the test server on a random loopback port and sets `POKER_DATA_DIR` for accounts, catalog, and logs. Browser suites require installed Chrome or a Chromium executable selected with `POKER_BROWSER`.
 
 ## Architecture
 
@@ -53,16 +57,20 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 ## Conventions
 
 - Server sends Chinese-language error messages to clients
+- Seat chip counters render the server-provided per-street player bet. The layout test room shows all eight counters.
+- The default ivory scene uses a horizontal rounded rectangle in both phone orientations. Table scenes are registered in `public/js/extras.js`.
 - CSS is split by functional domain (base, lobby, table, action, components, responsive, extras)
 - JS globals are shared across modules via `window` scope (no bundler)
 - The `attemptReconnect` function is defined in `app.js` (token-based session restore), not in `handlers.js`
 - `AGENTS.md` is a symlink to `CLAUDE.md` — keep them identical
 - After any code change, check and sync relevant content in `CLAUDE.md` and `README.md` (project structure, protocol tables, commands, etc.)
-- After adding a new test file, add it to the `test` script in `package.json`
+- After adding a new test file, register it in the corresponding suite in `tests/run.js`
 
 ## Pet Customization Notes
 
 - Frontend module `public/js/pets3d.js` is an ES module Three.js overlay for equipped seat pets. It loads local Three.js from `/vendor/three/...`, GLB models from `public/assets/pets/models/`, and previews from `public/assets/pets/previews/`.
+- The bottom-center pet hangs on the left and the middle-right pet sits above its nameplate to keep both clear of wagers.
+- Pet synchronization discards obsolete model loads and stops drawing when the table is closed. Community card nodes are retained across profile and gift updates.
 - User profiles include `ownedPets` and `equippedPet`; public profiles and game players expose `pet`.
 - `user:setPet { id }` equips an owned pet or unequips with an empty id.
 - `shop:buyBlindBox` supports `pet-blindbox`; pet results return `rewardType: "pet"` and `petId`, add the pet to inventory, and do not auto-equip.

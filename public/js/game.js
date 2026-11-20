@@ -7,7 +7,6 @@ let isHost = false;
 let prevPhase = "";
 let prevCommunityLen = 0;
 let prevPot = 0;
-let prevActions = {}; // playerId -> lastAction
 let prevMyHandIds = null; // track my hand cards to avoid re-animating
 let lastTurnActionData = null;
 let isLayoutTestRoom = false;
@@ -60,7 +59,7 @@ function buildLayoutTestState() {
     phase: "river",
     gameMode: "classic",
     pot: 240,
-    roundBet: 20,
+    roundBet: 40,
     minRaise: 20,
     dealerIdx: 4,
     sbIdx: 5,
@@ -77,8 +76,8 @@ function buildLayoutTestState() {
       id: `layout-ai-${i}`,
       name: `\u7535\u8111 ${i + 1}`,
       stack: 2000 - i * 75,
-      bet: 0,
-      totalBet: 0,
+      bet: i < 2 ? 40 : 20,
+      totalBet: i < 2 ? 45 : 25,
       folded: false,
       allIn: false,
       lastAction: "",
@@ -111,7 +110,6 @@ function enterLayoutTestRoom() {
   isHost = false;
   roomCode = "LAYOUT";
   lastTurnActionData = null;
-  prevActions = {};
   prevMyHandIds = null;
   window._prevOtherHands = {};
 
@@ -146,7 +144,6 @@ function leaveLayoutTestRoom() {
   logPrevPhase = "";
   prevCommunityLen = 0;
   prevPot = 0;
-  prevActions = {};
   prevMyHandIds = null;
   window._prevOtherHands = {};
 
@@ -393,64 +390,10 @@ function renderGame(state) {
 
   // Detect phase transitions for sounds/animations
   const phaseChanged = state.phase !== prevPhase;
-  const communityGrew = state.community.length > prevCommunityLen;
+  const previousCardCount = prevCommunityLen;
+  const communityGrew = state.community.length > previousCardCount;
   const potGrew = state.pot > prevPot;
   if (phaseChanged) addLogPhaseIfNeeded(state.phase);
-
-  // Phase separator for action log (before actions, so order is correct)
-  if (false && phaseChanged && state.phase !== "idle") {
-    const LOG_PHASE_NAMES = {
-      preflop: "— 翻牌前 —",
-      flop: "— 翻牌 —",
-      turn: "— 转牌 —",
-      river: "— 河牌 —",
-      showdown: "— 摊牌 —",
-    };
-    if (LOG_PHASE_NAMES[state.phase])
-      addLogPhaseSeparator(LOG_PHASE_NAMES[state.phase]);
-  }
-
-  // Action log: detect blind posts (SB/BB don't set lastAction on server)
-  if (false && logPrevPhase === "" && state.phase === "preflop" && state.pot > 0) {
-    if (state.sbIdx !== undefined) {
-      const sbP = state.players[state.sbIdx];
-      if (sbP && sbP.bet > 0)
-        addLogEntry(sbP.name, "小盲", sbP.bet, state.pot, "blind");
-    }
-    if (state.bbIdx !== undefined) {
-      const bbP = state.players[state.bbIdx];
-      if (bbP && bbP.bet > 0)
-        addLogEntry(bbP.name, "大盲", bbP.bet, state.pot, "blind");
-    }
-  }
-
-  // Detect action changes for sounds + action log
-  const ACTION_LABELS = {
-    fold: "弃牌",
-    check: "过牌",
-    call: "跟注",
-    raise: "加注",
-    allin: "ALL IN",
-    winner: "🏆 赢家",
-  };
-  if (false) for (const p of state.players) {
-    const prev = prevActions[p.id];
-    if (p.lastAction && p.lastAction !== prev && p.lastAction !== "") {
-      // Trigger sound based on action
-      if (p.lastAction === "fold") SFX.fold();
-      else if (p.lastAction === "check") SFX.check();
-      else if (p.lastAction === "call") SFX.call();
-      else if (p.lastAction === "raise") SFX.raise();
-      else if (p.lastAction === "allin") SFX.allin();
-
-      // Action log entry
-      const label = ACTION_LABELS[p.lastAction] || p.lastAction;
-      let amount = 0;
-      if (["call", "raise", "allin"].includes(p.lastAction))
-        amount = p.bet;
-      addLogEntry(p.name, label, amount, state.pot, p.lastAction);
-    }
-  }
 
   // Pot bump on increase
   if (potGrew && prevPot > 0) bumpPot();
@@ -478,7 +421,6 @@ function renderGame(state) {
   logPrevPhase = state.phase;
   prevCommunityLen = state.community.length;
   prevPot = state.pot;
-  for (const p of state.players) prevActions[p.id] = p.lastAction;
 
   // Only remove seats/dealer/blinds if player count changed (prevents flickering)
   const existingSeats = table.querySelectorAll(".seat");
@@ -674,10 +616,14 @@ function renderGame(state) {
       infoEl.style.borderColor = "";
     }
     infoEl.innerHTML = `
-<div class="seat-name" style="color:${seatColor}"><span style="color:${seatColor}">●</span> ${seatAvatar} ${p.name}${p.id === Net.playerId ? " (你)" : ""}</div>
+<div class="seat-name"><span class="seat-medallion"></span><span class="seat-player-name"></span></div>
 <div class="seat-stack">${p.stack}</div>
 <div class="seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}">${actionMap[p.lastAction] || ""}</div>
     `;
+    const medallion = infoEl.querySelector(".seat-medallion");
+    medallion.textContent = seatAvatar;
+    medallion.style.borderColor = seatColor;
+    infoEl.querySelector(".seat-player-name").textContent = p.name + (p.id === Net.playerId ? " (你)" : "");
     infoEl.title = "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
     infoEl.onclick = (e) => {
       e.stopPropagation();
@@ -728,15 +674,13 @@ function renderGame(state) {
     // Bet display
     const existingBet = seat.querySelector(".seat-bet");
     if (p.bet > 0) {
-      if (existingBet && existingBet.textContent == p.bet) {
-        // Bet unchanged — do nothing
-      } else {
-        if (existingBet) existingBet.remove();
-        const bet = document.createElement("div");
-        bet.className = "seat-bet chip-fly";
+      if (existingBet?.textContent !== String(p.bet)) {
+        const bet = existingBet || document.createElement("div");
+        bet.className = "seat-bet";
         bet.textContent = p.bet;
-        seat.appendChild(bet);
-        SFX.chip();
+        bet.setAttribute("aria-label", `${p.name} 本轮已下注 ${p.bet}`);
+        if (!existingBet) seat.appendChild(bet);
+        if (!isLayoutTestRoom) SFX.chip();
       }
     } else if (existingBet) {
       existingBet.remove();
@@ -798,23 +742,19 @@ function renderGame(state) {
 
   // Community cards with flip animation
   const comm = $("community");
-  comm.innerHTML = "";
   for (let i = 0; i < 5; i++) {
-    if (i < state.community.length) {
-      const el = createCardEl(state.community[i]);
-      if (communityGrew && i >= prevCommunityLen) {
-        // Newly revealed: flip animation
-        el.classList.add("card-flip-in");
-        el.style.animationDelay = `${(i - prevCommunityLen) * 0.2}s`;
-      } else {
-        // Already visible: subtle entrance
-        el.classList.add("card-dealing");
-        el.style.animationDelay = `${i * 0.06}s`;
-      }
-      comm.appendChild(el);
-    } else {
-      comm.appendChild(createCardBackEl(viewerCardBack));
+    const card = state.community[i];
+    const key = JSON.stringify([state.handNum, card ? [card.rank, card.suit] : viewerCardBack]);
+    const previous = comm.children[i];
+    if (previous?.dataset.cardKey === key) continue;
+    const el = card ? createCardEl(card) : createCardBackEl(viewerCardBack);
+    el.dataset.cardKey = key;
+    if (card && communityGrew && i >= previousCardCount) {
+      el.classList.add("card-flip-in");
+      el.style.animationDelay = `${(i - previousCardCount) * 0.2}s`;
     }
+    if (previous) previous.replaceWith(el);
+    else comm.appendChild(el);
   }
 
   // Pot
@@ -830,12 +770,15 @@ function renderGame(state) {
     showdown: "摊牌",
     show_choice: "亮牌选择",
   };
-  $("statusBar").innerHTML =
-    `<span class="connection-dot ${Net.connected ? "online" : "offline"}"></span>第 ${state.handNum} 手 · ${phaseNames[state.phase] || state.phase}`;
+  $("connDot").className = "connection-dot " + (Net.connected ? "online" : "offline");
+  $("handStatus").textContent = `第 ${state.handNum} 手 · ${phaseNames[state.phase] || state.phase}`;
 
   // Hand rank label
   updateHandLabel(state);
-  requestAnimationFrame(() => window.Pets3D?.sync(state));
+  requestAnimationFrame(() => {
+    if (gameState === state && $("table-container").classList.contains("active"))
+      window.Pets3D?.sync(state);
+  });
 }
 
 function updateHandLabel(state) {

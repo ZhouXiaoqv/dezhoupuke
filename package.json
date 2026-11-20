@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node tests/unit/test-sidepot-refund.js && node tests/unit/test-admin-gift-shop.js && node tests/unit/test-admin-ws-smoke.js && node tests/integration/test-all-scenarios.js && node tests/unit/test-room.js && node tests/unit/test-bugs-unit.js && node tests/integration/test-turn.js"
+    "test": "node tests/run.js",
+    "test:unit": "node tests/run.js unit",
+    "test:network": "node tests/run.js network",
+    "test:browser": "node tests/run.js browser",
+    "test:screenshots": "node tests/run.js screenshots"
   },
   "dependencies": {
     "three": "0.184.0",
@@ -14,5 +18,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.15.0"
   }
 }

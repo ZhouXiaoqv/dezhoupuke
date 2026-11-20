@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { PET_IDS } = require('./petCatalog');
 const logger = require('./logger');
 
-const DEFAULT_DATA_FILE = path.join(__dirname, '..', 'data', 'users.json');
+const DEFAULT_DATA_FILE = path.join(require('./dataDir'), 'users.json');
 const CHECKIN_TIME_ZONE = 'Asia/Shanghai';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_CHECKIN_REWARDS = [50, 50, 50, 50, 50, 100, 100];

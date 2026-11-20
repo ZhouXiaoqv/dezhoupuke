@@ -2,7 +2,7 @@
  * Test: ready toggle, host transfer, start button visibility
  */
 const WebSocket = require('ws');
-const URL = 'ws://localhost:3000';
+const URL = process.env.POKER_TEST_URL.replace('http:', 'ws:');
 let passed = 0, failed = 0;
 const RUN_ID = Date.now().toString(36);
 

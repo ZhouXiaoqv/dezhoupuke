@@ -355,7 +355,7 @@
     </div>
 
     <!-- ===== GAME SCREEN ===== -->
-    <div id="table-container">
+    <div id="table-container" class="scene-ivory">
       <div class="game-exit-btn" id="gameExitBtn" title="退出游戏">✕</div>
       <div class="turn-timer" id="turnTimer">
         <svg class="turn-timer-ring" viewBox="0 0 48 48">
@@ -373,11 +373,11 @@
         <span class="turn-timer-num" id="timerNum">45</span>
       </div>
       <div class="status-bar" id="statusBar">
-        <span class="connection-dot online" id="connDot"></span>等待中...
+        <span class="connection-dot online" id="connDot"></span><span id="handStatus">等待中...</span>
       </div>
       <div class="table" id="table">
         <div class="pot-display">
-          <div class="pot-label">POT</div>
+          <div class="pot-label">底池</div>
           <div class="pot-amount" id="potAmount">0</div>
         </div>
         <div class="community" id="community"></div>

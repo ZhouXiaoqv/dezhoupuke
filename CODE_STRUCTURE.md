@@ -74,15 +74,12 @@ dezhoupuke/
 ├─ public/
 │  └─ index.html
 ├─ tests/
-│  ├─ test-room.js
-│  ├─ test-turn.js
-│  ├─ test-voice.js
-│  ├─ test-bugs.js
-│  ├─ test-bugs-unit.js
-│  └─ test-browser.js
-├─ test/
-│  ├─ simulate-game.js
-│  └─ test-all-scenarios.js
+│  ├─ run.js
+│  ├─ unit/
+│  ├─ integration/
+│  ├─ e2e/
+│  ├─ support/
+│  └─ tools/
 ├─ nginx/
 │  └─ default.conf
 ├─ package.json
@@ -906,9 +903,9 @@ server/index.js voice:* cases
 2. 看 WebSocket 是否发出了预期 `type`。
 3. 在 `server/index.js` 找对应 `case`。
 4. 看该 `case` 调用了 `Room`、`Game` 还是 `UserStore`。
-5. 如果是游戏 bug，优先写或改 `test/simulate-game.js` 风格的直接引擎测试。
-6. 如果是多人同步 bug，优先参考 `tests/test-room.js` 或 `tests/test-turn.js`。
-7. 如果是 UI bug，参考 `tests/test-browser.js` 或手动多浏览器窗口验证。
+5. 如果是游戏 bug，优先写或改 `tests/tools/simulate-game.js` 风格的直接引擎测试。
+6. 如果是多人同步 bug，优先参考 `tests/integration/test-room.js` 或 `tests/integration/test-turn.js`。
+7. 如果是 UI bug，参考 `tests/e2e/test-display.js` 或手动多浏览器窗口验证。
 
 ### 11.3 常见 bug 类型
 
@@ -916,21 +913,21 @@ server/index.js voice:* cases
 
 ```text
 看 game:yourTurn 是否只发给一个 ws
-相关测试：tests/test-turn.js
+相关测试：tests/integration/test-turn.js
 ```
 
 房主离开后新房主按钮不显示：
 
 ```text
 看 room:hostChanged 和 room:players 是否包含正确 hostId
-相关测试：tests/test-bugs-unit.js
+相关测试：tests/integration/test-game-regressions.js
 ```
 
 断线后房间消失太快：
 
 ```text
 看 Room.removePlayer() 和 destroyTimer
-相关测试：tests/test-room.js
+相关测试：tests/integration/test-room.js
 ```
 
 别人能看到我的手牌：
@@ -1005,74 +1002,7 @@ All-in 结算错误：
 
 ## 13. 测试策略
 
-### 13.1 当前测试脚本
-
-需要先启动服务：
-
-```bash
-npm start
-```
-
-然后另开终端运行：
-
-```bash
-node tests/test-room.js
-node tests/test-turn.js
-node tests/test-voice.js
-node tests/test-bugs-unit.js
-node test/simulate-game.js
-```
-
-### 13.2 不同改动对应测试
-
-房间、断线、重连：
-
-```bash
-node tests/test-room.js
-```
-
-行动轮转、当前玩家行动面板：
-
-```bash
-node tests/test-turn.js
-```
-
-语音信令：
-
-```bash
-node tests/test-voice.js
-```
-
-已知 bug 回归：
-
-```bash
-node tests/test-bugs-unit.js
-```
-
-游戏引擎流程：
-
-```bash
-node test/simulate-game.js
-```
-
-### 13.3 建议补充的测试
-
-当前 `package.json` 没有 `npm test`，建议后续增加：
-
-```json
-{
-  "scripts": {
-    "test": "node tests/test-room.js && node tests/test-turn.js && node tests/test-voice.js && node tests/test-bugs-unit.js"
-  }
-}
-```
-
-更理想的方向：
-
-- 为 `server/game.js` 增加纯单元测试，不依赖 WebSocket。
-- 为边池、All-in、牌型评估增加固定输入测试。
-- 为 `userStore.js` 使用临时 data 文件测试，避免污染真实数据。
-- 为前端核心流程引入 Playwright 并明确依赖。
+运行 `npm test` 检查规则、WebSocket 和牌桌显示。入口是 `tests/run.js`，联网测试使用随机端口和临时数据目录。按模块运行和浏览器配置见 [README 的本地测试章节](README.md#本地测试)。
 
 ## 14. 数据和持久化
 

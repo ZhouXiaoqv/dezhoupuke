@@ -266,7 +266,6 @@ Net.on("game:handStart", (d) => {
   prevPhase = "";
   prevCommunityLen = 0;
   prevPot = 0;
-  prevActions = {};
   prevMyHandIds = null;
   window._prevOtherHands = {};
   window.Pets3D?.resetEvents();

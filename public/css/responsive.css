@@ -4,7 +4,7 @@
   }
   .table {
     width: 92vw;
-    height: 32vh;
+    height: min(32vh, 55vw);
     border-width: 6px;
     --community-card-half: 20px;
     --pot-gap-above-community: 18px;
@@ -176,9 +176,6 @@
     padding: 4px 10px;
     font-size: 13px;
   }
-  .table {
-    --seat-bet-gap: 24px;
-  }
   .turn-label {
     font-size: 14px;
     padding: 4px 14px;
@@ -291,7 +288,6 @@
     min-height: 9px;
   }
   .table {
-    --seat-bet-gap: 20px;
     --seat-edge-half: 34px;
   }
 }
@@ -381,4 +377,25 @@
     bottom: 50px;
     padding: 8px 16px;
   }
+}
+
+/* Narrow tables keep each wager with its nameplate and reserve the middle for cards. */
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
+  #table .seat-bet {
+    position: static;
+    transform: none;
+    padding: 1px 5px;
+    font-size: 10px;
+    order: 1;
+  }
+  #table .seat:not(.seat-pos-2):not(.seat-pos-6) .seat-bet { order: -1; }
+  #table { --seat-col-2: 23%; --seat-col-4: 77%; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #table .seat-info { min-width: 56px; padding: 2px 5px; }
+  #table .seat-name, #table .seat-stack { font-size: 10px; }
+  #table .seat-cards .card { width: 18px; }
+  #table .community .card { width: 30px; }
+  #table { --community-card-half: 22px; }
+  #table .pot-amount { font-size: 16px; }
 }

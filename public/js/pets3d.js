@@ -10,13 +10,13 @@ const PET_ANIMS = {
 };
 
 const PET_SLOT_ANCHORS = {
-  0: "top",
+  0: "left",
   1: "left",
   2: "top",
   3: "left",
   4: "top",
   5: "right",
-  6: "left",
+  6: "top",
   7: "right",
 };
 
@@ -34,7 +34,7 @@ const PET_ACTION_ANIMS = {
   allinRaise: PET_ANIMS.celebrate,
 };
 
-class PetStage3D {
+export class PetStage3D {
   constructor() {
     this.table = null;
     this.stage = null;
@@ -45,6 +45,7 @@ class PetStage3D {
     this.clock = new THREE.Clock();
     this.assets = new Map();
     this.instances = new Map();
+    this.syncVersion = 0;
     this.lastState = null;
     this.lastActivePlayerId = "";
     this.lastLayoutSignature = "";
@@ -100,7 +101,6 @@ class PetStage3D {
 
     this.resize();
     this.observeLayout();
-    this.start();
     return true;
   }
 
@@ -180,6 +180,7 @@ class PetStage3D {
       }
       this.renderer.render(this.scene, this.camera);
     };
+    this.clock.start();
     tick();
   }
 
@@ -212,7 +213,7 @@ class PetStage3D {
     return clone;
   }
 
-  async ensureInstance(player) {
+  async ensureInstance(player, version) {
     const petId = player.pet || player.publicProfile?.pet || "";
     const key = String(player.id);
     const existing = this.instances.get(key);
@@ -221,8 +222,9 @@ class PetStage3D {
     if (!petId) return null;
 
     const gltf = await this.loadPet(petId);
-    if (!gltf || !this.scene) return null;
+    if (this.syncVersion !== version || !gltf || !this.scene) return null;
     const model = this.cloneScene(gltf.scene);
+    model.visible = false;
     model.scale.setScalar(38);
     model.rotation.x = 0;
     model.userData.playerId = key;
@@ -366,7 +368,10 @@ class PetStage3D {
     const instance = this.instances.get(key);
     if (!instance || !this.table) return;
     const seat = this.table.querySelector(`.seat-${index}`);
-    if (!seat) return;
+    if (!seat || seat.dataset.playerId !== key || !seat.offsetWidth) {
+      instance.model.visible = false;
+      return;
+    }
     const stageRect = this.stage.getBoundingClientRect();
     const slot = this.getSeatSlot(seat);
     const isMobile = window.innerWidth <= 700;
@@ -408,6 +413,7 @@ class PetStage3D {
       : footWorldY - bounds.minY;
 
     instance.model.position.set(x, y, 0);
+    instance.model.visible = true;
     instance.model.rotation.y = constraints.rotationY;
     instance.model.rotation.z = constraints.rotationZ;
     instance.model.scale.setScalar(scale);
@@ -443,42 +449,40 @@ class PetStage3D {
   }
 
   async sync(state) {
-    if (!state?.players?.length) {
-      this.lastState = null;
+    const version = ++this.syncVersion;
+    if (!state?.players?.some(player => player.pet || player.publicProfile?.pet)) {
       this.clear();
       return;
     }
     this.lastState = state;
     if (!this.ensure()) return;
-    this.resize();
-    const live = new Set();
-    for (let index = 0; index < state.players.length; index += 1) {
-      const player = state.players[index];
-      const key = String(player.id);
-      live.add(key);
-      const instance = await this.ensureInstance(player);
-      if (!instance) continue;
-      this.positionInstance(player, index);
-      const isActive =
-        state.currentIdx === index &&
-        state.phase !== "showdown" &&
-        state.phase !== "idle";
-      if (isActive && this.lastActivePlayerId !== key) {
-        this.lastActivePlayerId = key;
-        this.play(instance, PET_ANIMS.active, false);
-      } else if (!isActive && this.lastActivePlayerId === key) {
-        this.lastActivePlayerId = "";
-      }
-    }
-    for (const key of [...this.instances.keys()]) {
+    const live = new Set(state.players.map(player => String(player.id)));
+    for (const key of this.instances.keys()) {
       if (!live.has(key)) this.removeInstance(key);
     }
-    this.lastLayoutSignature = this.getLayoutSignature();
+    await Promise.all(state.players.map(async (player, index) => {
+      const instance = await this.ensureInstance(player, version);
+      if (!instance || this.syncVersion !== version) return;
+      this.positionInstance(player, index);
+    }));
+    if (this.syncVersion !== version) return;
+    const active = ["showdown", "idle"].includes(state.phase)
+      ? null : state.players[state.currentIdx];
+    const key = active ? String(active.id) : "";
+    if (key && key !== this.lastActivePlayerId) this.playForPlayer(key, PET_ANIMS.active);
+    this.lastActivePlayerId = key;
+    if (this.instances.size) this.start();
+    else this.clear();
   }
 
   clear() {
-    for (const key of [...this.instances.keys()]) this.removeInstance(key);
+    this.syncVersion++;
+    this.lastState = null;
+    for (const key of this.instances.keys()) this.removeInstance(key);
     this.lastActivePlayerId = "";
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.rafId = 0;
+    this.renderer?.clear();
   }
 }
 

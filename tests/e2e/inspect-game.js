@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
+const { launchBrowser, startTwoPlayerHand } = require('../support/browser');
+const SCREENSHOT_DIR = path.join(__dirname, '..', 'screenshots');
+fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function ss(page, name) {
   const fp = path.join(SCREENSHOT_DIR, `bug-${name}.png`);
@@ -10,51 +12,20 @@ async function ss(page, name) {
 }
 
 async function main() {
-  const { default: puppeteer } = await import('puppeteer-core');
-  const browser = await puppeteer.launch({
-    executablePath: EDGE_PATH, headless: 'new',
-    args: ['--no-sandbox', '--window-size=1280,900', '--disable-gpu'],
-    defaultViewport: { width: 1280, height: 900 },
-  });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
-    page.on('pageerror', err => console.error('  ⚠ PAGE ERROR:', err.message));
+    const errors = [];
+    page.on('pageerror', error => errors.push(error));
 
-    await page.goto('http://47.106.206.100:3000', { waitUntil: 'networkidle2', timeout: 15000 });
-    await sleep(2000);
-
-    // Navigate & start AI game
-    await page.evaluate(() => {
-      document.querySelectorAll('.action-card').forEach(c => {
-        if (c.textContent.includes('新建房间')) c.click();
-      });
-    });
-    await sleep(1500);
-    await page.evaluate(() => { document.getElementById('botGameBtn')?.click(); });
-    await sleep(1000);
-    await page.evaluate(() => { document.getElementById('botGameBtn')?.click(); });
-    await sleep(3000);
-
-    // Wait for game + click start
-    for (let i = 0; i < 10; i++) {
-      await sleep(2000);
-      const r = await page.evaluate(() => {
-        if (document.querySelectorAll('.seat').length > 0) return 'ok';
-        for (const b of document.querySelectorAll('button')) {
-          if (b.textContent.includes('开始游戏')) { b.click(); return 'start'; }
-        }
-        return 'wait';
-      });
-      if (r === 'ok') break;
-      if (r === 'start') await sleep(5000);
-    }
+    await startTwoPlayerHand(browser, page);
     await ss(page, 'game-active');
 
     // === BUG CHECK 1: Are other players' cards face-down? ===
     console.log('\n--- Check 1: Card visibility ---');
     const cardCheck = await page.evaluate(() => {
       const seats = document.querySelectorAll('.seat');
-      const myId = window.Net?.playerId;
+      const myId = Net.playerId;
       const results = [];
       seats.forEach((seat, i) => {
         const pid = seat.dataset.playerId;
@@ -78,13 +49,13 @@ async function main() {
       if (r.hasCards) {
         r.cards.forEach((c, ci) => {
           const status = c.isBack ? '🔒 FACE-DOWN' : '🔓 FACE-UP';
-          console.log(`  Seat ${r.seat} (${r.isMe ? 'ME' : 'BOT'}) card ${ci}: ${status} [${c.text}]`);
+          console.log(`  Seat ${r.seat} (${r.isMe ? 'ME' : 'PLAYER'}) card ${ci}: ${status} [${c.text}]`);
           if (!r.isMe && !c.isBack) {
             console.log(`  ❌ BUG: Other player's card is face-up!`);
           }
         });
       } else {
-        console.log(`  Seat ${r.seat} (${r.isMe ? 'ME' : 'BOT'}): no cards element`);
+        console.log(`  Seat ${r.seat} (${r.isMe ? 'ME' : 'PLAYER'}): no cards element`);
       }
     });
 
@@ -168,7 +139,7 @@ async function main() {
 
     // Check cards after hand ends (showdown or next hand)
     const postHand = await page.evaluate(() => {
-      const phase = document.querySelector('.game-phase, #phaseLabel')?.textContent || '';
+      const phase = gameState?.phase || '';
       const seats = document.querySelectorAll('.seat');
       return {
         phase,
@@ -198,11 +169,11 @@ async function main() {
     await sleep(2000);
     await ss(page, 'mobile-view');
 
+    if (errors.length) throw errors[0];
     console.log('\n✅ All checks complete!');
-  } catch (err) {
-    console.error('Error:', err.message);
+
   } finally {
     await browser.close();
   }
 }
-main().catch(console.error);
+main().catch(error => { console.error(error); process.exitCode = 1; });

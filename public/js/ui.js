@@ -488,6 +488,7 @@ function showScreen(id) {
       requestAnimationFrame(syncActionPanelOffset);
     }
   } else {
+    window.Pets3D?.clear();
     $(id).classList.add("active");
   }
 }

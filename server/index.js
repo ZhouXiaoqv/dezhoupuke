@@ -178,17 +178,18 @@ wsManager.wss.on('connection', (ws) => {
 // === Start server ===
 wsManager.start();
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, process.env.POKER_HOST, () => {
+  const port = httpServer.address().port;
   const staticDir = path.join(__dirname, '..', 'public');
-  const dataDir   = path.join(__dirname, '..', 'data');
+  const dataDir   = require('./dataDir');
   logger.info('SYS', 'server_start', {
-    port: PORT,
+    port,
     staticDir,
     dataDir,
-    msg: `服务器启动，监听端口 ${PORT}`,
+    msg: `服务器启动，监听端口 ${port}`,
   });
   console.log(`
-Server listening on http://localhost:${PORT}
+Server listening on http://localhost:${port}
 Static files: ${staticDir}
 User data: ${dataDir}
   `);
