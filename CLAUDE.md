@@ -56,6 +56,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 
 ## Conventions
 
+- Seated players open the card-back and pet selector from the shirt icon beside the sound toggle. Equipment uses the same messages as the lobby.
 - Room hosts can send `room:addBot` between hands. Bots occupy normal seats, check or call through the server engine, and have no account or socket. The solo-room browser regression checks two consecutive hands.
 - Server sends Chinese-language error messages to clients
 - The layout test room includes local-only raise and all-in preview buttons using the live feedback renderer.

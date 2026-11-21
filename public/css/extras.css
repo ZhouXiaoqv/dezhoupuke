@@ -31,6 +31,9 @@
   display: flex;
   animation: fadeIn 0.3s ease;
 }
+.table-outfit .avatar-personalization {
+  display: none;
+}
 .avatar-card {
   background: linear-gradient(
     165deg,

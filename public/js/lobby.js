@@ -582,9 +582,10 @@ function updateAvatarPreview() {
   }
 }
 
-function openAvatarModal() {
+function openAvatarModal(tableOnly = false) {
   const modal = $("avatarModal");
   if (!modal) return;
+  modal.classList.toggle("table-outfit", tableOnly);
   // Sync current selection
   if (userProfile) {
     selectedAvatar = userProfile.avatar || "🦊";
@@ -594,16 +595,19 @@ function openAvatarModal() {
   }
   initAvatarSelector();
   modal.classList.add("active");
+  if (tableOnly) modal.querySelector(".avatar-card").scrollTop = 0;
 }
 
 function closeAvatarModal() {
   const modal = $("avatarModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) modal.classList.remove("active", "table-outfit");
 }
+
+$("tableOutfitBtn").addEventListener("click", () => openAvatarModal(true));
 
 // Avatar button
 if ($("avatarBtn")) {
-  $("avatarBtn").addEventListener("click", openAvatarModal);
+  $("avatarBtn").addEventListener("click", () => openAvatarModal());
 }
 if ($("avatarClose"))
   $("avatarClose").addEventListener("click", closeAvatarModal);
@@ -617,19 +621,23 @@ if ($("avatarSaveBtn")) {
     const cardBackChanged =
       selectedCardBack !== getEquippedCardBack(userProfile);
     const petChanged = selectedPet !== getEquippedPet(userProfile);
-    Net.send("user:setAvatar", {
-      avatar: selectedAvatar,
-      color: selectedColor,
-    });
+    const tableOnly = $("avatarModal").classList.contains("table-outfit");
+    if (!tableOnly) {
+      Net.send("user:setAvatar", {
+        avatar: selectedAvatar,
+        color: selectedColor,
+      });
+    }
     if (cardBackChanged) Net.send("user:setCardBack", { id: selectedCardBack });
     if (petChanged) Net.send("user:setPet", { id: selectedPet });
+    closeAvatarModal();
+    if (tableOnly) return;
     userProfile.avatar = selectedAvatar;
     userProfile.avatarColor = selectedColor;
     userProfile.equippedCardBack = selectedCardBack;
     userProfile.equippedPet = selectedPet;
     const ab = $("avatarBtn");
     if (ab) ab.textContent = selectedAvatar + " 换装";
-    closeAvatarModal();
     toast("头像已保存");
   });
 }
@@ -735,7 +743,7 @@ function renderOwnedPets() {
   if (!grid) return;
   grid.innerHTML = "";
   const owned = getOwnedPets(userProfile);
-  selectedPet = owned.includes(selectedPet) ? selectedPet : getEquippedPet(userProfile);
+  if (selectedPet && !owned.includes(selectedPet)) selectedPet = getEquippedPet(userProfile);
 
   const none = document.createElement("button");
   none.type = "button";

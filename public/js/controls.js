@@ -557,6 +557,10 @@ document.addEventListener("keydown", (e) => {
 
 // Keyboard shortcuts
 document.addEventListener("keydown", (e) => {
+  if ($("avatarModal").classList.contains("active")) {
+    if (e.key === "Escape") closeAvatarModal();
+    return;
+  }
   if (!$("actionPanel").classList.contains("active")) return;
   if (e.key === "f") $("btnFold").click();
   if (e.key === "c") {

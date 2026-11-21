@@ -468,7 +468,19 @@
     <div class="spectator-badge" id="spectatorBadge">
       <span class="eye">👁</span> 观战中
     </div>
-    <div class="sound-toggle" id="soundToggle" title="音效开关">🔊</div>
+    <div class="table-tools">
+      <button
+        type="button"
+        class="table-tool"
+        id="tableOutfitBtn"
+        title="换装"
+        aria-label="换装"
+        aria-haspopup="dialog"
+        aria-controls="avatarModal"
+        hidden
+      >👕</button>
+      <div class="table-tool" id="soundToggle" title="音效开关">🔊</div>
+    </div>
     <!-- Player interaction panel (positioned dynamically) -->
     <div class="interact-panel" id="interactPanel"></div>
     <!-- Winner settlement overlay -->
@@ -492,17 +504,25 @@
     </div>
 
     <!-- ===== AVATAR SELECTOR MODAL ===== -->
-    <div class="avatar-modal" id="avatarModal">
+    <div
+      class="avatar-modal"
+      id="avatarModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="outfitTitle"
+    >
       <div class="avatar-card">
-        <button class="avatar-close" id="avatarClose">&times;</button>
-        <div class="avatar-card-title">角色换装</div>
-        <div class="avatar-preview">
-          <div class="avatar-preview-circle" id="avatarPreviewCircle">🦊</div>
+        <button type="button" class="avatar-close" id="avatarClose" aria-label="关闭换装">&times;</button>
+        <div class="avatar-card-title" id="outfitTitle">角色换装</div>
+        <div class="avatar-personalization">
+          <div class="avatar-preview">
+            <div class="avatar-preview-circle" id="avatarPreviewCircle">🦊</div>
+          </div>
+          <div class="avatar-section-label">选择头像</div>
+          <div class="avatar-grid" id="avatarGrid"></div>
+          <div class="avatar-section-label">选择颜色</div>
+          <div class="color-grid" id="colorGrid"></div>
         </div>
-        <div class="avatar-section-label">选择头像</div>
-        <div class="avatar-grid" id="avatarGrid"></div>
-        <div class="avatar-section-label">选择颜色</div>
-        <div class="color-grid" id="colorGrid"></div>
         <div class="avatar-section-label">牌背更换</div>
         <div class="cardback-grid" id="cardBackGrid"></div>
         <div class="avatar-section-label">小宠物</div>

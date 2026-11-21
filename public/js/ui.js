@@ -475,6 +475,11 @@ function $(id) {
   return document.getElementById(id);
 }
 function showScreen(id) {
+  const outfitButton = $("tableOutfitBtn");
+  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator;
+  if (outfitButton.hidden && $("avatarModal").classList.contains("table-outfit")) {
+    closeAvatarModal();
+  }
   const shouldKeepActionOffset =
     id === "table" && $("actionPanel")?.classList.contains("active");
   document

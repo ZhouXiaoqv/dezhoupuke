@@ -1,20 +1,26 @@
-/* ===== SOUND TOGGLE ===== */
-.sound-toggle {
+/* ===== TABLE TOOLS ===== */
+.table-tools {
   position: fixed;
   top: 12px;
-  right: 16px;
+  right: max(16px, env(safe-area-inset-right));
   z-index: 60;
+  display: flex;
+  gap: 6px;
+}
+.table-tool {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 6px 14px;
+  color: var(--white);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
   transition: all 0.3s;
   backdrop-filter: blur(8px);
 }
-.sound-toggle:hover {
+.table-tool:hover,
+.table-tool:focus-visible {
   border-color: var(--gold-dim);
 }
 
