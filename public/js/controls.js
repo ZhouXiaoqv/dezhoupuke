@@ -130,6 +130,7 @@ $("readyBtn").addEventListener("click", () => {
     }
   }
 });
+$("addBotBtn").addEventListener("click", () => Net.send("room:addBot"));
 $("startGameBtn").addEventListener("click", () => Net.send("room:start"));
 
 // Game actions with sound feedback
@@ -186,7 +187,7 @@ function showSettlement(winners) {
   if (!overlay || !winners || winners.length === 0) return;
   const w = winners[0];
   $("settlementWinner").textContent = w.name || "";
-  $("settlementHand").textContent = w.hand || "";
+  $("settlementHand").textContent = w.revealedRank || w.hand || "";
   $("settlementAmount").textContent = "+" + (w.amount || 0);
   overlay.classList.add("active");
   setTimeout(() => overlay.classList.remove("active"), 8000);

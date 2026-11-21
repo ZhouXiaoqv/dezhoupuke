@@ -113,6 +113,7 @@ class Game {
       id: p.id,
       name: p.name,
       seatIdx: i,
+      isBot: !!p.isBot,
       stack: Number.isFinite(p.stack) ? p.stack : this.startStack,
       hand: [],
       bet: 0,
@@ -386,8 +387,11 @@ class Game {
     }
 
 
-    // Request action from human player
     const toCall = this.roundBet - player.bet;
+    if (player.isBot) {
+      this.handleAction(player.id, { action: toCall > 0 ? 'call' : 'check' });
+      return;
+    }
     const actionData = {
       playerId: player.id,
       toCall,
@@ -457,6 +461,7 @@ class Game {
       }
 
       case 'raise': {
+        const previousBet = this.roundBet;
         const raiseAmount = Math.max(amount || 0, this.roundBet + this.minRaise);
         const toPay = Math.min(raiseAmount - player.bet, player.stack);
         if (toPay <= 0) return this.scheduleNextAction();
@@ -473,7 +478,7 @@ class Game {
           player,
           player.allIn ? 'allinRaise' : 'raise',
           toPay,
-          { raiseTo: player.bet },
+          { raiseTo: player.bet, raiseBy: Math.max(0, player.bet - previousBet) },
         );
         this.actedCount = 0; // Others need to act again
         gameLogger.logAction(this, player, '加注', toPay, { raiseTo: player.bet });
@@ -726,9 +731,16 @@ class Game {
 
     this.showHandPending.settled = true;
     if (show) {
+      const player = this.players.find(p => p.id === playerId);
+      const result = this.winners.find(w => w.id === playerId);
+      const best = evaluateHand([...player.hand, ...this.community]);
+      if (best) result.revealedRank = best.name;
+      else if (player.hand.length === 2) {
+        const [a, b] = player.hand;
+        result.revealedRank = a.rank === b.rank ? HAND_NAMES[1] : HAND_NAMES[0];
+      }
       this.revealedHands.add(playerId);
       this.broadcastState();
-      const player = this.players.find(p => p.id === playerId);
       this.broadcast('game:handShown', {
         playerId,
         name: player ? player.name : '',

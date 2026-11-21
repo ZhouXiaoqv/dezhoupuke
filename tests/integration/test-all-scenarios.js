@@ -415,7 +415,12 @@ function test_raiseReopensAction() {
   
   // Next player raises
   const raiser = game.players[game.currentIdx];
+  let raiseEvent;
+  game.onBroadcast = (type, entry) => {
+    if (type === 'game:actionLog') raiseEvent = entry;
+  };
   playActions(game, [[raiser.name, 'raise', 80]]);
+  assert('从20加到80的加注增量为60', raiseEvent?.raiseBy === 60);
   
   assert('加注后roundBet=80', game.roundBet === 80);
   assert('actedCount重置', game.actedCount === 0 || game.actedCount === 1);

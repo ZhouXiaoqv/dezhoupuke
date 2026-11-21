@@ -7,7 +7,7 @@ const path = require('node:path');
 const groups = {
   unit: ['unit/test-sidepot-refund', 'unit/test-admin-gift-shop', 'integration/test-all-scenarios'],
   network: ['integration/test-admin-ws-smoke', 'integration/test-room', 'integration/test-game-regressions', 'integration/test-turn'],
-  browser: ['e2e/test-display'],
+  browser: ['e2e/test-display', 'e2e/test-solo-room'],
   screenshots: ['e2e/test-browser', 'e2e/inspect-game'],
 };
 

@@ -40,26 +40,37 @@ class Room {
     this.addPlayer(hostId, hostName, hostWs);
   }
 
-  addPlayer(id, name, ws) {
+  addBot(requesterId) {
+    if (requesterId !== this.hostId) return '只有房主可以添加人机';
+    if (this.gameRunning) return '请在等待房间中添加人机';
+    if (this.players.size >= this.maxPlayers) return '房间已满';
+    const number = [...this.players.values()].filter(p => p.isBot).length + 1;
+    this.addPlayer(crypto.randomUUID(), '人机 ' + number, null, true);
+    return null;
+  }
+
+  addPlayer(id, name, ws, isBot = false) {
     if (this.players.size >= this.maxPlayers) return false;
     if (this.players.has(id)) return false;
 
     this.lastVacantAt = null;
     this.spectators.delete(id);
 
+    if (!this.hostId && !isBot) this.hostId = id;
     this.players.set(id, {
       id,
       name,
       ws,
       stack: this.startStack,
-      ready: false,
+      ready: isBot,
+      isBot,
       connected: true,
-      _username: ws._username || null,
-      avatar: ws._playerAvatar || 'A',
-      avatarColor: ws._playerColor || null,
-      cardBack: ws._playerCardBack || 'default-blue',
-      pet: ws._playerPet || '',
-      publicProfile: this.getPublicProfileForUsername(ws._username),
+      _username: ws?._username || null,
+      avatar: ws?._playerAvatar || (isBot ? '🤖' : 'A'),
+      avatarColor: ws?._playerColor || null,
+      cardBack: ws?._playerCardBack || 'default-blue',
+      pet: ws?._playerPet || '',
+      publicProfile: this.getPublicProfileForUsername(ws?._username),
     });
     if (!this.scoreboard.has(id)) {
       this.scoreboard.set(id, { id, name, score: 0 });
@@ -74,7 +85,7 @@ class Room {
       maxPlayers: this.maxPlayers,
     });
 
-    ws.send(JSON.stringify({
+    ws?.send(JSON.stringify({
       type: 'room:state',
       data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
     }));
@@ -148,20 +159,7 @@ class Room {
       data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, isSpectator: true },
     }));
 
-    const players = [...this.players.values()].map((p) => ({
-      id: p.id,
-      name: p.name,
-      stack: p.stack,
-      ready: p.ready,
-      connected: p.connected,
-      avatar: p.avatar || 'A',
-      avatarColor: p.avatarColor || null,
-      cardBack: p.cardBack || 'default-blue',
-      pet: p.pet || p.publicProfile?.pet || '',
-      publicProfile: p.publicProfile || this.getPublicProfileForUsername(p._username),
-    }));
-    const spectators = [...this.spectators.values()].map((s) => ({ id: s.id, name: s.name }));
-    ws.send(JSON.stringify({ type: 'room:players', data: { players, spectators, hostId: this.hostId } }));
+    ws.send(JSON.stringify({ type: 'room:players', data: this.getPlayerList() }));
 
     if (this.game && this.gameRunning) {
       const state = this.game.getStateForSpectator();
@@ -220,8 +218,15 @@ class Room {
       playerCount: this.players.size,
     });
 
-    if (this.hostId === id && this.players.size > 0) {
-      const first = this.players.values().next().value;
+    if (this.hostId === id) this.hostId = null;
+    if (!this.hostId) {
+      const first = [...this.players.values()].find(p => !p.isBot);
+      if (!first) {
+        this.players.clear();
+        this.broadcastPlayerList();
+        this._markVacantIfNeeded();
+        return true;
+      }
       this.hostId = first.id;
       this.broadcast('room:hostChanged', { hostId: this.hostId });
       if (first.ws && first.ws.readyState === 1) {
@@ -334,6 +339,7 @@ class Room {
       name: p.name,
       stack: p.stack,
       connected: true,
+      isBot: !!p.isBot,
       _username: p._username || null,
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
@@ -605,12 +611,13 @@ class Room {
     }
   }
 
-  broadcastPlayerList() {
+  getPlayerList() {
     const players = [...this.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
       stack: p.stack,
       ready: p.ready,
+      isBot: !!p.isBot,
       connected: p.connected,
       avatar: p.avatar || 'A',
       avatarColor: p.avatarColor || null,
@@ -622,11 +629,16 @@ class Room {
       id: s.id,
       name: s.name,
     }));
-    this.broadcast('room:players', { players, spectators, hostId: this.hostId });
+    return { players, spectators, maxPlayers: this.maxPlayers, hostId: this.hostId };
+  }
+
+  broadcastPlayerList() {
+    this.broadcast('room:players', this.getPlayerList());
   }
 
   canStartHand() {
-    return [...this.players.values()].filter((p) => p.connected && p.stack > 0).length >= 2;
+    const eligible = [...this.players.values()].filter(p => p.connected && p.stack > 0);
+    return eligible.length >= 2 && eligible.some(p => !p.isBot);
   }
 
   getScoreboard() {
@@ -666,7 +678,7 @@ class Room {
   }
 
   _markVacantIfNeeded() {
-    const hasConnectedPlayers = [...this.players.values()].some((p) => p.connected);
+    const hasConnectedPlayers = [...this.players.values()].some((p) => p.connected && !p.isBot);
     const hasConnectedSpectators = [...this.spectators.values()].some((s) => s.connected);
     if (hasConnectedPlayers || hasConnectedSpectators) {
       this.lastVacantAt = null;
@@ -831,7 +843,7 @@ class RoomRegistry {
 
   cleanup() {
     for (const [code, room] of this.rooms) {
-      const hasConnectedPlayers = [...room.players.values()].some((p) => p.connected);
+      const hasConnectedPlayers = [...room.players.values()].some((p) => p.connected && !p.isBot);
       const hasConnectedSpectators = [...room.spectators.values()].some((s) => s.connected);
 
       if (hasConnectedPlayers || hasConnectedSpectators) {

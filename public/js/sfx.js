@@ -119,12 +119,18 @@ const SFX = (() => {
       setTimeout(() => noise(0.06, 1400, "square", 0.06), 60);
       setTimeout(() => noise(0.06, 1800, "sine", 0.05), 120);
     },
+    bigRaise() {
+      if (!enabled) return;
+      click(0.035);
+      burst(0.19, 520, 1040, "triangle", 0.13);
+      setTimeout(() => noise(0.24, 1568, "sine", 0.12), 130);
+    },
     allin() {
-      for (let i = 0; i < 5; i++)
-        setTimeout(
-          () => noise(0.08, 600 + i * 200, "sawtooth", 0.06),
-          i * 40,
-        );
+      if (!enabled) return;
+      burst(0.36, 150, 62, "sine", 0.28);
+      [392, 494, 587, 784].forEach((note, i) =>
+        setTimeout(() => noise(0.26, note, "triangle", 0.12), i * 80));
+      setTimeout(() => noise(0.32, 1568, "sine", 0.09), 375);
     },
     yourTurn() {
       noise(0.1, 880, "sine", 0.15);
@@ -144,6 +150,7 @@ const SFX = (() => {
     },
     toggle() {
       enabled = !enabled;
+      if (masterGain) masterGain.gain.value = enabled ? 0.5 : 0;
       return enabled;
     },
     isEnabled() {

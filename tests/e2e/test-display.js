@@ -8,6 +8,36 @@ async function run() {
     await page.goto(process.env.POKER_TEST_URL);
     await page.waitForFunction(() => !!window.Pets3D);
     await page.evaluate(() => enterLayoutTestRoom());
+    await page.evaluate(() => {
+      const state = buildLayoutTestState();
+      state.phase = 'idle';
+      state.winners = [{ id: state.players[0].id, hand: '其他人弃牌', revealedRank: '同花' }];
+      renderGame(state);
+      showNextHandBar(15);
+    });
+    assert.equal(await page.$eval('.revealed-rank', el => el.textContent), '🏆 同花');
+    await page.evaluate(() => { hideNextHandBar(); renderGame(buildLayoutTestState()); });
+    assert.equal(await page.$('.revealed-rank'), null);
+    const rails = await page.evaluate(() => {
+      SFX.toggle();
+      const fire = (action, raiseBy) => {
+        handleActionLog({ action, raiseBy, playerId: gameState.players[0].id });
+        return document.querySelector('.rail-effect')?.classList[1] || '';
+      };
+      return [fire('raise', 499), fire('raise', 500), fire('allinCall', 1),
+        fire('allinRaise', 600), fire('allin', 1), document.querySelectorAll('.rail-effect').length];
+    });
+    assert.deepEqual(rails, ['', 'rail-raise', 'rail-allin', 'rail-allin', 'rail-allin', 1]);
+    await page.click('#previewRaise');
+    assert.ok(await page.$('.rail-raise'));
+    await page.click('#previewAllIn');
+    assert.ok(await page.$('.rail-allin'));
+    await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+    assert.equal(await page.evaluate(() => {
+      playTableLights(gameState.players[0].id, true);
+      return document.querySelector('.rail-effect').children.length;
+    }), 1);
+    await page.emulateMediaFeatures([]);
     const cards = await page.evaluate(() => {
       const board = document.getElementById('community');
       const dot = document.getElementById("connDot");

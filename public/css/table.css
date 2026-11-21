@@ -936,3 +936,59 @@
 #table .act-allin { color: #a42f35; }
 #table .card-front { box-shadow: inset 0 0 0 2px #fffaf0, 0 2px 1px #aa9f89, 0 4px 7px #776c5126; }
 #table .community .suit { text-align: center; }
+
+.rail-effect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 12;
+  --rim-light: #ffd262;
+}
+.rail-effect.rail-allin { --rim-light: #f65d3d; }
+.rail-effect rect {
+  fill: none;
+  stroke: var(--rim-light);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px var(--rim-light));
+}
+.rail-effect .gold-beam { stroke: #fff5b0; stroke-width: 5px; }
+.rail-effect .red-beam { stroke: #ff5532; stroke-width: 5px; }
+.rail-effect circle { opacity: 0; fill: #ffc34e; }
+#table .rail-source :is(.seat-info,.seat-bet) { outline: 2px solid #e9af34; }
+#table .seat-allin .seat-info { outline: 2px solid #ca4e33; }
+
+#effectPreview:not([hidden]) {
+  position: absolute;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 55;
+}
+#effectPreview button {
+  padding: 9px 12px;
+  border: 1px solid #b49b69;
+  border-radius: 6px;
+  color: #473719;
+  background: #fffbef;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#previewAllIn { color: #9e331f; }
+
+#table .revealed-rank {
+  margin-top: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #623d0a;
+  background: #ffedb7;
+  font-size: clamp(11px, 1.5vw, 14px);
+  font-weight: 700;
+  line-height: 1.4;
+}

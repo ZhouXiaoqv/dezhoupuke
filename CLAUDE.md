@@ -56,7 +56,11 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 
 ## Conventions
 
+- Room hosts can send `room:addBot` between hands. Bots occupy normal seats, check or call through the server engine, and have no account or socket. The solo-room browser regression checks two consecutive hands.
 - Server sends Chinese-language error messages to clients
+- The layout test room includes local-only raise and all-in preview buttons using the live feedback renderer.
+- Live action logs drive tableEffects.js and sound cues. Ordinary raises use raiseBy >= 500. All-in actions take precedence regardless of amount.
+- Voluntarily revealed winners expose `revealedRank` only after opting in. Preflop reveals use the standard 一对 or 高牌 label. Showdown winners use their evaluated hand name for the seat badge.
 - Seat chip counters render the server-provided per-street player bet. The layout test room shows all eight counters.
 - The default ivory scene uses a horizontal rounded rectangle in both phone orientations. Table scenes are registered in `public/js/extras.js`.
 - CSS is split by functional domain (base, lobby, table, action, components, responsive, extras)

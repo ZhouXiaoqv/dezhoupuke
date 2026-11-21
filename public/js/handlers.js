@@ -48,6 +48,7 @@ Net.on("room:players", (d) => {
     let badge = "";
     if (p.id === d.hostId)
       badge = '<div class="rp-badge host-badge">👑 房主</div>';
+    else if (p.isBot) badge = '<div class="rp-badge ready-badge">自动跟注</div>';
     else if (p.ready)
       badge = '<div class="rp-badge ready-badge">✓ 已准备</div>';
     else badge = '<div class="rp-badge">等待中</div>';
@@ -69,6 +70,8 @@ ${badge}
     container.appendChild(specLabel);
   }
 
+  $("addBotBtn").style.display = isHost ? "" : "none";
+  $("addBotBtn").disabled = d.players.length >= d.maxPlayers;
   $("startGameBtn").style.display = isHost ? "" : "none";
 });
 Net.on("room:scoreboard", (d) => {

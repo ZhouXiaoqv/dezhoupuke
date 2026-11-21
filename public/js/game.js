@@ -106,6 +106,7 @@ function buildLayoutTestState() {
 
 function enterLayoutTestRoom() {
   isLayoutTestRoom = true;
+  $("effectPreview").hidden = false;
   isSpectator = true;
   isHost = false;
   roomCode = "LAYOUT";
@@ -136,6 +137,7 @@ function enterLayoutTestRoom() {
 function leaveLayoutTestRoom() {
   if (!isLayoutTestRoom) return false;
   isLayoutTestRoom = false;
+  $("effectPreview").hidden = true;
   isSpectator = false;
   gameState = null;
   roomCode = "";
@@ -262,11 +264,27 @@ function playActionSound(action) {
     SFX.allin();
 }
 
+function playBetFeedback(entry) {
+  const allIn = ["allin", "allinCall", "allinRaise"].includes(entry.action);
+  const bigRaise = entry.action === "raise" && entry.raiseBy >= 500;
+  if (allIn || bigRaise) playTableLights(entry.playerId, allIn);
+  if (bigRaise) SFX.bigRaise();
+  else playActionSound(entry.action);
+}
+
+function previewBetFeedback(action) {
+  if (!isLayoutTestRoom || !gameState?.players.length) return;
+  const player = gameState.players[action === "raise" ? 0 : 4];
+  playBetFeedback({ playerId: player.id, action, raiseBy: action === "raise" ? 500 : 0 });
+}
+$("previewRaise").onclick = () => previewBetFeedback("raise");
+$("previewAllIn").onclick = () => previewBetFeedback("allin");
+
 function handleActionLog(entry) {
   if (!entry) return;
   window.Pets3D?.handleAction(entry);
   addLogPhaseIfNeeded(entry.phase);
-  playActionSound(entry.action);
+  playBetFeedback(entry);
   addLogEntry(
     entry.playerName || "",
     ACTION_LOG_LABELS[entry.action] || entry.action || "",
@@ -496,6 +514,7 @@ function renderGame(state) {
         state.phase !== "showdown" &&
         state.phase !== "idle",
     );
+    seat.classList.toggle("seat-allin", !!p.allIn && state.phase !== "idle");
     seat.classList.toggle("winner", p.lastAction === "winner");
 
     const cardsDiv = seatExisted
@@ -618,8 +637,15 @@ function renderGame(state) {
     infoEl.innerHTML = `
 <div class="seat-name"><span class="seat-medallion"></span><span class="seat-player-name"></span></div>
 <div class="seat-stack">${p.stack}</div>
-<div class="seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}">${actionMap[p.lastAction] || ""}</div>
+<div class="seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}">${actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "")}</div>
     `;
+    const result = state.winners?.find(w => w.id === p.id);
+    const shownRank = result?.revealedRank || (state.phase === "showdown" && result?.hand);
+    if (shownRank) {
+      const badge = infoEl.querySelector(".seat-action");
+      badge.className = "seat-action revealed-rank";
+      badge.textContent = "🏆 " + shownRank;
+    }
     const medallion = infoEl.querySelector(".seat-medallion");
     medallion.textContent = seatAvatar;
     medallion.style.borderColor = seatColor;

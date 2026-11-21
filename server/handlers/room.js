@@ -124,6 +124,12 @@ function register(ws, ctx) {
     }
   });
 
+  ws._on('room:addBot', () => {
+    if (!requirePlayer() || !ws._currentRoom) return;
+    const message = ws._currentRoom.addBot(ws._playerId);
+    if (message) ws.send(JSON.stringify({ type: 'room:error', data: { message } }));
+  });
+
   ws._on('room:start', () => {
     if (!ws._currentUser || !userStore.isPlayer(ws._currentUser.username)) return;
     if (!ws._currentRoom) return;

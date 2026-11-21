@@ -348,6 +348,7 @@
       <div class="room-actions">
         <button class="btn btn-dim" id="leaveRoomBtn">离开房间</button>
         <button class="btn btn-green" id="readyBtn">准备</button>
+        <button class="btn btn-dim" id="addBotBtn" style="display: none">添加人机</button>
         <button class="btn btn-gold" id="startGameBtn" style="display: none">
           开始游戏
         </button>
@@ -356,6 +357,10 @@
 
     <!-- ===== GAME SCREEN ===== -->
     <div id="table-container" class="scene-ivory">
+      <div id="effectPreview" hidden aria-label="下注特效预览">
+        <button type="button" id="previewRaise">加注 +500</button>
+        <button type="button" id="previewAllIn">全下 ALL IN</button>
+      </div>
       <div class="game-exit-btn" id="gameExitBtn" title="退出游戏">✕</div>
       <div class="turn-timer" id="turnTimer">
         <svg class="turn-timer-ring" viewBox="0 0 48 48">
@@ -790,6 +795,7 @@
     <script src="js/holiday.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/extras.js"></script>
+    <script src="js/tableEffects.js"></script>
     <script src="js/game.js"></script>
     <script src="js/actions.js"></script>
     <script src="js/handlers.js"></script>

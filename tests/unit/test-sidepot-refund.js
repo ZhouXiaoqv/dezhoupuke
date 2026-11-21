@@ -5,13 +5,15 @@ const { Game } = require('../../server/game');
 const { Room, RoomRegistry } = require('../../server/room');
 
 function card(rankStr, suit = 0) {
-  return { rankStr, suit, rank: 0, suitStr: String(suit) };
+  return { rankStr, suit, rank: ['2','3','4','5','6','7','8','9','10','J','Q','K','A'].indexOf(rankStr), suitStr: ['♠','♥','♦','♣'][suit] };
 }
 
 function run() {
   testSidePotRefund();
   testShowdownCannotAwardTwice();
-  testFoldWinnerShowHandChoice();
+  testFoldWinnerShowHandChoice('A', [], '一对');
+  testFoldWinnerShowHandChoice('K', [], '高牌');
+  testFoldWinnerShowHandChoice('K', [card('Q', 0), card('J', 3), card('10', 2)], '顺子');
   testFivePlayerFoldedSidePotLayerIsRefunded();
   testSixPlayerFoldedSidePotLayerIsRefunded();
   testZeroStackIsNotResetToStartStack();
@@ -116,7 +118,7 @@ function testShowdownCannotAwardTwice() {
   console.log('PASS showdown cannot award the same pot twice');
 }
 
-function testFoldWinnerShowHandChoice() {
+function testFoldWinnerShowHandChoice(secondRank, community, expectedRank) {
   const game = new Game([
     { id: 'winner', name: 'Winner', stack: 1000, connected: true },
     { id: 'folder', name: 'Folder', stack: 1000, connected: true },
@@ -128,10 +130,11 @@ function testFoldWinnerShowHandChoice() {
 
   const winner = game.players[0];
   const folder = game.players[1];
-  winner.hand = [card('A', 1), card('K', 2)];
+  winner.hand = [card('A', 1), card(secondRank, 2)];
   folder.hand = [card('2', 1), card('3', 2)];
+  game.community = community;
   folder.folded = true;
-  game.phase = 'flop';
+  game.phase = community.length ? 'flop' : 'preflop';
   game.pot = 120;
 
   const originalSetTimeout = global.setTimeout;
@@ -144,7 +147,9 @@ function testFoldWinnerShowHandChoice() {
     assert.deepStrictEqual(hiddenForFolder, [null, null]);
     assert.deepStrictEqual(hiddenForSpectator, [null, null]);
 
+    assert.strictEqual(game.getStateForSpectator().winners[0].revealedRank, undefined);
     game.handleShowHandChoice('winner', true);
+    assert.strictEqual(game.getStateForSpectator().winners[0].revealedRank, expectedRank);
   } finally {
     global.setTimeout = originalSetTimeout;
   }

@@ -37,6 +37,7 @@ setInterval(() => registry.cleanup(), 60000);
 function wireStatsReporting(room) {
   room.onStatsReport = (game) => {
     for (const gp of game.players) {
+      if (gp.isBot) continue;
       const won = game.winners.some((winner) => winner.id === gp.id);
       const winData = game.winners.find((winner) => winner.id === gp.id);
       const stackBefore = room.handStartStacks.get(gp.id) ?? gp.stack;
