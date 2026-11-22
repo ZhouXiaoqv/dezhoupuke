@@ -35,7 +35,7 @@ Key classes:
 
 ### Frontend (`public/`)
 
-Pure HTML/CSS/JS — no frameworks, no build tools. `index.html` loads CSS and JS files via `<link>` and `<script>` tags. Script load order matters: net → ui → sfx → lobby → extras → game → actions → handlers → controls → app.
+Pure HTML/CSS/JS — no frameworks, no build tools. `index.html` loads CSS and JS files via `<link>` and `<script>` tags. Script load order matters: net → ui → sfx → emotionFx → emotionRigs → lobby → extras → game → actions → handlers → controls → app.
 
 Key modules:
 - `net.js` — `Net` object: WebSocket connection, event emitter (`on/off/once/emit/send`), auto-reconnect
@@ -45,6 +45,7 @@ Key modules:
 - `app.js` — auto-connect, auth session management, visibility change reconnect
 - `game.js` — `renderGame()` main rendering function, action log, scoreboard
 - `actions.js` — `showActions()`/`hideActions()` for the action panel
+- `emotionFx.js` — `EmotionFx` canvas layer: one rAF loop draws every in-room emotion (wind-up, flight, impact on the target nameplate); `emotionRigs.js` registers each emotion's animation
 
 ### WebSocket Protocol
 
@@ -70,6 +71,14 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 - `AGENTS.md` is a symlink to `CLAUDE.md` — keep them identical
 - After any code change, check and sync relevant content in `CLAUDE.md` and `README.md` (project structure, protocol tables, commands, etc.)
 - After adding a new test file, register it in the corresponding suite in `tests/run.js`
+
+## Emotion Notes
+
+- Definitions live in `server/emotionCatalog.js`. `CatalogStore` stores admin overrides (`cost`, `charmDelta`, `order`, `enabled`) and exposes merged `emotions` in public and admin catalogs; `admin:updateEmotion` edits them. Disabled emotions cannot be sent but stay in inventory.
+- `room:interact` is rate limited per connection (burst 8, refill 4/s) and broadcasts only `{ fromId, toId, emotion, targetCharm }`. It must not trigger `broadcastState` or `broadcastPlayerList`. Bots can be targeted: the sender still pays, no charm changes, and `targetCharm` is `null`.
+- Every accepted emotion plays in full; do not merge or drop rapid repeats. Each effect gets its own landing offset, arc, and spin.
+- Animations are rigs in `public/js/emotionRigs.js` built from SVG parts in `public/assets/emotions/<id>/`; each folder also has the panel `icon.svg`.
+- `UserStore._save()` coalesces writes to one async write per second; `flush()` runs on process exit. Tests that read `users.json` directly call `flush()` first.
 
 ## Pet Customization Notes
 

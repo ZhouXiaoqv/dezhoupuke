@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="84" height="144" viewBox="0 0 84 144">
+  <defs>
+    <linearGradient id="petal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7d9b"/>
+      <stop offset="1" stop-color="#d4164a"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7bd17f"/>
+      <stop offset="1" stop-color="#2f8f3f"/>
+    </linearGradient>
+  </defs>
+  <path d="M42 52C40 82 46 108 42 139" fill="none" stroke="#1f5e2a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M42 52C40 82 46 108 42 139" fill="none" stroke="#4caf50" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 90C28 79 13 83 6 94C19 103 34 101 42 90Z" fill="url(#leaf)" stroke="#1f5e2a" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M40 91C30 90 20 92 12 94" fill="none" stroke="#1f5e2a" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M43 108C57 97 72 101 78 112C65 120 52 118 43 108Z" fill="url(#leaf)" stroke="#1f5e2a" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M45 109C55 108 64 110 72 112" fill="none" stroke="#1f5e2a" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M42 8C57 14 61 33 55 47C51 56 33 56 29 47C23 33 27 14 42 8Z" fill="url(#petal)" stroke="#8a0d30" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M29 47C30 34 39 27 50 29C42 36 38 45 37 55C33 54 30 51 29 47Z" fill="#e32a59" stroke="#8a0d30" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M42 15C49 22 50 34 44 43" fill="none" stroke="#ffc2d1" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M28 47L35 58L42 50L49 58L56 47L49 53L42 46L35 53Z" fill="#3d9a47" stroke="#1f5e2a" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

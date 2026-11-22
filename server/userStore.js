@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { PET_IDS } = require('./petCatalog');
+const { EMOTION_CATALOG, EMOTION_BY_ID, STOCKED_EMOTION_IDS } = require('./emotionCatalog');
 const logger = require('./logger');
 
 const DEFAULT_DATA_FILE = path.join(require('./dataDir'), 'users.json');
@@ -15,17 +16,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DAILY_CHECKIN_REWARDS = [50, 50, 50, 50, 50, 100, 100];
 const FULL_WEEK_BONUS = 200;
 const DEFAULT_CARD_BACK = 'default-blue';
-const EMOTION_CATALOG = [
-  { id: 'coffee', emoji: '\u2615', animationSlug: 'coffee', cost: 10, charmDelta: 2 },
-  { id: 'rose', emoji: '\uD83C\uDF39', animationSlug: 'rose', cost: 5, charmDelta: 1 },
-  { id: 'laugh', emoji: '\uD83D\uDE02', animationSlug: 'laugh-cry', cost: 0, charmDelta: 0, unlimited: true },
-  { id: 'egg', emoji: '\uD83E\uDD5A', animationSlug: 'egg', cost: 5, charmDelta: -1 },
-  { id: 'slipper', emoji: '\uD83E\uDE74', animationSlug: 'slipper', cost: 10, charmDelta: -2 },
-];
-const EMOTION_BY_ID = new Map(EMOTION_CATALOG.map((item) => [item.id, item]));
-const STOCKED_EMOTION_IDS = EMOTION_CATALOG
-  .filter((item) => !item.unlimited)
-  .map((item) => item.id);
+const SAVE_DELAY_MS = 1000;
 const CARD_BACK_SHOP = [
   { id: 'solid-white', price: 200 },
   { id: 'solid-purple', price: 200 },
@@ -293,8 +284,12 @@ class UserStore {
     this.tokens = new Map(); // token -> username
     this.catalogStore = null;
     this.dataFile = options.dataFile || DEFAULT_DATA_FILE;
+    this._saveTimer = null;
+    this._dirty = false;
+    this._writing = false;
     this._load();
     this._ensureAdminAccount();
+    process.once('exit', () => this.flush());
   }
 
   // ===== Persistence =====
@@ -315,12 +310,46 @@ class UserStore {
     }
   }
 
+  // Writes are coalesced to at most one per SAVE_DELAY_MS and run off the
+  // event loop; flush() writes synchronously on process exit.
   _save() {
+    this._dirty = true;
+    if (this._saveTimer || this._writing) return;
+    this._saveTimer = setTimeout(() => this._writeAsync(), SAVE_DELAY_MS);
+    this._saveTimer.unref();
+  }
+
+  _serialize() {
+    return JSON.stringify([...this.users.values()], null, 2);
+  }
+
+  async _writeAsync() {
+    this._saveTimer = null;
+    this._dirty = false;
+    this._writing = true;
+    const tmpFile = this.dataFile + '.tmp';
+    try {
+      await fs.promises.mkdir(path.dirname(this.dataFile), { recursive: true });
+      await fs.promises.writeFile(tmpFile, this._serialize(), 'utf-8');
+      await fs.promises.rename(tmpFile, this.dataFile);
+    } catch (err) {
+      logger.error('SYS', 'userstore_save_fail', { err: err.message });
+    } finally {
+      this._writing = false;
+      if (this._dirty) this._save();
+    }
+  }
+
+  flush() {
+    // An in-flight async write cannot finish once the process is exiting.
+    if (!this._dirty && !this._saveTimer && !this._writing) return;
+    clearTimeout(this._saveTimer);
+    this._saveTimer = null;
+    this._dirty = false;
     try {
       const dir = path.dirname(this.dataFile);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      const data = [...this.users.values()];
-      fs.writeFileSync(this.dataFile, JSON.stringify(data, null, 2), 'utf-8');
+      fs.writeFileSync(this.dataFile, this._serialize(), 'utf-8');
     } catch (err) {
       logger.error('SYS', 'userstore_save_fail', { err: err.message });
     }
@@ -874,18 +903,23 @@ class UserStore {
     };
   }
 
+  // toUsername is null for targets without an account (bots): the sender
+  // still pays, but no charm changes.
   sendEmotion(fromUsername, toUsername, emotionId) {
     const sender = this.users.get(fromUsername);
-    const target = this.users.get(toUsername);
-    if (!sender || !target) return { error: 'User not found' };
-    if (sender.disabled || target.disabled) return { error: 'User not found' };
+    const target = toUsername === null ? null : this.users.get(toUsername);
+    if (!sender || target === undefined) return { error: 'User not found' };
+    if (sender.disabled || target?.disabled) return { error: 'User not found' };
     if (fromUsername === toUsername) return { error: 'Cannot send emotion to yourself' };
 
     this._ensureAccountState(sender);
-    this._ensureAccountState(target);
+    if (target) this._ensureAccountState(target);
 
-    const emotion = EMOTION_BY_ID.get(emotionId);
+    const emotion = this.catalogStore
+      ? this.catalogStore.getEmotion(emotionId)
+      : EMOTION_BY_ID.get(emotionId);
     if (!emotion) return { error: 'Emotion not found' };
+    if (emotion.enabled === false) return { error: '该表情已下架' };
 
     let usedInventory = false;
     let purchased = false;
@@ -900,17 +934,18 @@ class UserStore {
       }
     }
 
-    target.charm += emotion.charmDelta || 0;
+    if (target) target.charm += emotion.charmDelta || 0;
     this._save();
 
+    const { enabled, order, ...publicEmotion } = emotion;
     return {
-      emotion: { ...emotion },
+      emotion: publicEmotion,
       usedInventory,
       purchased,
       senderProfile: this._sanitize(sender),
-      targetProfile: this._sanitize(target),
+      targetProfile: target ? this._sanitize(target) : null,
       senderPublic: this._publicProfile(sender),
-      targetPublic: this._publicProfile(target),
+      targetPublic: target ? this._publicProfile(target) : null,
     };
   }
 

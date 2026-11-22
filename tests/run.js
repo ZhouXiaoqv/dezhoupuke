@@ -5,9 +5,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const groups = {
-  unit: ['unit/test-sidepot-refund', 'unit/test-admin-gift-shop', 'integration/test-all-scenarios'],
-  network: ['integration/test-admin-ws-smoke', 'integration/test-room', 'integration/test-game-regressions', 'integration/test-turn'],
-  browser: ['e2e/test-display', 'e2e/test-solo-room'],
+  unit: ['unit/test-sidepot-refund', 'unit/test-admin-gift-shop', 'unit/test-emotions', 'integration/test-all-scenarios'],
+  network: ['integration/test-admin-ws-smoke', 'integration/test-room', 'integration/test-game-regressions', 'integration/test-turn', 'integration/test-emotions'],
+  browser: ['e2e/test-display', 'e2e/test-solo-room', 'e2e/test-emotions'],
   screenshots: ['e2e/test-browser', 'e2e/inspect-game'],
 };
 

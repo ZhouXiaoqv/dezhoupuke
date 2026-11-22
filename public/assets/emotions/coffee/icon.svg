@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="136" viewBox="0 0 144 136">
+  <svg x="0" y="94" width="144" height="42" viewBox="0 0 144 42">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d3e0ec"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="72" cy="22" rx="66" ry="16" fill="url(#plate)" stroke="#3f5f7a" stroke-width="4.5"/>
+  <ellipse cx="72" cy="19" rx="38" ry="8" fill="#e3ecf4" stroke="#b9cadb" stroke-width="2"/>
+  <path d="M18 24C30 31 54 34 72 34" fill="none" stroke="#ffb4a2" stroke-width="3" stroke-linecap="round"/>
+</svg>
+  <svg x="8" y="0" width="132" height="112" viewBox="0 0 132 112">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.65" stop-color="#f1f6fb"/>
+      <stop offset="1" stop-color="#cddbe8"/>
+    </linearGradient>
+    <radialGradient id="coffee" cx="50%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#9a6238"/>
+      <stop offset="1" stop-color="#5e341b"/>
+    </radialGradient>
+  </defs>
+  <path d="M98 44C122 42 124 76 94 78" fill="none" stroke="#3f5f7a" stroke-width="14" stroke-linecap="round"/>
+  <path d="M98 44C122 42 124 76 94 78" fill="none" stroke="#f4f8fc" stroke-width="7" stroke-linecap="round"/>
+  <path d="M18 31L23 84C25 98 38 107 59 107C80 107 93 98 95 84L100 31Z" fill="url(#body)" stroke="#3f5f7a" stroke-width="4.5" stroke-linejoin="round"/>
+  <path d="M21 62C33 68 85 68 97 62L96 71C84 77 34 77 22 71Z" fill="#ffb4a2"/>
+  <path d="M30 40L33 82" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <ellipse cx="59" cy="31" rx="41" ry="12" fill="#fbfdff" stroke="#3f5f7a" stroke-width="4.5"/>
+  <ellipse cx="59" cy="32" rx="34" ry="8.5" fill="url(#coffee)"/>
+  <ellipse cx="59" cy="32" rx="34" ry="8.5" fill="none" stroke="#c48a57" stroke-width="2"/>
+  <path d="M59 38C51 33 47 30 50 27.5C53 25.5 57 27 59 29C61 27 65 25.5 68 27.5C71 30 67 33 59 38Z" fill="#f6e3c8"/>
+</svg>
+</svg>

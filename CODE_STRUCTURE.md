@@ -1066,9 +1066,9 @@ getStateForSpectator()
 
 Bot 的 `ws` 是 `BotSocket`，只有 `readyState` 和空 `send()`。新增逻辑时不要假设所有玩家都有真实浏览器连接。
 
-### 15.6 用户数据是同步文件写入
+### 15.6 用户数据是节流异步写入
 
-`userStore.js` 使用 `fs.writeFileSync`。小规模没问题，高并发或生产环境需要改数据库或异步队列。
+`userStore.js` 的 `_save()` 只标记脏数据，每秒最多异步写一次 `users.json`（先写 `.tmp` 再 rename）。进程 `exit` 时 `flush()` 同步补写，`server/index.js` 把 SIGINT/SIGTERM 转成正常退出。直接读取数据文件的测试要先调用 `userStore.flush()`。多实例或更高并发仍需改数据库。
 
 ### 15.7 中文乱码问题
 

@@ -6,6 +6,7 @@ const {
   PREMIUM_CARD_BACK_IDS,
 } = require('./userStore');
 const { PET_CATALOG, PET_IDS } = require('./petCatalog');
+const { EMOTION_CATALOG, EMOTION_BY_ID, STOCKED_EMOTION_IDS } = require('./emotionCatalog');
 
 const DEFAULT_DATA_FILE = path.join(require('./dataDir'), 'catalog.json');
 
@@ -55,6 +56,13 @@ function buildDefaultCatalog() {
     ],
     cardBacks: buildDefaultCardBacks(),
     pets: PET_CATALOG.map((pet, index) => ({ order: index + 1, ...pet })),
+    emotions: EMOTION_CATALOG.map((item, index) => ({
+      id: item.id,
+      cost: item.cost,
+      charmDelta: item.charmDelta,
+      enabled: true,
+      order: index + 1,
+    })),
     shopItems: CARD_BACK_SHOP
       .filter((item) => !PREMIUM_CARD_BACK_ID_SET.has(item.id))
       .map((item, index) => ({
@@ -122,6 +130,12 @@ function cleanInt(value, fallback = 0, min = 0) {
   return Math.max(min, Math.floor(n));
 }
 
+function cleanSignedInt(value, fallback = 0, limit = 100) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(-limit, Math.min(limit, Math.trunc(n)));
+}
+
 class CatalogStore {
   constructor(options = {}) {
     this.catalog = buildDefaultCatalog();
@@ -156,7 +170,7 @@ class CatalogStore {
 
   _normalize() {
     const defaults = buildDefaultCatalog();
-    for (const key of ['shopCategories', 'cardBacks', 'pets', 'shopItems', 'blindBoxes', 'holidayGifts']) {
+    for (const key of ['shopCategories', 'cardBacks', 'pets', 'emotions', 'shopItems', 'blindBoxes', 'holidayGifts']) {
       if (!Array.isArray(this.catalog[key])) this.catalog[key] = [];
     }
 
@@ -164,6 +178,7 @@ class CatalogStore {
     this._mergeById('shopCategories', defaults.shopCategories);
     this._mergeById('cardBacks', defaults.cardBacks);
     this._mergeById('pets', defaults.pets);
+    this._mergeById('emotions', defaults.emotions);
     this._mergeById('shopItems', defaults.shopItems);
     this._mergeById('blindBoxes', defaults.blindBoxes);
 
@@ -195,6 +210,18 @@ class CatalogStore {
       previewUrl: String(item.previewUrl || '').trim(),
       order: cleanInt(item.order, index + 1),
     })).filter((item) => item.id && item.name && PET_IDS.has(item.id));
+
+    this.catalog.emotions = this.catalog.emotions.map((item, index) => {
+      const id = String(item.id || '').trim();
+      const def = EMOTION_BY_ID.get(id);
+      return {
+        id,
+        cost: cleanInt(item.cost, def?.cost || 0),
+        charmDelta: cleanSignedInt(item.charmDelta, def?.charmDelta || 0),
+        enabled: toBool(item.enabled, true),
+        order: cleanInt(item.order, index + 1),
+      };
+    }).filter((item) => EMOTION_BY_ID.has(item.id));
 
     this.catalog.shopItems = this.catalog.shopItems.map((item, index) => ({
       id: String(item.id || '').trim(),
@@ -350,11 +377,41 @@ class CatalogStore {
   }
 
   getEmotionRewardIds() {
-    return ['coffee', 'rose', 'egg', 'slipper'];
+    return [...STOCKED_EMOTION_IDS];
+  }
+
+  // Authored definition merged with admin overrides; includes disabled entries.
+  getEmotion(id) {
+    const def = EMOTION_BY_ID.get(id);
+    const entry = this.catalog.emotions.find((item) => item.id === id);
+    if (!def || !entry) return null;
+    return { ...def, ...entry, cost: def.unlimited ? 0 : entry.cost };
+  }
+
+  getEmotions() {
+    return [...this.catalog.emotions]
+      .sort((a, b) => a.order - b.order)
+      .map((entry) => this.getEmotion(entry.id));
+  }
+
+  updateEmotion(input = {}) {
+    const id = String(input.id || '').trim();
+    const entry = this.catalog.emotions.find((item) => item.id === id);
+    if (!entry) return { error: '表情不存在' };
+    if (input.cost !== undefined) entry.cost = cleanInt(input.cost, entry.cost);
+    if (input.charmDelta !== undefined) {
+      entry.charmDelta = cleanSignedInt(input.charmDelta, entry.charmDelta);
+    }
+    if (input.enabled !== undefined) entry.enabled = !!input.enabled;
+    if (input.order !== undefined) entry.order = cleanInt(input.order, entry.order);
+    this._save();
+    return { emotion: this.getEmotion(id), catalog: this.getAdminCatalog() };
   }
 
   getAdminCatalog() {
-    return JSON.parse(JSON.stringify(this.catalog));
+    const catalog = JSON.parse(JSON.stringify(this.catalog));
+    catalog.emotions = this.getEmotions();
+    return catalog;
   }
 
   getPublicCatalog() {
@@ -371,6 +428,7 @@ class CatalogStore {
       shopCategories: categories,
       cardBacks: [...this.catalog.cardBacks].sort((a, b) => a.order - b.order),
       pets: [...this.catalog.pets].sort((a, b) => a.order - b.order),
+      emotions: this.getEmotions(),
       shopItems,
       blindBoxes,
     };

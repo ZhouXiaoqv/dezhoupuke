@@ -868,6 +868,11 @@
   min-width: 90px;
   font-size: 12px;
 }
+.admin-emotion-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
 .admin-shop-controls {
   display: flex;
   flex-wrap: wrap;

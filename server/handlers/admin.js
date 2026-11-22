@@ -92,6 +92,16 @@ function register(ws, ctx) {
     send(ws, 'admin:catalog', { catalog: result.catalog });
   });
 
+  ws._on('admin:updateEmotion', (data) => {
+    if (!requireAdmin(ws, userStore)) return;
+    const result = catalogStore.updateEmotion(data || {});
+    if (result.error) {
+      send(ws, 'admin:error', { message: result.error });
+      return;
+    }
+    send(ws, 'admin:catalog', { catalog: result.catalog });
+  });
+
   ws._on('admin:createHolidayGift', (data) => {
     if (!requireAdmin(ws, userStore)) return;
     const result = catalogStore.createHolidayGift(data || {});

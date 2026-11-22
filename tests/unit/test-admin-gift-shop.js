@@ -351,6 +351,8 @@ assert.strictEqual(
 
 console.log('PASS admin/gift/shop rules');
 
+userStore.flush();
+
 try {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 } catch {}

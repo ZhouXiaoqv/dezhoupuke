@@ -148,6 +148,26 @@ const SFX = (() => {
     btnClick() {
       click(0.02);
     },
+    // One short impact cue per emotion, named by the rigs in emotionRigs.js.
+    emotion(name) {
+      if (!enabled) return;
+      if (name === "splat") {
+        click(0.04);
+        burst(0.16, 300, 80, "triangle", 0.14);
+      } else if (name === "whack") {
+        click(0.03);
+        burst(0.12, 700, 150, "square", 0.08);
+      } else if (name === "chime") {
+        [1047, 1319, 1568].forEach((f, i) =>
+          setTimeout(() => noise(0.25, f, "sine", 0.06), i * 70));
+      } else if (name === "clink") {
+        noise(0.15, 2637, "sine", 0.08);
+        setTimeout(() => noise(0.12, 3136, "sine", 0.05), 60);
+      } else if (name === "giggle") {
+        [760, 680, 820, 700].forEach((f, i) =>
+          setTimeout(() => burst(0.08, f * 1.15, f, "triangle", 0.07), i * 80));
+      }
+    },
     toggle() {
       enabled = !enabled;
       if (masterGain) masterGain.gain.value = enabled ? 0.5 : 0;

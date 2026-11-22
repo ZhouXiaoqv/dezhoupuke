@@ -176,6 +176,11 @@ wsManager.wss.on('connection', (ws) => {
   });
 });
 
+// Signals skip the 'exit' event unless handled; exiting here lets UserStore flush pending writes.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => process.exit(0));
+}
+
 // === Start server ===
 wsManager.start();
 

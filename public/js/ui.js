@@ -26,48 +26,14 @@ const PLAYER_COLORS = [
 ];
 const PLAYER_AVATARS = ["🦊", "🐯", "🐻", "🦅", "🐬", "🦁"];
 
+// Fallback until shop:catalog arrives; the server catalog adds admin
+// pricing, order, and enabled state (server/emotionCatalog.js).
 const EMOTION_CATALOG = [
-  {
-    id: "coffee",
-    emoji: "\u2615",
-    label: "\u5496\u5561",
-    animationSlug: "coffee",
-    cost: 10,
-    charmDelta: 2,
-  },
-  {
-    id: "rose",
-    emoji: "\ud83c\udf39",
-    label: "\u73ab\u7470\u82b1",
-    animationSlug: "rose",
-    cost: 5,
-    charmDelta: 1,
-  },
-  {
-    id: "laugh",
-    emoji: "\ud83d\ude02",
-    label: "\u7b11\u54ed",
-    animationSlug: "laugh-cry",
-    cost: 0,
-    charmDelta: 0,
-    unlimited: true,
-  },
-  {
-    id: "egg",
-    emoji: "\ud83e\udd5a",
-    label: "\u9e21\u86cb",
-    animationSlug: "egg",
-    cost: 5,
-    charmDelta: -1,
-  },
-  {
-    id: "slipper",
-    emoji: "\ud83e\ude74",
-    label: "\u62d6\u978b",
-    animationSlug: "slipper",
-    cost: 10,
-    charmDelta: -2,
-  },
+  { id: "coffee", emoji: "\u2615", label: "\u5496\u5561", cost: 10, charmDelta: 2 },
+  { id: "rose", emoji: "\ud83c\udf39", label: "\u73ab\u7470\u82b1", cost: 5, charmDelta: 1 },
+  { id: "laugh", emoji: "\ud83d\ude02", label: "\u7b11\u54ed", cost: 0, charmDelta: 0, unlimited: true },
+  { id: "egg", emoji: "\ud83e\udd5a", label: "\u9e21\u86cb", cost: 5, charmDelta: -1 },
+  { id: "slipper", emoji: "\ud83e\ude74", label: "\u62d6\u978b", cost: 10, charmDelta: -2 },
 ];
 const EMOTION_BY_ID = Object.fromEntries(
   EMOTION_CATALOG.map((item) => [item.id, item]),
@@ -351,6 +317,16 @@ function syncShopCatalog(catalog) {
       if (existing) Object.assign(existing, item);
       else PET_CATALOG.push({ ...item });
     });
+  }
+  if (Array.isArray(catalog.emotions)) {
+    catalog.emotions.forEach((item) => {
+      if (!item || !item.id) return;
+      const existing = EMOTION_BY_ID[item.id];
+      if (existing) Object.assign(existing, item);
+      else EMOTION_CATALOG.push((EMOTION_BY_ID[item.id] = { ...item }));
+    });
+    EMOTION_CATALOG.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    if (typeof EmotionFx !== "undefined") EmotionFx.preload(EMOTION_CATALOG);
   }
 }
 

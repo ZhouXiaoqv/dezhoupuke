@@ -63,101 +63,23 @@ function getSeatCenterByPlayerId(playerId) {
   return window.lastSeatCenters[key] || null;
 }
 
-const GIFT_ANIMATION_BASE = "assets/gifts";
-const GIFT_ANIMATION_FRAME_COUNT = 16;
-const GIFT_ANIMATION_FPS = 12;
-const GIFT_ANIMATION_COLS = 4;
-const GIFT_ANIMATION_ROWS = 4;
-const giftSpritePreloadCache = new Map();
 const pendingLocalGiftRoutes = [];
 
-function getEmotionAnimationSlug(emotion) {
-  if (!emotion || typeof emotion === "string") return null;
-  return (
-    emotion.animationSlug ||
-    EMOTION_BY_ID[emotion.id]?.animationSlug ||
-    null
-  );
-}
-
-function getGiftSpriteUrl(slug) {
-  return `${GIFT_ANIMATION_BASE}/${slug}/${slug}-sheet.png`;
-}
-
-function preloadGiftSprite(slug) {
-  if (!slug) return Promise.resolve(true);
-  if (giftSpritePreloadCache.has(slug)) return giftSpritePreloadCache.get(slug);
-
-  const promise = new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = getGiftSpriteUrl(slug);
-  });
-  giftSpritePreloadCache.set(slug, promise);
-  return promise;
-}
-
-function preloadGiftSprites() {
-  for (const emotion of EMOTION_CATALOG) {
-    preloadGiftSprite(getEmotionAnimationSlug(emotion));
+// Emotions aim at the nameplate; the seat box also spans the hole cards.
+function getEmotionAnchor(playerId) {
+  const rect = getSeatElByPlayerId(playerId)
+    ?.querySelector(".seat-info")
+    ?.getBoundingClientRect();
+  if (rect && (rect.width || rect.height)) {
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
-}
-
-function setGiftSpriteFrame(el, frameIndex) {
-  const frame = Math.max(
-    0,
-    Math.min(GIFT_ANIMATION_FRAME_COUNT - 1, Number(frameIndex) || 0),
-  );
-  const col = frame % GIFT_ANIMATION_COLS;
-  const row = Math.floor(frame / GIFT_ANIMATION_COLS);
-  const x = (col / (GIFT_ANIMATION_COLS - 1)) * 100;
-  const y = (row / (GIFT_ANIMATION_ROWS - 1)) * 100;
-  el.style.backgroundPosition = `${x}% ${y}%`;
-}
-
-function createGiftSpriteEl(emotion, className) {
-  const sprite = document.createElement("div");
-  sprite.className = className || "gift-sprite";
-  const slug = getEmotionAnimationSlug(emotion);
-  if (slug) {
-    sprite.classList.add("gift-sprite");
-    sprite.style.backgroundImage = `url("${getGiftSpriteUrl(slug)}")`;
-    setGiftSpriteFrame(sprite, 0);
-    return sprite;
-  }
-
-  sprite.classList.add("gift-sprite-fallback");
-  sprite.textContent =
-    typeof emotion === "string" ? emotion : emotion?.emoji || "\ud83c\udf39";
-  return sprite;
-}
-
-function playGiftSprite(sprite) {
-  if (!sprite || !sprite.classList.contains("gift-sprite")) return () => {};
-  const frameMs = 1000 / GIFT_ANIMATION_FPS;
-  const start = performance.now();
-  let rafId = 0;
-
-  function tick(now) {
-    const frame = Math.min(
-      GIFT_ANIMATION_FRAME_COUNT - 1,
-      Math.floor((now - start) / frameMs),
-    );
-    setGiftSpriteFrame(sprite, frame);
-    if (frame < GIFT_ANIMATION_FRAME_COUNT - 1) {
-      rafId = requestAnimationFrame(tick);
-    }
-  }
-
-  rafId = requestAnimationFrame(tick);
-  return () => cancelAnimationFrame(rafId);
+  return getSeatCenterByPlayerId(playerId);
 }
 
 function rememberPendingGiftRoute(toId, emotionId) {
   if (!Net.playerId || !toId) return;
-  const from = getSeatCenterByPlayerId(Net.playerId);
-  const to = getSeatCenterByPlayerId(toId);
+  const from = getEmotionAnchor(Net.playerId);
+  const to = getEmotionAnchor(toId);
   if (!from || !to) return;
 
   pendingLocalGiftRoutes.push({
@@ -194,61 +116,27 @@ function takePendingGiftRoute(fromId, toId, emotion) {
   return null;
 }
 
-function spawnEmotionFly(from, to, emotion) {
-  const startX = from.x;
-  const startY = from.y;
-  const endX = to.x;
-  const endY = to.y;
-  const dx = endX - startX;
-  const dy = endY - startY;
-  const distance = Math.hypot(dx, dy);
-  const duration = Math.max(680, Math.min(1180, Math.round(distance * 1.55)));
-  const animationDuration =
-    (GIFT_ANIMATION_FRAME_COUNT / GIFT_ANIMATION_FPS) * 1000;
-  const slug = getEmotionAnimationSlug(emotion);
-  const hasArc = slug === "slipper";
-  const arcHeight = hasArc
-    ? Math.max(26, Math.min(52, Math.round(distance * 0.12)))
-    : 0;
-
-  const gift = document.createElement("div");
-  gift.className = "flying-gift";
-  if (hasArc) gift.classList.add("gift-arc");
-  gift.style.left = startX + "px";
-  gift.style.top = startY + "px";
-  gift.style.setProperty("--fly-duration", duration + "ms");
-  gift.style.setProperty("--fly-x", dx + "px");
-  gift.style.setProperty("--fly-y", dy + "px");
-  gift.style.setProperty("--fly-mid-x", dx / 2 + "px");
-  gift.style.setProperty("--fly-mid-y", dy / 2 - arcHeight + "px");
-  const sprite = createGiftSpriteEl(emotion, "flying-gift-sprite");
-  gift.appendChild(sprite);
-  document.body.appendChild(gift);
-  const stopSprite = playGiftSprite(sprite);
-
-  requestAnimationFrame(() => {
-    gift.classList.add("in-flight");
-  });
-  setTimeout(() => {
-    gift.classList.add("arrived");
-  }, Math.max(duration, animationDuration));
-  setTimeout(() => {
-    stopSprite();
-    gift.remove();
-  }, Math.max(duration, animationDuration) + 300);
+function getTableCenter() {
+  const rect = $("table")?.getBoundingClientRect();
+  if (rect && (rect.width || rect.height)) {
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 }
 
 function spawnEmotionFlyByIds(fromId, toId, emotion) {
+  if (!$("table-container")?.classList.contains("active")) return;
   const pendingRoute = takePendingGiftRoute(fromId, toId, emotion);
-  const from = pendingRoute?.from || getSeatCenterByPlayerId(fromId);
-  const to = pendingRoute?.to || getSeatCenterByPlayerId(toId);
-  if (!from || !to) return;
-
-  const slug = getEmotionAnimationSlug(emotion);
-  preloadGiftSprite(slug).then(() => spawnEmotionFly(from, to, emotion));
+  const to = pendingRoute?.to || getEmotionAnchor(toId) || getTableCenter();
+  const from =
+    pendingRoute?.from || getEmotionAnchor(fromId) || getTableCenter();
+  EmotionFx.play({
+    from,
+    to,
+    emotion: { ...EMOTION_BY_ID[emotion.id], ...emotion },
+    targetEl: getSeatElByPlayerId(toId)?.querySelector(".seat-info"),
+  });
 }
-
-preloadGiftSprites();
 
 function formatSignedNumber(value) {
   const n = Number(value || 0);
@@ -302,15 +190,6 @@ function getPlayerPanelProfile(playerId, player = null) {
       totalProfit: s.totalProfit ?? s.totalWon ?? 0,
     },
   };
-}
-
-function applyPublicProfileToState(playerId, publicProfile) {
-  if (!publicProfile || !gameState?.players) return;
-  const player = gameState.players.find((p) => p.id === playerId);
-  if (!player) return;
-  player.publicProfile = publicProfile;
-  player.avatar = publicProfile.avatar || player.avatar;
-  player.avatarColor = publicProfile.avatarColor || player.avatarColor;
 }
 
 function positionInteractPanel() {
@@ -378,15 +257,23 @@ function renderInteractPanel() {
   const row = document.createElement("div");
   row.className = "emotion-row";
   for (const emotion of EMOTION_CATALOG) {
+    if (emotion.enabled === false) continue;
     const count = emotion.unlimited ? null : Number(inventory[emotion.id] || 0);
     const option = document.createElement("div");
     option.className = "emotion-option";
 
     const iconWrap = document.createElement("div");
     iconWrap.className = "emotion-icon-wrap";
-    const icon = document.createElement("div");
+    const iconUrl = EmotionFx.itemUrl(emotion);
+    const icon = document.createElement(iconUrl ? "img" : "div");
     icon.className = "emotion-icon";
-    icon.textContent = emotion.emoji;
+    if (iconUrl) {
+      icon.src = iconUrl;
+      icon.alt = emotion.label || "";
+      icon.draggable = false;
+    } else {
+      icon.textContent = emotion.emoji;
+    }
     iconWrap.appendChild(icon);
     if (!emotion.unlimited) {
       const badge = document.createElement("span");
@@ -480,8 +367,10 @@ window.addEventListener("resize", () => {
 
 Net.on("room:interact", (d) => {
   if (!d || !d.emotion) return;
-  applyPublicProfileToState(d.fromId, d.senderPublic);
-  applyPublicProfileToState(d.toId, d.targetPublic);
+  const target = gameState?.players?.find((p) => p.id === d.toId);
+  if (target?.publicProfile && Number.isFinite(d.targetCharm)) {
+    target.publicProfile.charm = d.targetCharm;
+  }
   spawnEmotionFlyByIds(d.fromId, d.toId, d.emotion);
   refreshInteractPanel();
 });

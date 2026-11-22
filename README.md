@@ -27,15 +27,17 @@ npm start
 
 翻牌前亮牌统一显示「一对」或「高牌」。赢家摊牌或主动亮牌后，座位铭牌会保留本手牌型，直到下一手开始。
 
+点击其他玩家的铭牌可以发送局内表情。表情先飞向对方铭牌，再在铭牌上播放命中动画并伴随音效，连续发送的每个表情都会完整播放。表情定义在 `server/emotionCatalog.js`，管理员可在后台「局内表情」中调整价格、魅力、排序和上下架。每位玩家可连续发送 8 个，之后每秒恢复 4 个。动画在 `public/js/emotionRigs.js`，用到的 SVG 部件在 `public/assets/emotions/<id>/`。
+
 ## 本地测试
 
 安装开发依赖并准备好 Chrome 后，运行 `npm test`。测试会在本机随机端口启动独立服务，账号、商品和日志都写入临时目录，结束后自动清理。浏览器默认使用已安装的 Google Chrome，可用 `POKER_BROWSER` 指定其他 Chrome 或 Chromium 可执行文件的完整路径。
 
 | 命令 | 覆盖范围 |
 | --- | --- |
-| `npm run test:unit` | 直接验证牌局引擎、边池、账号与商店规则 |
-| `npm run test:network` | 通过 WebSocket 验证管理权限、房间生命周期和行动轮转 |
-| `npm run test:browser` | 检查公共牌复用、宠物异步加载和四种窗口尺寸的筹码布局、宠物遮挡，以及单人建房与人机对局 |
+| `npm run test:unit` | 直接验证牌局引擎、边池、账号、商店与局内表情规则 |
+| `npm run test:network` | 通过 WebSocket 验证管理权限、房间生命周期、行动轮转和表情限流 |
+| `npm run test:browser` | 检查公共牌复用、宠物异步加载和四种窗口尺寸的筹码布局、宠物遮挡、单人建房与人机对局，以及连续表情动画 |
 | `npm run test:screenshots` | 可选的双人对局截图，保存到 `tests/screenshots/` 供人工检查 |
 
 `npm test` 依次运行前三组。仅运行规则或联网测试时，无需安装浏览器。
@@ -56,7 +58,9 @@ dezhoupuke/
 │   ├── stats.js                # 玩家统计追踪
 │   ├── room.js                 # Room + RoomRegistry 类
 │   ├── game.js                 # 德州扑克游戏引擎
-│   ├── userStore.js            # 用户数据持久化（JSON 文件）
+│   ├── userStore.js            # 用户数据持久化（JSON 文件，节流异步写入）
+│   ├── catalogStore.js         # 商店、盲盒、表情等可后台管理的目录
+│   ├── emotionCatalog.js       # 局内表情定义（价格、魅力）
 │   ├── gameLogger.js           # 牌局日志（对接统一 logger）
 │   └── logger.js               # 统一日志模块（按日期轮转写入 data/logs/）
 ├── public/                     # 前端
@@ -70,11 +74,14 @@ dezhoupuke/
 │   │   ├── responsive.css      # 移动端适配
 │   │   └── extras.css          # 头像选择、场景切换、操作记录
 │   ├── assets/cardbacks/       # 图片牌背资源（onepiece、cute 等主题）
+│   ├── assets/emotions/        # 局内表情 SVG 部件与面板图标
 │   └── js/                     # JavaScript 模块
 │       ├── net.js              # WebSocket 网络层
 │       ├── ui.js               # UI 工具函数、全局变量
 │       ├── sfx.js              # 音效系统（Web Audio API）
-│       ├── lobby.js            # 大厅功能（筹码动画、互动、头像）
+│       ├── emotionFx.js        # 局内表情 Canvas 特效层
+│       ├── emotionRigs.js      # 五个局内表情的动画
+│       ├── lobby.js            # 大厅功能（筹码动画、互动面板、头像）
 │       ├── extras.js           # 场景选择、粒子效果、牌型评估
 │       ├── game.js             # 游戏渲染（座位、社区牌、状态）
 │       ├── actions.js          # 操作面板（加注、弃牌）
@@ -87,6 +94,7 @@ dezhoupuke/
 │   ├── e2e/                    # 端到端测试
 │   ├── tools/                  # 模拟工具
 │   └── screenshots/            # 测试截图
+├── tools/                      # 素材生成脚本
 ├── data/                       # 运行时数据（用户数据、牌局日志）
 ├── nginx/                      # Nginx 配置
 ├── Dockerfile
@@ -123,7 +131,7 @@ dezhoupuke/
 | `room:start` | - | 房主开始游戏 |
 | `room:ready` | `{ ready }` | 准备/取消 |
 | `room:list` | - | 获取在线房间列表 |
-| `room:interact` | `{ targetId, emotionId }` | 玩家互动 |
+| `room:interact` | `{ targetId, emotionId }` | 发送局内表情（限流，超出时返回 `room:error`） |
 | `game:action` | `{ action, amount }` | 执行操作（fold/check/call/raise/allin） |
 | `game:showHand` | `{ show }` | 非摊牌获胜后选择是否展示手牌 |
 | `game:nextHand` | - | 跳过等待，立即开始下一手 |
@@ -147,7 +155,7 @@ dezhoupuke/
 | `room:players` | 玩家列表更新 |
 | `room:scoreboard` | 计分板 |
 | `room:gameStarted` | 游戏开始 |
-| `room:interact` | 玩家互动 |
+| `room:interact` | 局内表情：`{ fromId, toId, emotion, targetCharm }` |
 | `room:error` | 房间错误 |
 | `room:left` | 已离开房间 |
 | `room:destroyed` | 房间已解散 |

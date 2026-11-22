@@ -4,6 +4,9 @@
 
 const logger = require('../logger');
 
+const EMOTION_BURST = 8;
+const EMOTION_REFILL_PER_SEC = 4;
+
 function register(ws, ctx) {
   const { registry, wsManager, wireStatsReporting, userStore } = ctx;
 
@@ -142,6 +145,21 @@ function register(ws, ctx) {
     ws._currentRoom.setReady(ws._playerId, !!data.ready);
   });
 
+  // Token bucket: bursts of EMOTION_BURST sends, refilled at EMOTION_REFILL_PER_SEC.
+  let emotionTokens = EMOTION_BURST;
+  let emotionRefilledAt = Date.now();
+  function takeEmotionToken() {
+    const now = Date.now();
+    emotionTokens = Math.min(
+      EMOTION_BURST,
+      emotionTokens + ((now - emotionRefilledAt) / 1000) * EMOTION_REFILL_PER_SEC,
+    );
+    emotionRefilledAt = now;
+    if (emotionTokens < 1) return false;
+    emotionTokens -= 1;
+    return true;
+  }
+
   ws._on('room:interact', (data) => {
     if (!requirePlayer()) return;
     if (!ws._currentRoom) return;
@@ -155,19 +173,24 @@ function register(ws, ctx) {
 
     const sender = room.players.get(ws._playerId);
     const target = room.players.get(targetId);
-    if (!sender || !target || !sender._username || !target._username) {
+    if (!sender || !target || !sender._username || (!target._username && !target.isBot)) {
       ws.send(JSON.stringify({ type: 'room:error', data: { message: '只能给本局玩家发表情' } }));
       return;
     }
 
-    const result = userStore.sendEmotion(sender._username, target._username, emotionId);
+    if (!takeEmotionToken()) {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: '发送太快了，请稍后再试' } }));
+      return;
+    }
+
+    const result = userStore.sendEmotion(sender._username, target.isBot ? null : target._username, emotionId);
     if (result.error) {
       ws.send(JSON.stringify({ type: 'room:error', data: { message: result.error } }));
       return;
     }
 
-    if (typeof room.updatePlayerPublicProfile === 'function') {
-      room.updatePlayerPublicProfile(ws._playerId, result.senderPublic, { silent: true });
+    // Only the target's charm changes publicly; later state broadcasts pick it up.
+    if (result.targetPublic && typeof room.updatePlayerPublicProfile === 'function') {
       room.updatePlayerPublicProfile(targetId, result.targetPublic, { silent: true });
     }
 
@@ -175,25 +198,19 @@ function register(ws, ctx) {
       fromId: ws._playerId,
       toId: targetId,
       emotion: result.emotion,
-      usedInventory: result.usedInventory,
-      purchased: result.purchased,
-      senderPublic: result.senderPublic,
-      targetPublic: result.targetPublic,
+      targetCharm: result.targetPublic ? result.targetPublic.charm : null,
     });
 
     ws.send(JSON.stringify({
       type: 'user:profileUpdated',
       data: { profile: result.senderProfile },
     }));
-    if (target.ws && target.ws.readyState === 1) {
+    if (result.targetProfile && target.ws && target.ws.readyState === 1) {
       target.ws.send(JSON.stringify({
         type: 'user:profileUpdated',
         data: { profile: result.targetProfile },
       }));
     }
-
-    if (typeof room.broadcastPlayerList === 'function') room.broadcastPlayerList();
-    if (room.gameRunning && room.game && room.game.broadcastState) room.game.broadcastState();
   });
 }
 

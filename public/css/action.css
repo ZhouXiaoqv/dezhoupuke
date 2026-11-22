@@ -48,67 +48,11 @@
     transform: scale(0.4) translateY(-80px) translateX(var(--fly-x, 0px));
   }
 }
-.flying-gift {
+.emotion-fx-layer {
   position: fixed;
+  inset: 0;
   z-index: 400;
-  width: 118px;
-  height: 118px;
   pointer-events: none;
-  opacity: 1;
-  will-change: transform, opacity;
-  transform: translate(-50%, -50%) translate(0, 0) scale(1);
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
-}
-.flying-gift.in-flight {
-  animation: giftFlyLinear var(--fly-duration, 720ms) linear forwards;
-}
-.flying-gift.gift-arc.in-flight {
-  animation-name: giftFlyArc;
-  animation-timing-function: ease-in-out;
-}
-.flying-gift-sprite {
-  width: 100%;
-  height: 100%;
-}
-.flying-gift.arrived {
-  opacity: 0;
-  transition: opacity 280ms ease-out;
-}
-@keyframes giftFlyLinear {
-  0% {
-    transform: translate(-50%, -50%) translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(-50%, -50%)
-      translate(var(--fly-x, 0px), var(--fly-y, 0px)) scale(1);
-  }
-}
-@keyframes giftFlyArc {
-  0% {
-    transform: translate(-50%, -50%) translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(-50%, -50%)
-      translate(var(--fly-mid-x, 0px), var(--fly-mid-y, -32px)) scale(1.04);
-  }
-  100% {
-    transform: translate(-50%, -50%)
-      translate(var(--fly-x, 0px), var(--fly-y, 0px)) scale(1);
-  }
-}
-@keyframes giftFloat {
-  0% {
-    opacity: 1;
-    transform: scale(0.5) translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1.2) translateY(-20px);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1) translateY(-100px);
-  }
 }
 
 /* Player interaction panel */
@@ -202,18 +146,8 @@
   justify-content: center;
   font-size: 27px;
   line-height: 1;
-}
-.gift-sprite {
-  background-repeat: no-repeat;
-  background-size: 400% 400%;
-  background-position: 0% 0%;
-}
-.gift-sprite-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 27px;
-  line-height: 1;
+  object-fit: contain;
+  user-select: none;
 }
 .emotion-count {
   position: absolute;

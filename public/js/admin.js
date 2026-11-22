@@ -21,6 +21,7 @@ function renderAdminDashboard(data = {}) {
   window.adminCatalog = adminCatalog;
   renderAdminCategories();
   renderAdminShop();
+  renderAdminEmotions();
   renderAdminBlindBoxes();
   renderGiftRewardBuilder();
   renderAdminGifts();
@@ -397,6 +398,47 @@ function renderAdminShop() {
     list.appendChild(row);
   });
 
+}
+
+function renderAdminEmotions() {
+  const list = $("adminEmotionList");
+  if (!list || !adminCatalog) return;
+  list.innerHTML = "";
+  (adminCatalog.emotions || []).forEach((emotion) => {
+    const row = document.createElement("div");
+    row.className = "admin-row admin-shop-row";
+    const icon = document.createElement("img");
+    icon.className = "admin-emotion-icon";
+    icon.src = EmotionFx.itemUrl(emotion);
+    icon.alt = "";
+    row.appendChild(icon);
+    const name = document.createElement("div");
+    name.className = "admin-shop-name";
+    name.textContent =
+      (emotion.label || emotion.id) + (emotion.unlimited ? " (\u514d\u8d39)" : "");
+    row.appendChild(name);
+    const controls = document.createElement("div");
+    controls.className = "admin-shop-controls";
+    controls.innerHTML = `
+      <label class="admin-check">价格 <input class="admin-num" type="number" min="0" value="${emotion.cost || 0}" data-field="cost" ${emotion.unlimited ? "disabled" : ""} /></label>
+      <label class="admin-check">魅力 <input class="admin-num" type="number" min="-100" max="100" value="${emotion.charmDelta || 0}" data-field="charmDelta" /></label>
+      <label class="admin-check">排序 <input class="admin-num" type="number" min="0" value="${emotion.order || 0}" data-field="order" /></label>
+      <label class="admin-check"><input type="checkbox" ${emotion.enabled ? "checked" : ""} data-field="enabled" /> 上架</label>
+      <button class="admin-mini-btn">保存</button>
+    `;
+    const field = (key) => controls.querySelector(`[data-field="${key}"]`);
+    controls.querySelector("button").addEventListener("click", () => {
+      Net.send("admin:updateEmotion", {
+        id: emotion.id,
+        cost: Number(field("cost").value),
+        charmDelta: Number(field("charmDelta").value),
+        order: Number(field("order").value),
+        enabled: field("enabled").checked,
+      });
+    });
+    row.appendChild(controls);
+    list.appendChild(row);
+  });
 }
 
 function renderAdminGifts() {
