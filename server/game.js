@@ -8,6 +8,7 @@ const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
 const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
 const gameLogger = require('./gameLogger');
+const { emptyChips, chipTotal, startingChips, addChips, transferChips } = require('./chips');
 
 const SB = 10;
 const BB = 20;
@@ -133,6 +134,14 @@ class Game {
     this.deck = [];
     this.community = [];
     this.pot = 0;
+    if (this.tableStyle === 'mechanical') {
+      this.potChips = emptyChips();
+      this.players.forEach((player, index) => {
+        const saved = players[index].chips;
+        player.chips = saved && chipTotal(saved) === Math.floor(player.stack) ? saved.slice() : startingChips(player.stack);
+        player.betChips = emptyChips();
+      });
+    }
     this.dealerIdx = Math.floor(Math.random() * this.players.length);
     this.currentIdx = 0;
     this.phase = 'idle';
@@ -158,6 +167,30 @@ class Game {
   activePlayers() { return this.players.filter(p => !p.folded && (p.stack > 0 || p.bet > 0) && p.connected); }
   inHandPlayers() { return this.players.filter(p => !p.folded && p.connected); }
   canActPlayers() { return this.players.filter(p => !p.folded && !p.allIn && p.connected); }
+
+  commitBet(player, amount) {
+    if (this.potChips && amount > 0) {
+      const paid = transferChips(player.chips, this.potChips, amount, player.stack, this.pot);
+      addChips(player.betChips, paid);
+      const units = Math.floor(player.bet + amount) - chipTotal(player.betChips);
+      player.betChips[player.betChips.length - 1] += units;
+    }
+    player.stack -= amount;
+    player.bet += amount;
+    player.totalBet += amount;
+    this.pot += amount;
+  }
+
+  payoutFromPot() {
+    // The settlement animation still needs the full pot snapshot.
+    const chips = this.potChips?.slice();
+    let available = this.pot;
+    return (player, amount) => {
+      if (chips) transferChips(chips, player.chips, amount, available, player.stack);
+      available -= amount;
+      player.stack += amount;
+    };
+  }
 
   nextIdx(from) {
     let idx = (from + 1) % this.players.length;
@@ -216,10 +249,7 @@ class Game {
       players: this.players.map(p => ({
         id: p.id, name: p.name, seatIdx: p.seatIdx,
         stack: p.stack, bet: p.bet, totalBet: p.totalBet,
-        ...(p.chipPayments && {
-          chipPayments: p.chipPayments,
-          streetPaymentStart: p.streetPaymentStart,
-        }),
+        ...(p.betChips && { betChips: p.betChips.slice() }),
         folded: p.folded, allIn: p.allIn, lastAction: p.lastAction,
         handRank: this.phase === 'showdown' ? this.showdownRanks?.get(p.id) : undefined,
         connected: p.connected,
@@ -233,6 +263,7 @@ class Game {
       })),
       community: this.community,
       pot: this.pot,
+      ...(this.potChips && { potChips: this.potChips.slice() }),
       dealerIdx: this.dealerIdx,
       sbIdx: this.sbIdx,
       bbIdx: this.bbIdx,
@@ -282,6 +313,7 @@ class Game {
     this.deck = shuffle(createDeck(this.shortDeck));
     this.community = [];
     this.pot = 0;
+    if (this.potChips) this.potChips.fill(0);
     this.winners = [];
     this.refunds = [];
     this.revealedHands = new Set();
@@ -303,10 +335,7 @@ class Game {
       p.folded = p.stack <= 0 || !p.connected;
       p.allIn = false;
       p.lastAction = '';
-      if (this.tableStyle === 'mechanical') {
-        p.chipPayments = [];
-        p.streetPaymentStart = 0;
-      }
+      p.betChips?.fill(0);
     }
 
     const playableCount = this.players.filter(p => p.stack > 0 && p.connected).length;
@@ -349,11 +378,7 @@ class Game {
 
   postBlind(player, amount) {
     const actual = Math.min(amount, player.stack);
-    player.stack -= actual;
-    player.bet = actual;
-    player.totalBet += actual;
-    this.pot += actual;
-    if (actual > 0) player.chipPayments?.push(actual);
+    this.commitBet(player, actual);
     this.roundBet = Math.max(this.roundBet, actual);
     if (player.stack === 0) player.allIn = true;
     const blindType = amount === this.sb ? '小盲' : '大盲';
@@ -459,10 +484,7 @@ class Game {
 
       case 'call': {
         const actual = Math.min(toCall, player.stack);
-        player.stack -= actual;
-        player.bet += actual;
-        player.totalBet += actual;
-        this.pot += actual;
+        this.commitBet(player, actual);
         if (player.stack === 0) player.allIn = true;
         player.lastAction = player.allIn ? 'allin' : 'call';
         actionLogEntry = this.buildActionLogEntry(
@@ -479,10 +501,7 @@ class Game {
         const raiseAmount = Math.max(amount || 0, this.roundBet + this.minRaise);
         const toPay = Math.min(raiseAmount - player.bet, player.stack);
         if (toPay <= 0) return this.scheduleNextAction();
-        player.stack -= toPay;
-        player.bet += toPay;
-        player.totalBet += toPay;
-        this.pot += toPay;
+        this.commitBet(player, toPay);
         this.lastRaise = toPay;
         this.minRaise = Math.max(this.minRaise, toPay);
         this.roundBet = player.bet;
@@ -501,10 +520,7 @@ class Game {
 
       case 'allin': {
         const amt = player.stack;
-        player.bet += amt;
-        player.totalBet += amt;
-        this.pot += amt;
-        player.stack = 0;
+        this.commitBet(player, amt);
         player.allIn = true;
         player.lastAction = 'allin';
         if (player.bet > this.roundBet) {
@@ -524,10 +540,7 @@ class Game {
 
     // Update current player first, then broadcast
     this.currentIdx = this.nextIdx(this.currentIdx);
-    if (actionLogEntry) {
-      if (actionLogEntry.amount > 0) player.chipPayments?.push(actionLogEntry.amount);
-      this.broadcast('game:actionLog', actionLogEntry);
-    }
+    if (actionLogEntry) this.broadcast('game:actionLog', actionLogEntry);
     this.broadcastState();
 
     const inHand = this.inHandPlayers();
@@ -547,7 +560,7 @@ class Game {
     this.clearPhaseTimeout();
     for (const p of this.players) {
       p.bet = 0;
-      if (p.chipPayments) p.streetPaymentStart = p.chipPayments.length;
+      p.betChips?.fill(0);
     }
     this.roundBet = 0;
     this.actedCount = 0;
@@ -674,20 +687,21 @@ class Game {
     }
 
     // 3) Apply winnings and build result
+    const payout = this.payoutFromPot();
     this.winners = [];
     this.refunds = [];
     for (const [pid, amount] of Object.entries(refunds)) {
       if (amount <= 0) continue;
       const player = this.players.find(p => p.id === pid);
       if (!player) continue;
-      player.stack += amount;
+      payout(player, amount);
       this.refunds.push({ id: pid, name: player.name, amount });
     }
 
     for (const [pid, amount] of Object.entries(awards)) {
       if (amount <= 0) continue;
       const e = evals.find(e => e.player.id === pid);
-      e.player.stack += amount;
+      payout(e.player, amount);
       e.player.lastAction = 'winner';
       this.winners.push({
         id: pid, name: e.player.name,
@@ -720,7 +734,8 @@ class Game {
       this.clearActionTimeout();
       this.clearPhaseTimeout();
       const winner = inHand[0];
-      winner.stack += this.pot;
+      const payout = this.payoutFromPot();
+      payout(winner, this.pot);
       winner.lastAction = 'winner';
       this.winners = [{ id: winner.id, name: winner.name, hand: '其他人弃牌', amount: this.pot }];
       this.phase = 'show_choice';

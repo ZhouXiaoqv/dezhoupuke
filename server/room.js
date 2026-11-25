@@ -3,6 +3,7 @@
  */
 
 const { Game, START_STACK } = require('./game');
+const { startingChips } = require('./chips');
 const crypto = require('crypto');
 const logger = require('./logger');
 
@@ -63,6 +64,7 @@ class Room {
       name,
       ws,
       stack: this.startStack,
+      ...(this.tableStyle === 'mechanical' && { chips: startingChips(this.startStack) }),
       ready: isBot,
       isBot,
       connected: true,
@@ -339,6 +341,7 @@ class Room {
       id: p.id,
       name: p.name,
       stack: p.stack,
+      chips: p.chips,
       connected: true,
       isBot: !!p.isBot,
       _username: p._username || null,
@@ -448,6 +451,10 @@ class Room {
         const nextStack = refill ? this.startStack : gp.stack;
         rp.stack = nextStack;
         gp.stack = nextStack;
+        if (gp.chips) {
+          if (refill) gp.chips = startingChips(nextStack);
+          rp.chips = gp.chips.slice();
+        }
         if (refill) {
           gp.folded = false;
           gp.allIn = false;

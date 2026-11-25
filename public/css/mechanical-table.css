@@ -59,6 +59,7 @@
 }
 #table-container.mechanical-table #table .pot-display {
   top: 22%;
+  left: calc(50% - 103px);
   z-index: 14;
   gap: 6px;
   padding: 3px 8px;

@@ -229,13 +229,16 @@ const MechanicalTable = (() => {
     if (snapshot.handNum === finalizedHand) return next;
     const betting = ["preflop", "flop", "turn", "river"].includes(snapshot.phase);
     const potPayments = [];
+    const potCounts = snapshot.potChips?.slice();
     let live = 0;
     snapshot.players.forEach((player, index) => {
       const payments = player.chipPayments ?? [player.totalBet - player.bet, player.bet];
       const streetStart = betting ? (player.streetPaymentStart ?? 1) : payments.length;
-      for (let i = 0; i < streetStart; i++) potPayments.push(payments[i]);
+      if (!potCounts) for (let i = 0; i < streetStart; i++) potPayments.push(payments[i]);
       if (!betting || !player.bet) return;
       live += player.bet;
+      const counts = player.betChips ?? paymentCounts(payments.slice(streetStart));
+      if (potCounts) counts.forEach((count, index) => { potCounts[index] -= count; });
       const seat = table.querySelector(".seat-" + index);
       if (!seat) return;
       const origin = point(seat.querySelector(".seat-info").getBoundingClientRect());
@@ -248,12 +251,12 @@ const MechanicalTable = (() => {
       const at = seat.dataset.mechanicalSlot === "0"
         ? { x: origin.x - 130, y: origin.y - 78 }
         : { x: x - dy / distance * 45 * side, y: y + dx / distance * 45 * side };
-      next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name,
-        payments: payments.slice(streetStart) });
+      next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name, counts });
     });
     const collected = Math.max(0, snapshot.pot - live);
-    if (collected) next.set("pot", { id: "pot", at: center, amount: collected, name: "已收底池", payments: potPayments });
-    for (const group of next.values()) group.inventory = chipInventory(group.payments, group.amount);
+    if (collected) next.set("pot", { id: "pot", at: center, amount: collected, name: "已收底池",
+      counts: potCounts ?? paymentCounts(potPayments) });
+    for (const group of next.values()) group.inventory = chipInventory(group.counts, group.amount);
     return next;
   }
 
@@ -278,13 +281,13 @@ const MechanicalTable = (() => {
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
       const amount = currency.format(group.amount);
-      label.textContent = [amount, ...group.inventory.compressed].join(" · ");
+      label.textContent = amount;
       label.title = group.inventory.description;
       label.setAttribute("aria-label", group.name + " " + amount + "（" + label.title + "）");
     }
   }
 
-  function chipInventory(payments, amount) {
+  function paymentCounts(payments) {
     const counts = DENOMINATIONS.map(() => 0);
     for (let payment of payments) {
       for (const [index, [value]] of DENOMINATIONS.entries()) {
@@ -293,21 +296,36 @@ const MechanicalTable = (() => {
         payment -= count * value;
       }
     }
+    return counts;
+  }
+
+  function chipInventory(counts, amount) {
+    // Custom fractional wagers can pool into a whole unit before a street is collected.
+    const represented = counts.reduce((total, count, index) => total + count * DENOMINATIONS[index][0], 0);
+    if (represented - amount > 1e-8) {
+      counts = counts.slice();
+      counts[counts.length - 1] -= Math.ceil(represented - amount - 1e-8);
+    }
     const description = [];
-    const compressed = [];
     const runs = [];
-    const cap = Math.floor(84 / Math.max(1, counts.filter(count => count > 0).length));
-    let represented = 0;
+    let visibleBudget = 108;
+    const visibleCounts = counts.map((count, index) => ({ count, index })).filter(entry => entry.count > 0)
+      .sort((a, b) => a.count - b.count);
+    const caps = counts.map(() => 0);
+    visibleCounts.forEach(({ count, index }, position) => {
+      caps[index] = Math.min(count, Math.floor(visibleBudget / (visibleCounts.length - position)));
+      visibleBudget -= caps[index];
+    });
+    let displayedValue = 0;
     for (const [index, [value]] of DENOMINATIONS.entries()) {
       const count = counts[index];
       if (!count) continue;
-      represented += value * count;
+      displayedValue += value * count;
       description.push(value + " × " + currency.format(count));
-      if (count > cap) compressed.push(value + "×" + currency.format(count));
-      runs.push({ value, count: Math.min(count, cap) });
+      runs.push({ value, count: caps[index] });
     }
-    if (amount - represented > 1e-8) description.push("余 " + currency.format(amount - represented));
-    return { ...layoutPiles(runs), description: description.join(" · "), compressed };
+    if (amount - displayedValue > 1e-8) description.push("余 " + currency.format(amount - displayedValue));
+    return { ...layoutPiles(runs), description: description.join(" · ") };
   }
 
   function layoutPiles(runs) {
