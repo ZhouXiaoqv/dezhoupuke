@@ -452,7 +452,7 @@ function $(id) {
 }
 function showScreen(id) {
   const outfitButton = $("tableOutfitBtn");
-  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator;
+  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator || MechanicalTable.enabled();
   if (outfitButton.hidden && $("avatarModal").classList.contains("table-outfit")) {
     closeAvatarModal();
   }
@@ -469,6 +469,7 @@ function showScreen(id) {
       requestAnimationFrame(syncActionPanelOffset);
     }
   } else {
+    MechanicalTable.reset();
     window.Pets3D?.clear();
     $(id).classList.add("active");
   }

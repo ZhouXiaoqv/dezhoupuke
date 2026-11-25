@@ -67,6 +67,7 @@ async function run() {
   const created = await waitForMessage(host, 'room:created');
   const code = created.data.code;
   assert(code, `Room created: ${code}`);
+  assert(created.data.tableStyle === 'classic', 'Older clients create the classic table by default');
 
   // Check room exists in list
   host.send('room:list');
@@ -161,6 +162,32 @@ async function run() {
   await sleep(200);
   p4.ws.close();
   p2.ws.close();
+
+  console.log('\n7. Mechanical room style is shared by all clients...');
+  checker.send('room:create', { tableStyle: 'mechanical' });
+  const mechanical = (await waitForMessage(checker, 'room:created')).data;
+  assert(mechanical.tableStyle === 'mechanical', 'Host receives the selected room style');
+  checker.send('room:list');
+  const mechanicalList = (await waitForMessage(checker, 'room:list')).data.rooms;
+  assert(mechanicalList.some(r => r.code === mechanical.code && r.tableStyle === 'mechanical'), 'Lobby advertises the selected room style');
+
+  const guest = await createClient('MechGuest');
+  guest.send('room:join', { code: mechanical.code });
+  const mechanicalJoin = await waitForMessage(guest, 'room:joined');
+  assert(mechanicalJoin.data.tableStyle === 'mechanical', 'Guest receives the same style');
+  guest.send('room:interact', { targetId: checker.playerId, emotionId: 'laugh' });
+  const blocked = await waitForMessage(guest, 'room:error');
+  assert(blocked.data.message.includes('表情'), 'Server disables emotions in mechanical rooms');
+
+  checker.send('room:start');
+  const views = await Promise.all([waitForMessage(checker, 'game:state'), waitForMessage(guest, 'game:state')]);
+  assert(views.every(view => view.data.tableStyle === 'mechanical'), 'Style survives into the live game snapshots');
+  for (const [index, client] of [checker, guest].entries()) {
+    const players = views[index].data.players;
+    assert(players.find(p => p.id === client.playerId).hand.every(Boolean), 'Player receives their own cards');
+    assert(players.find(p => p.id !== client.playerId).hand.every(card => card === null), 'Opponent cards stay private before showdown');
+  }
+  guest.ws.close();
   checker.ws.close();
   await sleep(500);
 

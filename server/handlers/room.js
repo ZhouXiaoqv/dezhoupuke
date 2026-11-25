@@ -36,7 +36,7 @@ function register(ws, ctx) {
 
     if (ws._currentRoom) registry.leaveRoom(ws._playerId);
 
-    const options = data.options || {};
+    const options = { ...data.options, tableStyle: data.tableStyle };
     if (data.gameMode === 'turbo') {
       options.sb = 20; options.bb = 40; options.startStack = 1500;
     } else if (data.gameMode === 'shortdeck') {
@@ -63,7 +63,7 @@ function register(ws, ctx) {
     });
     ws.send(JSON.stringify({
       type: 'room:created',
-      data: { code: room.code, gameMode: data.gameMode || 'classic' },
+      data: { code: room.code, gameMode: data.gameMode || 'classic', tableStyle: room.tableStyle },
     }));
     room.broadcastPlayerList();
   });
@@ -89,7 +89,9 @@ function register(ws, ctx) {
     ws.isSpectator = false;
     const roomPlayer = ws._currentRoom.players.get(ws._playerId);
     if (roomPlayer) roomPlayer._username = ws._currentUser.username;
-    ws.send(JSON.stringify({ type: 'room:joined', data: { code } }));
+    ws.send(JSON.stringify({
+      type: 'room:joined', data: { code, tableStyle: result.room.tableStyle },
+    }));
   });
 
   ws._on('room:spectate', (data) => {
@@ -113,7 +115,9 @@ function register(ws, ctx) {
     ws.isSpectator = true;
     const spectator = ws._currentRoom.spectators.get(ws._playerId);
     if (spectator) spectator._username = ws._currentUser.username;
-    ws.send(JSON.stringify({ type: 'room:joined', data: { code, isSpectator: true } }));
+    ws.send(JSON.stringify({
+      type: 'room:joined', data: { code, isSpectator: true, tableStyle: result.room.tableStyle },
+    }));
   });
 
   ws._on('room:leave', () => {
@@ -164,6 +168,10 @@ function register(ws, ctx) {
     if (!requirePlayer()) return;
     if (!ws._currentRoom) return;
     const room = ws._currentRoom;
+    if (room.tableStyle === 'mechanical') {
+      ws.send(JSON.stringify({ type: 'room:error', data: { message: '机械牌桌关闭了表情互动' } }));
+      return;
+    }
     const targetId = data && data.targetId;
     const emotionId = data && data.emotionId;
     if (!targetId || targetId === ws._playerId) {

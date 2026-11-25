@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="css/components.css" />
     <link rel="stylesheet" href="css/responsive.css" />
     <link rel="stylesheet" href="css/extras.css" />
+    <link rel="stylesheet" href="css/mechanical-table.css" />
   </head>
   <body>
     <!-- ===== LOBBY SCREEN ===== -->
@@ -289,6 +290,12 @@
           </div>
         </div>
 
+        <fieldset class="room-style-picker create-section">
+          <legend class="create-section-label">房间样式</legend>
+          <label><input type="radio" name="tableStyle" value="classic" checked /> 第一版 · 经典牌桌</label>
+          <label><input type="radio" name="tableStyle" value="mechanical" /> 第二版 · 机械牌桌（桌面）</label>
+        </fieldset>
+
         <!-- Action buttons -->
         <div class="create-actions">
           <button class="btn btn-gold" id="createRoomBtn">创建房间</button>
@@ -392,6 +399,12 @@
           <div class="pot-amount" id="potAmount">0</div>
         </div>
         <div class="community" id="community"></div>
+        <div class="mechanical-only mechanical-base" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="mechanical-only mechanical-blinds" id="mechanicalBlinds"></div>
+        <canvas class="mechanical-only mechanical-chips" id="mechanicalChips" aria-hidden="true"></canvas>
+        <div class="mechanical-only mechanical-chip-labels" id="mechanicalChipLabels"></div>
+        <svg class="mechanical-only mechanical-arm" id="mechanicalArm" aria-hidden="true"></svg>
+        <div class="mechanical-only mechanical-moving-cards" id="mechanicalMovingCards" aria-hidden="true"></div>
       </div>
       <div class="turn-label" id="turnLabel">⏰ 轮到你了!</div>
       <div class="hand-rank-label" id="handRankLabel"></div>
@@ -500,6 +513,16 @@
         <button class="settlement-btn" id="settlementClose">继续</button>
       </div>
     </div>
+
+    <section class="mechanical-result" id="mechanicalResult" aria-labelledby="mechanicalResultTitle" hidden>
+      <header>
+        <h2 id="mechanicalResultTitle">本手结算</h2>
+        <strong id="mechanicalResultPot"></strong>
+        <button id="mechanicalResultClose" type="button" aria-label="关闭结算">关闭</button>
+      </header>
+      <div class="mechanical-result-board" id="mechanicalResultBoard" aria-label="公共牌"></div>
+      <ul id="mechanicalResultPlayers"></ul>
+    </section>
 
     <div class="score-alert-overlay" id="scoreAlertOverlay">
       <div class="score-alert-card">
@@ -824,6 +847,7 @@
     <script src="js/admin.js"></script>
     <script src="js/extras.js"></script>
     <script src="js/tableEffects.js"></script>
+    <script src="js/mechanical-table.js"></script>
     <script src="js/game.js"></script>
     <script src="js/actions.js"></script>
     <script src="js/handlers.js"></script>

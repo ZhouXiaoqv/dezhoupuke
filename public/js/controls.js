@@ -9,7 +9,8 @@ $("createRoomBtn").addEventListener("click", async () => {
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
-    Net.send("room:create", { name, gameMode: selectedGameMode });
+    const tableStyle = document.querySelector('input[name="tableStyle"]:checked').value;
+    Net.send("room:create", { name, gameMode: selectedGameMode, tableStyle });
   } catch {
     showError("无法连接到服务器");
   }

@@ -1,5 +1,6 @@
 // ===== NETWORK EVENT HANDLERS =====
 Net.on("room:created", (d) => {
+  MechanicalTable.setStyle(d.tableStyle);
   roomCode = d.code;
   $("roomCodeDisplay").textContent = d.code;
   showScreen("roomScreen");
@@ -7,6 +8,7 @@ Net.on("room:created", (d) => {
 });
 
 Net.on("room:joined", (d) => {
+  MechanicalTable.setStyle(d.tableStyle);
   roomCode = d.code;
   $("roomCodeDisplay").textContent = d.code;
   isSpectator = !!d.isSpectator;
@@ -23,6 +25,7 @@ Net.on("room:joined", (d) => {
 });
 
 Net.on("room:state", (d) => {
+  MechanicalTable.setStyle(d.tableStyle);
   roomCode = d.code;
   $("roomCodeDisplay").textContent = d.code;
   isHost = d.hostId === Net.playerId;
@@ -171,7 +174,7 @@ Net.on("room:list", (d) => {
 
     card.innerHTML = `
 <div class="room-card-left">
-  <div class="room-card-code">${r.code} ${modeBadge}</div>
+  <div class="room-card-code">${r.code} ${modeBadge} ${r.tableStyle === "mechanical" ? '<span class="game-mode-badge">机械</span>' : ""}</div>
   <div class="room-card-host">房主: ${r.hostName}</div>
 </div>
 <div class="room-card-right">
@@ -262,6 +265,7 @@ Net.on("game:handStart", (d) => {
   hideActions();
   hideShowHandBar();
   if (typeof hideNextHandBar === "function") hideNextHandBar();
+  MechanicalTable.startHand(d.handNum);
   toast(`第 ${d.handNum} 手开始`);
   // Deal sounds staggered
   for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
@@ -287,7 +291,7 @@ Net.on("game:showdown", (d) => {
     .join(", ");
   toast(`摊牌: ${winners}`);
   showLogResult(d.winners);
-  window.Pets3D?.celebrateWinners(d.winners);
+  if (!MechanicalTable.enabled()) window.Pets3D?.celebrateWinners(d.winners);
   // Win celebration particles
   setTimeout(() => {
     for (const w of d.winners) {
@@ -308,14 +312,16 @@ Net.on("game:handEnd", (d) => {
     .join(", ");
   toast(winners ? `本手结束: ${winners}` : "本手结束");
   showLogResult(d.winners);
-  window.Pets3D?.celebrateWinners(d.winners);
+  if (!MechanicalTable.enabled()) window.Pets3D?.celebrateWinners(d.winners);
   const myId = Net.playerId;
   const iWon = d.winners.some((w) => w.id === myId);
   if (iWon) SFX.win();
   else SFX.lose();
 
   // Show settlement overlay
-  if (d.winners.length > 0) {
+  if (MechanicalTable.enabled()) {
+    MechanicalTable.showResult(gameState, d);
+  } else if (d.winners.length > 0) {
     showSettlement(d.winners);
     if (iWon) {
       setTimeout(() => {

@@ -193,6 +193,7 @@ document.addEventListener("visibilitychange", async () => {
     if (d.resume) {
       roomCode = d.resume.code || "";
       isSpectator = !!d.resume.isSpectator;
+      MechanicalTable.setStyle(d.resume.tableStyle);
       $("roomCodeDisplay").textContent = roomCode;
       $("spectatorBadge").classList.toggle("visible", isSpectator);
       showScreen(d.resume.gameRunning ? "table" : "roomScreen");

@@ -20,6 +20,7 @@ class Room {
     this.sb = options.sb || 10;
     this.bb = options.bb || 20;
     this.gameMode = options.gameMode || 'classic';
+    this.tableStyle = options.tableStyle === 'mechanical' ? 'mechanical' : 'classic';
     this.shortDeck = options.shortDeck || false;
     this.allInOrFold = options.allInOrFold || false;
     this.userStore = options.userStore || null;
@@ -87,7 +88,7 @@ class Room {
 
     ws?.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, tableStyle: this.tableStyle },
     }));
 
     logger.info('ROOM', 'player_join', {
@@ -156,7 +157,7 @@ class Room {
   sendSpectatorState(id, ws) {
     ws.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, isSpectator: true },
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, tableStyle: this.tableStyle, isSpectator: true },
     }));
 
     ws.send(JSON.stringify({ type: 'room:players', data: this.getPlayerList() }));
@@ -232,7 +233,7 @@ class Room {
       if (first.ws && first.ws.readyState === 1) {
         first.ws.send(JSON.stringify({
           type: 'room:state',
-          data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
+          data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, tableStyle: this.tableStyle },
         }));
       }
     }
@@ -271,7 +272,7 @@ class Room {
 
     ws.send(JSON.stringify({
       type: 'room:state',
-      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning },
+      data: { code: this.code, hostId: this.hostId, gameRunning: this.gameRunning, tableStyle: this.tableStyle },
     }));
     this.broadcastPlayerList();
     this.broadcastScoreboard();
@@ -355,6 +356,7 @@ class Room {
       shortDeck: this.shortDeck,
       allInOrFold: this.allInOrFold,
       gameMode: this.gameMode,
+      tableStyle: this.tableStyle,
     });
     const game = this.game;
     game.roomCode = this.code;        // inject roomCode for gameLogger
@@ -806,6 +808,7 @@ class RoomRegistry {
       gameRunning: room.gameRunning,
       hostName: room.players.get(room.hostId)?.name || 'Unknown',
       gameMode: room.gameMode || 'classic',
+      tableStyle: room.tableStyle,
     }));
   }
 

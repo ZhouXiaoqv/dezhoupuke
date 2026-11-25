@@ -108,6 +108,7 @@ class Game {
     this.shortDeck = options.shortDeck || false;
     this.allInOrFold = options.allInOrFold || false;
     this.gameMode = options.gameMode || 'classic';
+    this.tableStyle = options.tableStyle === 'mechanical' ? 'mechanical' : 'classic';
 
     this.players = players.map((p, i) => ({
       id: p.id,
@@ -216,6 +217,7 @@ class Game {
         id: p.id, name: p.name, seatIdx: p.seatIdx,
         stack: p.stack, bet: p.bet, totalBet: p.totalBet,
         folded: p.folded, allIn: p.allIn, lastAction: p.lastAction,
+        handRank: this.phase === 'showdown' ? this.showdownRanks?.get(p.id) : undefined,
         connected: p.connected,
         avatar: p.avatar || '🦊',
         avatarColor: p.avatarColor || null,
@@ -235,6 +237,9 @@ class Game {
       roundBet: this.roundBet,
       minRaise: this.minRaise,
       gameMode: this.gameMode,
+      tableStyle: this.tableStyle,
+      sb: this.sb,
+      bb: this.bb,
       allInOrFold: this.allInOrFold,
       handNum: this.handNum,
       winners: this.winners,
@@ -674,6 +679,8 @@ class Game {
         hand: e.eval.name, amount,
       });
     }
+
+    this.showdownRanks = new Map(evals.map(({ player, eval: result }) => [player.id, result.name]));
 
     // Sort winners by amount descending for display
     this.winners.sort((a, b) => b.amount - a.amount);

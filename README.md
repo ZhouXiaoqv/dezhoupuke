@@ -72,7 +72,8 @@ dezhoupuke/
 │   │   ├── action.css          # 操作面板、音效开关、互动
 │   │   ├── components.css      # 头像、排行榜、成就、弹窗
 │   │   ├── responsive.css      # 移动端适配
-│   │   └── extras.css          # 头像选择、场景切换、操作记录
+│   │   ├── extras.css          # 头像选择、场景切换、操作记录
+│   │   └── mechanical-table.css # 第二版桌面牌桌
 │   ├── assets/cardbacks/       # 图片牌背资源（onepiece、cute 等主题）
 │   ├── assets/emotions/        # 局内表情 SVG 部件与面板图标
 │   └── js/                     # JavaScript 模块
@@ -84,6 +85,7 @@ dezhoupuke/
 │       ├── lobby.js            # 大厅功能（筹码动画、互动面板、头像）
 │       ├── extras.js           # 场景选择、粒子效果、牌型评估
 │       ├── game.js             # 游戏渲染（座位、社区牌、状态）
+│       ├── mechanical-table.js # 机械臂、筹码动画、单手结算
 │       ├── actions.js          # 操作面板（加注、弃牌）
 │       ├── handlers.js         # WebSocket 事件处理
 │       ├── controls.js         # 按钮交互、计时器、结算
@@ -124,7 +126,7 @@ dezhoupuke/
 | `user:setAvatar` | `{ avatar, color }` | 设置头像 |
 | `user:setCardBack` | `{ id }` | 装备已拥有牌背 |
 | `shop:buyCardBack` | `{ id }` | 使用金币购买牌背 |
-| `room:create` | `{ gameMode }` | 创建房间 |
+| `room:create` | `{ gameMode, tableStyle }` | 创建房间，样式为 `classic`（默认）或 `mechanical` |
 | `room:join` | `{ code }` | 加入房间 |
 | `room:spectate` | `{ code }` | 观战 |
 | `room:leave` | - | 离开房间 |
@@ -307,6 +309,12 @@ grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 - **持久化**: JSON 文件存储
 - **音效**: Web Audio API 合成
 - **部署**: Docker / PM2 / Nginx 反向代理
+
+## 房间样式
+
+创建房间时可以选择第一版经典牌桌或第二版机械牌桌。机械牌桌面向桌面，三段 SVG 机械臂负责发牌、弃牌回收，Canvas 筹码随服务端的本轮下注与底池状态散开、堆叠和收池。各玩家的视角都把自己的座位放在桌底，并保持顺时针座次。
+
+筹码面值为 5、10、20、50、100，金额标签始终显示完整金额。面值无法表示的余数和大量筹码的数量可从标签查看。第二版使用固定占位牌背，关闭表情互动和座位宠物，单手结束后显示公共牌、已公开手牌、获胜金额及退回筹码。
 
 ## 3D Seat Pets
 

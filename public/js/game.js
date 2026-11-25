@@ -267,7 +267,7 @@ function playActionSound(action) {
 function playBetFeedback(entry) {
   const allIn = ["allin", "allinCall", "allinRaise"].includes(entry.action);
   const bigRaise = entry.action === "raise" && entry.raiseBy >= 500;
-  if (allIn || bigRaise) playTableLights(entry.playerId, allIn);
+  if (!MechanicalTable.enabled() && (allIn || bigRaise)) playTableLights(entry.playerId, allIn);
   if (bigRaise) SFX.bigRaise();
   else playActionSound(entry.action);
 }
@@ -282,7 +282,7 @@ $("previewAllIn").onclick = () => previewBetFeedback("allin");
 
 function handleActionLog(entry) {
   if (!entry) return;
-  window.Pets3D?.handleAction(entry);
+  if (!MechanicalTable.enabled()) window.Pets3D?.handleAction(entry);
   addLogPhaseIfNeeded(entry.phase);
   playBetFeedback(entry);
   addLogEntry(
@@ -294,7 +294,7 @@ function handleActionLog(entry) {
       ? "allin"
       : entry.action || "action",
   );
-  if ((entry.amount || 0) > 0) bumpPot();
+  if (!MechanicalTable.enabled() && (entry.amount || 0) > 0) bumpPot();
 }
 
 function isMyTurnState(state = gameState) {
@@ -405,6 +405,16 @@ function renderScoreboard(scores = []) {
 function renderGame(state) {
   gameState = state;
   const table = $("table");
+  const mechanical = MechanicalTable.setStyle(state.tableStyle);
+  const viewerId = Net.playerId || "";
+  const viewerIndex = mechanical ? Math.max(0, state.players.findIndex((p) => p.id === viewerId)) : 0;
+  const viewerChanged = mechanical && table.dataset.mechanicalViewer !== undefined &&
+    table.dataset.mechanicalViewer !== viewerId;
+  if (mechanical) {
+    table.dataset.mechanicalViewer = viewerId;
+    if (viewerChanged) MechanicalTable.reset();
+    else MechanicalTable.beforeRender(state);
+  }
 
   // Detect phase transitions for sounds/animations
   const phaseChanged = state.phase !== prevPhase;
@@ -414,7 +424,7 @@ function renderGame(state) {
   if (phaseChanged) addLogPhaseIfNeeded(state.phase);
 
   // Pot bump on increase
-  if (potGrew && prevPot > 0) bumpPot();
+  if (!mechanical && potGrew && prevPot > 0) bumpPot();
 
   // Phase change sounds
   if (phaseChanged) {
@@ -443,7 +453,7 @@ function renderGame(state) {
   // Only remove seats/dealer/blinds if player count changed (prevents flickering)
   const existingSeats = table.querySelectorAll(".seat");
   const playerCountChanged =
-    existingSeats.length !== state.players.length ||
+    viewerChanged || existingSeats.length !== state.players.length ||
     [...existingSeats].some(
       (el, i) => el.dataset.playerId !== state.players[i]?.id,
     );
@@ -505,6 +515,11 @@ function renderGame(state) {
       seat.dataset.playerId = p.id;
     }
 
+    if (mechanical) {
+      const visualIndex = (i - viewerIndex + state.players.length) % state.players.length;
+      MechanicalTable.positionSeat(seat, visualIndex, state.players.length);
+    }
+
     // Update classes
     seat.classList.toggle("folded", !!p.folded);
     seat.classList.toggle("disconnected", !p.connected);
@@ -532,7 +547,7 @@ function renderGame(state) {
     // For other players: compute card signature to detect changes
     let otherCardSig = "";
     if (p.id !== Net.playerId) {
-      if (p.hand && p.hand[0]) {
+      if (p.hand?.[0] && (!mechanical || !p.folded)) {
         otherCardSig =
           "f:" +
           p.hand
@@ -540,7 +555,7 @@ function renderGame(state) {
             .map((c) => c.suit + "-" + c.rank)
             .join(",");
       } else if (!p.folded && state.phase !== "idle") {
-        otherCardSig = "b:2:" + (p.cardBack || DEFAULT_CARD_BACK);
+        otherCardSig = "b:2:" + (mechanical ? "mechanical" : p.cardBack || DEFAULT_CARD_BACK);
       } else {
         otherCardSig = "e";
       }
@@ -550,7 +565,11 @@ function renderGame(state) {
         ? otherCardSig !== (window._prevOtherHands[p.id] || "")
         : false;
     const isMySeat = p.id === Net.playerId;
-    const hasMyCards = isMySeat && !!p.hand?.[0];
+    const hasMyCards = isMySeat && !!p.hand?.[0] && (!mechanical || !p.folded);
+    if (mechanical && isMySeat && !hasMyCards && cardsEl) {
+      cardsEl.remove();
+      cardsEl = null;
+    }
     const needsCardRebuild =
       (!cardsEl && (!isMySeat || hasMyCards)) ||
       (isMySeat ? hasMyCards && myHandChanged : otherCardsChanged);
@@ -564,16 +583,18 @@ function renderGame(state) {
         for (const card of p.hand || []) {
           if (card) {
             const el = createCardEl(card);
-            if (myHandChanged) el.classList.add("seat-card-deal");
+            if (!mechanical && myHandChanged) el.classList.add("seat-card-deal");
             cardsEl.appendChild(el);
           }
         }
-      } else if (p.hand && p.hand[0]) {
+      } else if (p.hand?.[0] && (!mechanical || !p.folded)) {
         const isNew = !cardsDiv;
         for (const card of p.hand) {
           const el = card
             ? createCardEl(card)
-            : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
+            : mechanical
+              ? MechanicalTable.cardBack()
+              : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
           if (isNew || otherCardsChanged)
             el.classList.add("card-flip-in");
           cardsEl.appendChild(el);
@@ -581,8 +602,8 @@ function renderGame(state) {
       } else if (!p.folded && state.phase !== "idle") {
         const isNew = !cardsDiv;
         for (let j = 0; j < 2; j++) {
-          const el = createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
-          if (isNew || otherCardsChanged) {
+          const el = mechanical ? MechanicalTable.cardBack() : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
+          if (!mechanical && (isNew || otherCardsChanged)) {
             el.classList.add("seat-card-deal");
             el.style.animationDelay = `${j * 0.15}s`;
           }
@@ -650,8 +671,8 @@ function renderGame(state) {
     medallion.textContent = seatAvatar;
     medallion.style.borderColor = seatColor;
     infoEl.querySelector(".seat-player-name").textContent = p.name + (p.id === Net.playerId ? " (你)" : "");
-    infoEl.title = "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
-    infoEl.onclick = (e) => {
+    infoEl.title = mechanical ? "" : "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
+    infoEl.onclick = mechanical ? null : (e) => {
       e.stopPropagation();
       showInteractPanel(p.id, seat, p);
     };
@@ -664,6 +685,8 @@ function renderGame(state) {
       } else {
         seat.appendChild(infoEl);
         seat.appendChild(cardsEl);
+      }
+      if (!mechanical && !isMySeat) {
         // Add interact trigger button for other players
         const trigBtn = document.createElement("div");
         trigBtn.className = "interact-trigger";
@@ -719,7 +742,7 @@ function renderGame(state) {
 
   // Move my hand cards outside the table (fixed at bottom of screen, Dou Dizhu style)
   const myHandEl = table.querySelector(".my-hand");
-  if (myHandEl) {
+  if (!mechanical && myHandEl) {
     const container = $("table-container");
     container.appendChild(myHandEl);
   }
@@ -770,12 +793,17 @@ function renderGame(state) {
   const comm = $("community");
   for (let i = 0; i < 5; i++) {
     const card = state.community[i];
-    const key = JSON.stringify([state.handNum, card ? [card.rank, card.suit] : viewerCardBack]);
+    const backKey = mechanical ? "mechanical-slot" : viewerCardBack;
+    const key = JSON.stringify([state.handNum, card ? [card.rank, card.suit] : backKey]);
     const previous = comm.children[i];
     if (previous?.dataset.cardKey === key) continue;
-    const el = card ? createCardEl(card) : createCardBackEl(viewerCardBack);
+    const el = card
+      ? createCardEl(card)
+      : mechanical
+        ? MechanicalTable.cardBack(true)
+        : createCardBackEl(viewerCardBack);
     el.dataset.cardKey = key;
-    if (card && communityGrew && i >= previousCardCount) {
+    if (!mechanical && card && communityGrew && i >= previousCardCount) {
       el.classList.add("card-flip-in");
       el.style.animationDelay = `${(i - previousCardCount) * 0.2}s`;
     }
@@ -801,10 +829,14 @@ function renderGame(state) {
 
   // Hand rank label
   updateHandLabel(state);
-  requestAnimationFrame(() => {
-    if (gameState === state && $("table-container").classList.contains("active"))
-      window.Pets3D?.sync(state);
-  });
+  if (mechanical) {
+    MechanicalTable.render(state);
+  } else {
+    requestAnimationFrame(() => {
+      if (gameState === state && $("table-container").classList.contains("active"))
+        window.Pets3D?.sync(state);
+    });
+  }
 }
 
 function updateHandLabel(state) {

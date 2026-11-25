@@ -29,6 +29,7 @@ function register(ws, ctx) {
       code: room.code,
       isSpectator: !!isSpectator,
       gameRunning: !!room.gameRunning,
+      tableStyle: room.tableStyle,
     };
   }
 
