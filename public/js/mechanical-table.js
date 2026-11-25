@@ -1,6 +1,5 @@
 // The mechanical table consumes the same filtered game snapshots as the classic table.
 const MechanicalTable = (() => {
-  const SVG_NS = "http://www.w3.org/2000/svg";
   const SLOTS = {
     2: [0, 5], 3: [0, 4, 5], 4: [0, 2, 5, 7], 5: [0, 2, 4, 5, 7],
     6: [0, 1, 3, 4, 5, 7], 7: [0, 1, 3, 4, 5, 6, 8],
@@ -17,49 +16,38 @@ const MechanicalTable = (() => {
   const currency = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12 });
   const canvas = $("mechanicalChips");
   const context = canvas.getContext("2d");
-  const svg = $("mechanicalArm");
   const moving = $("mechanicalMovingCards");
   const labelLayer = $("mechanicalChipLabels");
   const result = $("mechanicalResult");
   const table = $("table");
   const container = $("table-container");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-  const queue = [];
   const wagers = new Map();
   const labels = new Map();
-  let armTip, armJob, park, sweep, frame, state, handToDeal, finalizedHand, bounds, center;
+  let sweep, frame, state, handToDeal, finalizedHand, bounds, center;
   let groups = new Map();
-
-  svg.innerHTML =
-    '<defs><linearGradient id="armSteel" x2="0%" y2="100%"><stop stop-color="#fffaf0"/><stop offset=".49" stop-color="#e4dacc"/><stop offset="1" stop-color="#ad9d88"/></linearGradient></defs>';
-  const links = Array.from({ length: 3 }, (_, index) => {
-    const group = document.createElementNS(SVG_NS, "g");
-    const thickness = [29, 22, 14][index];
-    group.innerHTML = [
-      '<rect class="arm-shadow" x="-6" y="' + (4 - thickness / 2) + '" height="' + thickness + '" rx="6"/>',
-      '<rect class="arm-link" x="-6" y="' + (-thickness / 2) + '" height="' + thickness + '" rx="6"/>',
-      '<rect class="arm-rail" x="8" y="' + (-thickness / 3) + '" height="2.5" rx="1"/>',
-      '<rect class="arm-rail" x="8" y="' + (thickness / 4) + '" height="2.5" rx="1"/>',
-    ].join("");
-    svg.append(group);
-    return group;
-  });
-  const hubs = [21, 15, 11, 7].map(radius => {
-    const group = document.createElementNS(SVG_NS, "g");
-    group.innerHTML = '<circle class="arm-hub" r="' + radius + '"/><circle class="arm-hub-inner" r="' +
-      radius * .64 + '"/><circle class="arm-pin" r="' + radius * .21 + '"/>';
-    svg.append(group);
-    return group;
+  let chipsDirty = true;
+  const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), $("mechanicalBase"));
+  const arm = createMechanicalArmActions({
+    rig,
+    layer: moving,
+    presets: MechanicalArmPresets.active,
+    bay: () => ({ x: bounds.width / 2, y: 43, angle: 0, lift: 4 }),
+    home: () => ({ x: bounds.width / 2 + 72, y: 40, angle: 24, lift: 0 }),
   });
 
   function enabled() {
     return container.classList.contains("mechanical-table");
   }
 
+  function animatesArm() {
+    return enabled() && !reduced.matches;
+  }
+
   function reset() {
     cancelAnimationFrame(frame);
-    frame = armJob = armTip = park = sweep = state = handToDeal = finalizedHand = bounds = null;
-    queue.length = 0;
+    frame = sweep = state = handToDeal = finalizedHand = bounds = null;
+    arm.reset();
     wagers.clear();
     labels.clear();
     groups.clear();
@@ -125,7 +113,7 @@ const MechanicalTable = (() => {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return false;
     if (bounds?.width !== rect.width || bounds?.height !== rect.height) {
-      svg.setAttribute("viewBox", "0 0 " + rect.width + " " + rect.height);
+      rig.resize(rect.width, rect.height);
     }
     bounds = rect;
     center = { x: rect.width / 2, y: rect.height * .35 };
@@ -140,7 +128,7 @@ const MechanicalTable = (() => {
   }
 
   function beforeRender(next) {
-    if (!state || state.handNum !== next.handNum || reduced.matches || !measure()) return;
+    if (!state || state.handNum !== next.handNum || !animatesArm() || !measure()) return;
     for (const player of next.players) {
       const previousIndex = state.players.findIndex(previous => previous.id === player.id);
       if (!player.folded || state.players[previousIndex]?.folded !== false) continue;
@@ -148,16 +136,68 @@ const MechanicalTable = (() => {
       if (!originals.length) continue;
       const ghosts = originals.map(original => {
         const rect = original.getBoundingClientRect();
-        return { node: original.cloneNode(true), at: point(rect), width: rect.width };
+        const node = original.cloneNode(true);
+        const at = point(rect);
+        node.classList.remove("mechanical-pending", "seat-card-deal", "card-flip-in");
+        node.classList.add("mechanical-carry");
+        node.style.width = rect.width + "px";
+        placeEffect(node, at);
+        return { node, at };
       });
-      queue.push({ kind: "fold", ghosts });
+      let spark;
+      const cleanup = () => {
+        for (const { node } of ghosts) node.remove();
+        spark?.remove();
+      };
+      arm.enqueue("fold", {
+        target: ghosts[0].at,
+        onRelease({ target }) {
+          spark = document.createElement("i");
+          spark.className = "mechanical-spark";
+          placeEffect(spark, target);
+          spark.animate([
+            { opacity: 0, scale: .4 }, { opacity: 1, scale: .9, offset: .34 }, { opacity: 0, scale: 1.5 },
+          ], { duration: 340, fill: "forwards" });
+          for (const { node } of ghosts) {
+            node.animate([{ opacity: 1, scale: 1 }, { opacity: 0, scale: .15 }],
+              { duration: 340, easing: "ease-in", fill: "forwards" });
+          }
+        },
+        onComplete: cleanup,
+        onCancel: cleanup,
+      });
     }
   }
 
-  function queueDeal(cards, duration) {
-    if (reduced.matches || !cards.length) return;
-    cards.forEach(card => card.classList.add("mechanical-pending"));
-    queue.push({ kind: "deal", cards, duration });
+  function placeEffect(node, { x, y }) {
+    node.style.left = x + "px";
+    node.style.top = y + "px";
+    moving.append(node);
+  }
+
+  function queueCards(action, cards) {
+    if (!animatesArm()) return;
+    arm.enqueue(action, cards.map(card => {
+      card.classList.add("mechanical-pending");
+      return {
+        target: () => point(card.getBoundingClientRect()),
+        valid: () => card.isConnected,
+        payload() {
+          const back = cardBack();
+          back.style.width = card.getBoundingClientRect().width + "px";
+          return back;
+        },
+        onRelease: () => SFX.deal(),
+        onLand() {
+          card.classList.remove("mechanical-pending");
+          if (action === "reveal") {
+            card.classList.add("card-flip-in");
+            SFX.flip();
+          }
+        },
+        onCancel: () => card.classList.remove("mechanical-pending"),
+      };
+    }));
   }
 
   function render(next) {
@@ -168,14 +208,13 @@ const MechanicalTable = (() => {
     if (handToDeal === next.handNum) {
       const hands = next.players.map((player, index) => player.folded ? [] :
         [...table.querySelectorAll(".seat-" + index + " :is(.my-hand,.seat-cards) .card")]);
-      for (let round = 0; round < 2; round++) {
-        for (const hand of hands) if (hand[round]) queueDeal([hand[round]], 300);
-      }
+      const cards = [0, 1].flatMap(round => hands.map(hand => hand[round]).filter(Boolean));
+      queueCards("deal", cards);
       handToDeal = null;
     }
     if (sameHand && next.community.length > last.community.length) {
-      const slots = $("community").children;
-      for (let i = last.community.length; i < next.community.length; i++) queueDeal([slots[i]], 420);
+      const slots = [...$("community").children];
+      queueCards("reveal", slots.slice(last.community.length, next.community.length));
     }
     $("mechanicalBlinds").textContent = next.sb && next.bb ? "盲注 " + next.sb + " / " + next.bb : "";
     const oldGroups = groups;
@@ -219,6 +258,7 @@ const MechanicalTable = (() => {
   }
 
   function syncLabels() {
+    chipsDirty = true;
     for (const [id, label] of labels) {
       if (!groups.has(id)) {
         label.remove();
@@ -447,118 +487,13 @@ const MechanicalTable = (() => {
     }
   }
 
-  function pose(target) {
-    const root = { x: bounds.width / 2, y: 22 };
-    const travel = Math.hypot(target.x - root.x, target.y - root.y);
-    const bearing = Math.atan2(target.y - root.y, target.x - root.x);
-    // Telescoping links keep the parked mechanism compact and reach distant seats.
-    const first = 91 + travel * .27;
-    const second = 88 + travel * .25;
-    const third = 26 + travel * .16;
-    const wrist = { x: target.x - Math.cos(bearing + .22) * third,
-      y: target.y - Math.sin(bearing + .22) * third };
-    const dx = wrist.x - root.x, dy = wrist.y - root.y;
-    const distance = Math.max(1, Math.hypot(dx, dy));
-    const projection = (first * first + distance * distance - second * second) / (2 * first * distance);
-    const elbowAngle = Math.atan2(dy, dx) - Math.acos(Math.max(-1, Math.min(1, projection)));
-    const elbow = { x: root.x + Math.cos(elbowAngle) * first, y: root.y + Math.sin(elbowAngle) * first };
-    const joints = [root, elbow, wrist, target];
-    links.forEach((link, index) => {
-      const a = joints[index], b = joints[index + 1];
-      const angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-      link.setAttribute("transform", "translate(" + a.x + " " + a.y + ") rotate(" + angle + ")");
-      const length = Math.hypot(b.x - a.x, b.y - a.y);
-      for (const rect of link.children) rect.setAttribute("width", Math.max(0, length - 2 * Number(rect.getAttribute("x"))));
-    });
-    hubs.forEach((hub, index) => hub.setAttribute("transform", "translate(" + joints[index].x + " " + joints[index].y + ")"));
-    armTip = target;
-  }
-
-  function place(node, at) {
-    node.style.left = at.x + "px";
-    node.style.top = at.y + "px";
-  }
-
-  function beginJob(now, dock) {
-    while (queue.length) {
-      const job = queue.shift();
-      if (job.kind === "fold") {
-        const at = job.ghosts[0].at;
-        for (const ghost of job.ghosts) {
-          ghost.node.classList.remove("mechanical-pending");
-          ghost.node.classList.add("mechanical-carry");
-          ghost.node.style.width = ghost.width + "px";
-          place(ghost.node, ghost.at);
-          moving.append(ghost.node);
-        }
-        const spark = document.createElement("i");
-        spark.className = "mechanical-spark";
-        place(spark, at);
-        moving.append(spark);
-        return { ...job, from: armTip || dock, at, spark, start: now, duration: 820 };
-      }
-      const cards = job.cards.filter(card => card.isConnected);
-      if (!cards.length) continue;
-      const rect = cards[0].getBoundingClientRect();
-      const payload = cardBack();
-      payload.classList.add("mechanical-carry");
-      payload.style.width = rect.width + "px";
-      moving.append(payload);
-      return { ...job, cards, from: armTip || dock, at: point(rect), payload, start: now };
-    }
-    return null;
-  }
-
-  function drawArm(now) {
-    const dock = { x: bounds.width / 2 + 72, y: 40 };
-    armJob ||= beginJob(now, dock);
-    if (!armJob) {
-      if (armTip && Math.hypot(armTip.x - dock.x, armTip.y - dock.y) > 1) {
-        park ||= { from: armTip, start: now };
-        const progress = Math.min(1, (now - park.start) / 460);
-        pose(lerp(park.from, dock, ease(progress)));
-        if (progress < 1) return true;
-      }
-      park = null;
-      pose(dock);
-      return false;
-    }
-    park = null;
-    const job = armJob;
-    const t = Math.min(1, (now - job.start) / job.duration);
-    if (job.kind === "fold") {
-      pose(lerp(job.from, job.at, ease(Math.min(1, t / .56))));
-      const burn = Math.max(0, (t - .55) / .45);
-      job.spark.style.opacity = Math.sin(burn * Math.PI);
-      job.spark.style.scale = String(.4 + burn * 1.2);
-      for (const { node } of job.ghosts) {
-        node.style.opacity = 1 - burn;
-        node.style.scale = String(1 - burn * .85);
-      }
-      if (t === 1) {
-        job.ghosts.forEach(({ node }) => node.remove());
-        job.spark.remove();
-      }
-    } else {
-      const slot = { x: bounds.width / 2, y: 43 };
-      const at = t < .28 ? lerp(job.from, slot, ease(t / .28))
-        : lerp(slot, job.at, ease(Math.max(0, Math.min(1, (t - .34) / .60))));
-      pose(at);
-      place(job.payload, at);
-      job.payload.style.visibility = t < .28 ? "hidden" : "visible";
-      if (t === 1) {
-        job.payload.remove();
-        job.cards.forEach(card => card.classList.remove("mechanical-pending"));
-      }
-    }
-    if (t === 1) armJob = null;
-    return true;
-  }
-
   function draw(now) {
     frame = null;
-    drawChips(now);
-    if (drawArm(now) || sweep || wagers.size) nextFrame();
+    if (chipsDirty || sweep || wagers.size) {
+      drawChips(now);
+      chipsDirty = false;
+    }
+    if (arm.tick(now) || sweep || wagers.size) nextFrame();
   }
 
   function showResult(snapshot, { winners = [], refunds = [], showedPlayerId } = {}) {
@@ -605,5 +540,11 @@ const MechanicalTable = (() => {
     nextFrame();
   }).observe(table);
 
-  return { enabled, setStyle, reset, startHand, positionSeat, cardBack, beforeRender, render, showResult };
+  reduced.addEventListener("change", () => {
+    if (!enabled()) return;
+    arm.reset();
+    nextFrame();
+  });
+
+  return { enabled, animatesArm, setStyle, reset, startHand, positionSeat, cardBack, beforeRender, render, showResult };
 })();

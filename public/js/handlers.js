@@ -267,8 +267,9 @@ Net.on("game:handStart", (d) => {
   if (typeof hideNextHandBar === "function") hideNextHandBar();
   MechanicalTable.startHand(d.handNum);
   toast(`第 ${d.handNum} 手开始`);
-  // Deal sounds staggered
-  for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
+  if (!MechanicalTable.animatesArm()) {
+    for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
+  }
   // Reset tracking
   prevPhase = "";
   prevCommunityLen = 0;

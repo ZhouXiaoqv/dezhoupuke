@@ -85,7 +85,10 @@ dezhoupuke/
 │       ├── lobby.js            # 大厅功能（筹码动画、互动面板、头像）
 │       ├── extras.js           # 场景选择、粒子效果、牌型评估
 │       ├── game.js             # 游戏渲染（座位、社区牌、状态）
-│       ├── mechanical-table.js # 机械臂、筹码动画、单手结算
+│       ├── mechanical-arm-rig.js # 逆向运动学、关节和软投影
+│       ├── mechanical-arm-presets.js # 动作阶段、节拍和硬件反馈
+│       ├── mechanical-arm-actions.js # 动作队列、挂载物和释放交接
+│       ├── mechanical-table.js # 牌桌事件、筹码动画、单手结算
 │       ├── actions.js          # 操作面板（加注、弃牌）
 │       ├── handlers.js         # WebSocket 事件处理
 │       ├── controls.js         # 按钮交互、计时器、结算
@@ -315,6 +318,8 @@ grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 创建房间时可以选择第一版经典牌桌或第二版机械牌桌。机械牌桌面向桌面，三段 SVG 机械臂负责发牌、弃牌回收，Canvas 筹码随服务端的本轮下注与底池状态散开、堆叠和收池。各玩家的视角都把自己的座位放在桌底，并保持顺时针座次。
 
 筹码面值为 1、5、10、20、50、100。每次实际投入从大到小拆分，收池时保留原有面值。金额标签显示总额及筹码明细，大量筹码时也会标注实际枚数。第二版使用固定占位牌背，关闭表情互动和座位宠物，单手结束后显示公共牌、已公开手牌、获胜金额及退回筹码。
+
+机械臂通过 `arm.enqueue(name, task)` 或 `arm.enqueue(name, tasks)` 调度发手牌、翻公共牌和弃牌。任务提供桌面坐标或坐标回调，可附加 DOM 道具以及抓取、携带、释放和落地回调。预设组合取物、摆出、刹停、悬停和释放，并指定底座灯色、仓门和平滑归位参数。`MechanicalArmPresets.giftExample` 演示悬停和轻抛落地，可注册到独立的控制器验证扩展接口。
 
 ## 3D Seat Pets
 

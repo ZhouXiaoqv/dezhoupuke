@@ -428,11 +428,7 @@ function renderGame(state) {
 
   // Phase change sounds
   if (phaseChanged) {
-    if (
-      state.phase === "flop" ||
-      state.phase === "turn" ||
-      state.phase === "river"
-    ) {
+    if (!MechanicalTable.animatesArm() && ["flop", "turn", "river"].includes(state.phase)) {
       // Card flip sounds with stagger
       const newCards = state.community.length - prevCommunityLen;
       for (let i = 0; i < newCards; i++) {

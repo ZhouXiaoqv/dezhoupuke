@@ -175,7 +175,9 @@
   border-radius: 3px;
   background: #5a5145;
   box-shadow: 0 2px #f4e9d7, inset 0 2px #352d25;
+  transition: height 110ms ease, background-color 110ms ease;
 }
+.mechanical-base[data-hatch="open"]::after { height: 17px; background: #29231e; }
 .mechanical-base i {
   position: absolute;
   bottom: 12px;
@@ -188,6 +190,10 @@
 }
 .mechanical-base i:nth-child(2) { left: 26px; background: radial-gradient(circle at 40% 36%, #ffc889, #a26f37); }
 .mechanical-base i:nth-child(3) { left: auto; right: 13px; background: radial-gradient(circle at 40% 36%, #eee0c8, #a7967b); }
+.mechanical-base-active i:first-child {
+  background: radial-gradient(circle at 38% 30%, #fff9df, var(--arm-lamp) 53%, #4e463a);
+  box-shadow: 0 0 8px var(--arm-lamp);
+}
 .mechanical-blinds {
   position: absolute;
   z-index: 12;
@@ -201,7 +207,7 @@
   color: #5c4c38;
   font: 700 11px/1.2 "JetBrains Mono", monospace;
 }
-.mechanical-chips, .mechanical-chip-labels, .mechanical-arm, .mechanical-moving-cards {
+.mechanical-chips, .mechanical-chip-labels, .mechanical-arm, .mechanical-arm-shadow, .mechanical-moving-cards {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -210,14 +216,16 @@
 }
 .mechanical-chips { z-index: 13; }
 .mechanical-chip-labels { z-index: 16; }
-.mechanical-arm { z-index: 26; overflow: visible; filter: drop-shadow(0 5px 3px #4134273c); }
+.mechanical-arm-shadow { z-index: 10; overflow: visible; }
+.mechanical-arm { z-index: 26; overflow: visible; }
 .mechanical-moving-cards { z-index: 25; overflow: visible; }
-.arm-link { fill: url(#armSteel); stroke: #93836e; stroke-width: 1.15px; }
-.arm-shadow { fill: #847460; }
-.arm-rail { fill: #a59988; }
-.arm-hub { fill: #e6ddce; stroke: #867664; stroke-width: 1.3px; }
-.arm-hub-inner { fill: #fbf6ea; stroke: #a08e77; stroke-dasharray: 2 3; }
-.arm-pin { fill: #70665a; }
+.arm-link-face { stroke: #93816c; stroke-width: 1.15px; }
+.arm-inset { fill: #7b69552a; stroke: #f9f1e0a1; stroke-width: .8px; }
+.arm-rail { fill: #fcf6e2b8; }
+.arm-hub-ring { fill: #f5ecdc; stroke: #9d8a73; stroke-width: 1.2px; }
+.arm-hub-inner { fill: #d6c6ad; stroke: #89755f; stroke-dasharray: 2 2; }
+.arm-pin { fill: #726451; stroke: #eee0c3; stroke-width: .6px; }
+.arm-jaw { stroke: #f5dfb480; stroke-width: .7px; }
 .mechanical-chip-amount, .mechanical-carry, .mechanical-spark {
   position: absolute;
   transform: translate(-50%, -50%);
