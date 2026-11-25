@@ -79,7 +79,11 @@ async function run() {
       await page.waitForFunction(() => !document.querySelector('.mechanical-pending'));
     }
 
-    const raiser = await nextActor([host, guest]);
+    let raiser = await nextActor([host, guest]);
+    if (await raiser.evaluate(() => gameState.players.find(player => player.id === Net.playerId).bet === 0)) {
+      await sendAction(raiser, 'call');
+      raiser = await nextActor([host, guest]);
+    }
     await raiser.waitForFunction(() => {
       const seat = document.querySelector('#table .seat[data-mechanical-slot="0"] .seat-info');
       const actions = document.getElementById('actionPanel');
@@ -89,7 +93,7 @@ async function run() {
     await sendAction(raiser, 'raise', 57);
     await host.waitForSelector('#mechanicalChipLabels [data-amount="57"]');
     const inventory = await host.$eval('#mechanicalChipLabels [data-amount="57"]', node => node.title);
-    assert.equal(inventory, '50 × 1 · 5 × 1 · 余 2');
+    assert.equal(inventory, '20 × 2 · 10 × 1 · 5 × 1 · 1 × 2');
     await raiser.waitForFunction(() => {
       const wager = document.querySelector('#mechanicalChipLabels [data-amount="57"]');
       const hand = document.querySelector('#table .my-hand');
@@ -107,10 +111,14 @@ async function run() {
     const showdown = await host.evaluate(() => ({
       total: gameState.pot,
       collected: Number(document.querySelector('#mechanicalChipLabels [data-amount]')?.dataset.amount),
+      inventory: document.querySelector('#mechanicalChipLabels [data-amount]')?.title,
       cards: document.querySelectorAll('#community .card-front').length,
       revealed: gameState.players.filter(player => !player.folded && player.hand.every(Boolean)).length,
     }));
     assert.equal(showdown.total, showdown.collected);
+    assert.ok(showdown.total >= 100);
+    assert.doesNotMatch(showdown.inventory, /100 ×/);
+    assert.match(showdown.inventory, /1 × [4-9]/);
     assert.equal(showdown.cards, 5);
     assert.equal(showdown.revealed, 2);
 

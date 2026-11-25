@@ -65,7 +65,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 - Voluntarily revealed winners expose `revealedRank` only after opting in. Preflop reveals use the standard 一对 or 高牌 label. Showdown winners use their evaluated hand name for the seat badge.
 - Seat chip counters render the server-provided per-street player bet. The layout test room shows all eight counters.
 - The default ivory scene uses a horizontal rounded rectangle in both phone orientations. Table scenes are registered in `public/js/extras.js`.
-- Room style is set by `room:create { tableStyle }` and sent in room and filtered game snapshots. Keep classic as the default. The desktop mechanical style uses `mechanical-table.js` and `mechanical-table.css`, derives chip groups from the server pot and live bets, and disables in-room emotions, pets, and card back customization.
+- Room style is set by `room:create { tableStyle }` and sent in room and filtered game snapshots. Keep classic as the default. The desktop mechanical style uses `mechanical-table.js` and `mechanical-table.css`. Its snapshots include each player's `chipPayments` and `streetPaymentStart` so the renderer can retain chip denominations across betting streets and reconnects. Mechanical rooms disable in-room emotions, pets, and card back customization.
 - CSS is split by functional domain (base, lobby, table, action, components, responsive, extras)
 - JS globals are shared across modules via `window` scope (no bundler)
 - The `attemptReconnect` function is defined in `app.js` (token-based session restore), not in `handlers.js`

@@ -216,6 +216,10 @@ class Game {
       players: this.players.map(p => ({
         id: p.id, name: p.name, seatIdx: p.seatIdx,
         stack: p.stack, bet: p.bet, totalBet: p.totalBet,
+        ...(p.chipPayments && {
+          chipPayments: p.chipPayments,
+          streetPaymentStart: p.streetPaymentStart,
+        }),
         folded: p.folded, allIn: p.allIn, lastAction: p.lastAction,
         handRank: this.phase === 'showdown' ? this.showdownRanks?.get(p.id) : undefined,
         connected: p.connected,
@@ -299,6 +303,10 @@ class Game {
       p.folded = p.stack <= 0 || !p.connected;
       p.allIn = false;
       p.lastAction = '';
+      if (this.tableStyle === 'mechanical') {
+        p.chipPayments = [];
+        p.streetPaymentStart = 0;
+      }
     }
 
     const playableCount = this.players.filter(p => p.stack > 0 && p.connected).length;
@@ -345,6 +353,7 @@ class Game {
     player.bet = actual;
     player.totalBet += actual;
     this.pot += actual;
+    if (actual > 0) player.chipPayments?.push(actual);
     this.roundBet = Math.max(this.roundBet, actual);
     if (player.stack === 0) player.allIn = true;
     const blindType = amount === this.sb ? '小盲' : '大盲';
@@ -515,7 +524,10 @@ class Game {
 
     // Update current player first, then broadcast
     this.currentIdx = this.nextIdx(this.currentIdx);
-    if (actionLogEntry) this.broadcast('game:actionLog', actionLogEntry);
+    if (actionLogEntry) {
+      if (actionLogEntry.amount > 0) player.chipPayments?.push(actionLogEntry.amount);
+      this.broadcast('game:actionLog', actionLogEntry);
+    }
     this.broadcastState();
 
     const inHand = this.inHandPlayers();
@@ -533,7 +545,10 @@ class Game {
   advancePhase() {
     if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
     this.clearPhaseTimeout();
-    for (const p of this.players) p.bet = 0;
+    for (const p of this.players) {
+      p.bet = 0;
+      if (p.chipPayments) p.streetPaymentStart = p.chipPayments.length;
+    }
     this.roundBet = 0;
     this.actedCount = 0;
     this.lastRaise = this.bb;

@@ -6,7 +6,14 @@ const MechanicalTable = (() => {
     6: [0, 1, 3, 4, 5, 7], 7: [0, 1, 3, 4, 5, 6, 8],
     8: [0, 1, 2, 4, 5, 6, 7, 8],
   };
-  const DENOMINATIONS = [[100, "#4c405c"], [50, "#a13f47"], [20, "#427560"], [10, "#396b92"], [5, "#b17b35"]];
+  const DENOMINATIONS = [
+    [100, "#694d81"], [50, "#b84043"], [20, "#428568"],
+    [10, "#397baa"], [5, "#c48732"], [1, "#77746d"],
+  ];
+  const PILE_POSITIONS = [
+    [0, 0, 1.7], [-26, -6, 1.1], [25, -9, 1.08], [-14, 16, .75], [15, 14, .81],
+    [5, -24, .94], [-39, 10, .61], [39, 8, .65], [-25, -22, .59], [29, -22, .63],
+  ];
   const currency = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12 });
   const canvas = $("mechanicalChips");
   const context = canvas.getContext("2d");
@@ -20,9 +27,8 @@ const MechanicalTable = (() => {
   const queue = [];
   const wagers = new Map();
   const labels = new Map();
-  let armTip, armJob, sweep, frame, state, handToDeal, finalizedHand, bounds, center;
+  let armTip, armJob, park, sweep, frame, state, handToDeal, finalizedHand, bounds, center;
   let groups = new Map();
-  let renderedGroups = new Map();
 
   svg.innerHTML =
     '<defs><linearGradient id="armSteel" x2="0%" y2="100%"><stop stop-color="#fffaf0"/><stop offset=".49" stop-color="#e4dacc"/><stop offset="1" stop-color="#ad9d88"/></linearGradient></defs>';
@@ -52,12 +58,11 @@ const MechanicalTable = (() => {
 
   function reset() {
     cancelAnimationFrame(frame);
-    frame = armJob = armTip = sweep = state = handToDeal = finalizedHand = bounds = null;
+    frame = armJob = armTip = park = sweep = state = handToDeal = finalizedHand = bounds = null;
     queue.length = 0;
     wagers.clear();
     labels.clear();
     groups.clear();
-    renderedGroups.clear();
     labelLayer.replaceChildren();
     moving.replaceChildren();
     table.querySelectorAll(".mechanical-pending").forEach(card => card.classList.remove("mechanical-pending"));
@@ -123,7 +128,7 @@ const MechanicalTable = (() => {
       svg.setAttribute("viewBox", "0 0 " + rect.width + " " + rect.height);
     }
     bounds = rect;
-    center = { x: rect.width / 2, y: rect.height * .32 };
+    center = { x: rect.width / 2, y: rect.height * .35 };
     const ratio = Math.min(2, devicePixelRatio || 1);
     const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
     if (canvas.width !== width || canvas.height !== height) {
@@ -164,13 +169,13 @@ const MechanicalTable = (() => {
       const hands = next.players.map((player, index) => player.folded ? [] :
         [...table.querySelectorAll(".seat-" + index + " :is(.my-hand,.seat-cards) .card")]);
       for (let round = 0; round < 2; round++) {
-        for (const hand of hands) if (hand[round]) queueDeal([hand[round]], 102);
+        for (const hand of hands) if (hand[round]) queueDeal([hand[round]], 300);
       }
       handToDeal = null;
     }
     if (sameHand && next.community.length > last.community.length) {
       const slots = $("community").children;
-      for (let i = last.community.length; i < next.community.length; i++) queueDeal([slots[i]], 175);
+      for (let i = last.community.length; i < next.community.length; i++) queueDeal([slots[i]], 420);
     }
     $("mechanicalBlinds").textContent = next.sb && next.bb ? "盲注 " + next.sb + " / " + next.bb : "";
     const oldGroups = groups;
@@ -180,48 +185,36 @@ const MechanicalTable = (() => {
     nextFrame();
   }
 
-  function chipInventory(amount) {
-    let remainder = amount;
-    const countByValue = [];
-    const pieces = [];
-    const compressed = [];
-    for (const [value, color] of DENOMINATIONS) {
-      const count = Math.floor(remainder / value);
-      if (!count) continue;
-      remainder -= count * value;
-      countByValue.push(value + " × " + currency.format(count));
-      const visible = Math.min(count, 84);
-      if (visible < count) compressed.push(value + "×" + currency.format(count));
-      for (let i = 0; i < visible; i++) pieces.push({ value, color });
-    }
-    if (remainder > 0) countByValue.push("余 " + currency.format(remainder));
-    return { pieces, description: countByValue.join(" · "), compressed };
-  }
-
   function readGroups(snapshot) {
     const next = new Map();
     if (snapshot.handNum === finalizedHand) return next;
     const betting = ["preflop", "flop", "turn", "river"].includes(snapshot.phase);
+    const potPayments = [];
     let live = 0;
     snapshot.players.forEach((player, index) => {
+      const payments = player.chipPayments ?? [player.totalBet - player.bet, player.bet];
+      const streetStart = betting ? (player.streetPaymentStart ?? 1) : payments.length;
+      for (let i = 0; i < streetStart; i++) potPayments.push(payments[i]);
       if (!betting || !player.bet) return;
       live += player.bet;
-      const seat = table.querySelector(".seat-" + index + " .seat-info");
+      const seat = table.querySelector(".seat-" + index);
       if (!seat) return;
-      const origin = point(seat.getBoundingClientRect());
+      const origin = point(seat.querySelector(".seat-info").getBoundingClientRect());
       const dx = bounds.width / 2 - origin.x, dy = bounds.height / 2 - origin.y;
       const distance = Math.max(1, Math.hypot(dx, dy));
       const radius = 106;
       const x = origin.x + dx / distance * radius;
       const y = origin.y + dy / distance * radius;
       const side = dx > 0 ? 1 : -1;
-      const at = seat.closest(".seat").dataset.mechanicalSlot === "0"
+      const at = seat.dataset.mechanicalSlot === "0"
         ? { x: origin.x - 130, y: origin.y - 78 }
         : { x: x - dy / distance * 45 * side, y: y + dx / distance * 45 * side };
-      next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name });
+      next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name,
+        payments: payments.slice(streetStart) });
     });
     const collected = Math.max(0, snapshot.pot - live);
-    if (collected) next.set("pot", { id: "pot", at: center, amount: collected, name: "已收底池" });
+    if (collected) next.set("pot", { id: "pot", at: center, amount: collected, name: "已收底池", payments: potPayments });
+    for (const group of next.values()) group.inventory = chipInventory(group.payments, group.amount);
     return next;
   }
 
@@ -241,44 +234,106 @@ const MechanicalTable = (() => {
         labels.set(id, label);
       }
       label.style.left = group.at.x + "px";
-      label.style.top = group.at.y + 13 + "px";
-      if (label.dataset.amount === String(group.amount)) continue;
-      group.inventory = chipInventory(group.amount);
+      label.style.top = group.at.y + (group.inventory.piles.length > 3 ? 24 : 15) + "px";
+      if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
       const amount = currency.format(group.amount);
       label.textContent = [amount, ...group.inventory.compressed].join(" · ");
       label.title = group.inventory.description;
       label.setAttribute("aria-label", group.name + " " + amount + "（" + label.title + "）");
     }
-    const nextRendered = new Map();
-    for (const group of groups.values()) {
-      group.inventory ??= renderedGroups.get(group.id)?.inventory || chipInventory(group.amount);
-      nextRendered.set(group.id, group);
+  }
+
+  function chipInventory(payments, amount) {
+    const counts = DENOMINATIONS.map(() => 0);
+    for (let payment of payments) {
+      for (const [index, [value]] of DENOMINATIONS.entries()) {
+        const count = Math.floor(payment / value);
+        counts[index] += count;
+        payment -= count * value;
+      }
     }
-    renderedGroups = nextRendered;
+    const description = [];
+    const compressed = [];
+    const runs = [];
+    const cap = Math.floor(84 / Math.max(1, counts.filter(count => count > 0).length));
+    let represented = 0;
+    for (const [index, [value]] of DENOMINATIONS.entries()) {
+      const count = counts[index];
+      if (!count) continue;
+      represented += value * count;
+      description.push(value + " × " + currency.format(count));
+      if (count > cap) compressed.push(value + "×" + currency.format(count));
+      runs.push({ value, count: Math.min(count, cap) });
+    }
+    if (amount - represented > 1e-8) description.push("余 " + currency.format(amount - represented));
+    return { ...layoutPiles(runs), description: description.join(" · "), compressed };
+  }
+
+  function layoutPiles(runs) {
+    const values = runs.flatMap(({ value, count }) => Array(count).fill(value));
+    if (!values.length) return { piles: [], chips: [] };
+
+    const few = values.length <= 6;
+    const count = few ? runs.length : Math.min(PILE_POSITIONS.length, Math.max(3, Math.ceil(values.length / 9)));
+    const heights = few ? runs.map(run => run.count) : Array(count).fill(1);
+    for (let remaining = few ? 0 : values.length - count; remaining > 0; remaining--) {
+      let next = 0;
+      for (let index = 1; index < count; index++) {
+        if (heights[index] / PILE_POSITIONS[index][2] < heights[next] / PILE_POSITIONS[next][2]) next = index;
+      }
+      heights[next]++;
+    }
+
+    let chipIndex = 0;
+    const piles = heights.map((height, index) => {
+      const [baseX, baseY] = PILE_POSITIONS[index];
+      const row = few && count <= 3;
+      const x = row ? (index - (count - 1) / 2) * 26 : baseX;
+      const y = row ? (index % 2) * 3 : baseY;
+      const lean = Math.sin(index * 2.7 + .9) * .48;
+      const chips = Array.from({ length: height }, (_, level) => ({
+        value: values[chipIndex++],
+        x: x + level * lean + Math.sin(level * 1.8 + index) * 1.1,
+        y: y - level * 4.35 + Math.sin(level * 2.1 + index) * .65,
+        angle: Math.sin(level * 1.4 + index * 3) * .065,
+      }));
+      return { x, y, chips };
+    });
+    piles.sort((a, b) => a.y - b.y);
+    return { piles, chips: piles.flatMap(pile => pile.chips) };
   }
 
   function scheduleChips(previous, next) {
     const start = performance.now();
     const sources = [...previous.values()].filter(group => group.id !== "pot" && !next.has(group.id));
     const nextPot = next.get("pot");
-    if (sources.length && nextPot && nextPot.amount > (previous.get("pot")?.amount || 0)) {
-      sweep = { start, sources, oldPot: previous.get("pot") };
+    const oldPot = previous.get("pot");
+    if (sources.length && nextPot && nextPot.amount > (oldPot?.amount || 0)) {
+      sweep = chipMotion(nextPot, oldPot ? [oldPot, ...sources] : sources, start);
     }
     for (const [id, group] of next) {
       if (id === "pot") continue;
       const old = previous.get(id);
-      if (group.amount > (old?.amount || 0)) wagers.set(id, { start, old, added: chipInventory(group.amount - (old?.amount || 0)) });
+      if (group.amount > (old?.amount || 0)) wagers.set(id, chipMotion(group, old ? [old] : [], start));
     }
     for (const id of wagers.keys()) if (!next.has(id)) wagers.delete(id);
   }
 
-  function stackPoint(at, index, count) {
-    const depth = Math.min(10, Math.max(1, Math.ceil(Math.sqrt(count) * 1.9)));
-    const columns = Math.min(6, Math.ceil(count / depth));
-    const col = Math.floor(index / depth);
-    return { x: at.x + ((col % columns) - (columns - 1) / 2) * 23,
-      y: at.y + Math.floor(col / columns) * 13 + (col % 2) * 3 - (index % depth) * 3.2 };
+  function chipMotion(group, sources, start) {
+    const fromByValue = new Map();
+    for (const source of sources) {
+      for (const chip of source.inventory.chips) {
+        if (!fromByValue.has(chip.value)) fromByValue.set(chip.value, []);
+        fromByValue.get(chip.value).push(chipPoint(source, chip));
+      }
+    }
+    for (const positions of fromByValue.values()) positions.reverse();
+    return { start, origins: group.inventory.chips.map(chip => fromByValue.get(chip.value)?.pop()) };
+  }
+
+  function chipPoint(group, chip) {
+    return { x: group.at.x + chip.x, y: group.at.y + chip.y };
   }
 
   function scatterPoint(at, index, spread) {
@@ -287,67 +342,107 @@ const MechanicalTable = (() => {
     return { x: at.x + Math.cos(angle) * distance, y: at.y + Math.sin(angle) * distance * .58 };
   }
 
-  function drawChip({ x, y }, { color, value }) {
-    context.beginPath();
-    context.ellipse(x, y + 3, 12, 7, 0, 0, Math.PI * 2);
-    context.fillStyle = "#302b29";
-    context.fill();
-    context.beginPath();
-    context.ellipse(x, y, 12, 7, 0, 0, Math.PI * 2);
-    context.fillStyle = color;
-    context.fill();
-    context.strokeStyle = "#fff2d9";
-    context.lineWidth = 1.5;
-    context.setLineDash([3, 2.5]);
-    context.stroke();
-    context.setLineDash([]);
-    context.fillStyle = "#fff2d9";
-    context.font = "bold 7px monospace";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(value, x, y + .5);
+  function makeChip(value, color) {
+    const sprite = document.createElement("canvas");
+    sprite.width = 64;
+    sprite.height = 48;
+    const paint = sprite.getContext("2d");
+    paint.scale(2, 2);
+    paint.translate(16, 10);
+    paint.beginPath();
+    paint.moveTo(-13, 0);
+    paint.lineTo(13, 0);
+    paint.lineTo(13, 4);
+    paint.ellipse(0, 4, 13, 7.4, 0, 0, Math.PI);
+    paint.closePath();
+    const side = paint.createLinearGradient(-13, 0, 13, 0);
+    side.addColorStop(0, "#2b2525");
+    side.addColorStop(.43, color);
+    side.addColorStop(1, "#352b27");
+    paint.fillStyle = side;
+    paint.fill();
+    paint.fillStyle = "#ead8b7";
+    for (const x of [-10, -4, 4, 10]) {
+      const y = Math.sqrt(1 - (x / 13) ** 2) * 7.4;
+      paint.fillRect(x - .9, y - .5, 1.8, 3.8);
+    }
+
+    paint.beginPath();
+    paint.ellipse(0, 0, 13, 7.4, 0, 0, Math.PI * 2);
+    paint.fillStyle = color;
+    paint.fill();
+    paint.strokeStyle = "#fff0d6";
+    paint.lineWidth = 2.3;
+    paint.setLineDash([3.8, 4.1]);
+    paint.beginPath();
+    paint.ellipse(0, 0, 11.2, 5.8, 0, 0, Math.PI * 2);
+    paint.stroke();
+    paint.setLineDash([]);
+    paint.beginPath();
+    paint.ellipse(0, 0, 7.3, 4.05, 0, 0, Math.PI * 2);
+    paint.fillStyle = "#fff1d6";
+    paint.fill();
+    paint.fillStyle = "#342b29";
+    paint.font = "bold 7px monospace";
+    paint.textAlign = "center";
+    paint.textBaseline = "middle";
+    paint.fillText(value, 0, .4);
+    return sprite;
   }
 
-  function drawStack(group, regroup = 1, spread = 70) {
-    if (!group) return;
-    const pieces = group.inventory.pieces;
-    pieces.forEach((chip, index) => {
-      const stacked = stackPoint(group.at, index, pieces.length);
-      drawChip(regroup === 1 ? stacked : lerp(scatterPoint(group.at, index, spread), stacked, ease(regroup)), chip);
-    });
+  const chipSprites = new Map(DENOMINATIONS.map(([value, color]) => [value, makeChip(value, color)]));
+
+  function drawChip({ x, y }, { value, angle }) {
+    context.save();
+    context.translate(x, y);
+    context.rotate(angle);
+    context.drawImage(chipSprites.get(value), -16, -10, 32, 24);
+    context.restore();
+  }
+
+  function drawPileShadows(group, opacity) {
+    if (!opacity) return;
+    context.save();
+    context.globalAlpha = opacity;
+    for (const pile of group.inventory.piles) {
+      const { x, y } = chipPoint(group, pile);
+      const radius = 16 + Math.min(5, pile.chips.length * .38);
+      context.save();
+      context.translate(x + 3, y + 6);
+      context.scale(1, .55);
+      const falloff = context.createRadialGradient(0, 0, 3, 0, 0, radius);
+      falloff.addColorStop(0, "#3e2b1e55");
+      falloff.addColorStop(1, "#3e2b1e00");
+      context.fillStyle = falloff;
+      context.fillRect(-radius, -radius, radius * 2, radius * 2);
+      context.restore();
+    }
+    context.restore();
   }
 
   function drawChips(now) {
     context.clearRect(0, 0, bounds.width, bounds.height);
     for (const group of groups.values()) {
-      const wager = wagers.get(group.id);
-      if (group.id === "pot" && sweep) {
-        const progress = Math.min(1, (now - sweep.start) / 660);
-        if (progress < .52) {
-          drawStack(sweep.oldPot);
-          let offset = 0;
-          for (const source of sweep.sources) {
-            const pieces = source.inventory.pieces;
-            pieces.forEach((chip, index) => drawChip(lerp(stackPoint(source.at, index, pieces.length),
-              scatterPoint(group.at, offset + index, 88), ease(progress / .52)), chip));
-            offset += pieces.length;
-          }
-        } else {
-          drawStack(group, (progress - .52) / .48, 88);
-          if (progress >= 1) sweep = null;
+      const pot = group.id === "pot";
+      const motion = pot ? sweep : wagers.get(group.id);
+      const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
+      drawPileShadows(group, Math.max(0, (progress - .65) / .35));
+      for (const [index, chip] of group.inventory.chips.entries()) {
+        const target = chipPoint(group, chip);
+        if (progress === 1) {
+          drawChip(target, chip);
+          continue;
         }
-      } else if (wager) {
-        const progress = Math.min(1, (now - wager.start) / 420);
-        if (progress < .52) {
-          drawStack(wager.old);
-          wager.added.pieces.forEach((chip, index) => drawChip(lerp(group.origin,
-            scatterPoint(group.at, index, 65), ease(progress / .52)), chip));
-        } else {
-          drawStack(group, (progress - .52) / .48, 65);
-          if (progress >= 1) wagers.delete(group.id);
-        }
-      } else {
-        drawStack(group);
+        const source = motion.origins[index];
+        const scattered = !pot && source ? source : scatterPoint(group.at, index, pot ? 82 : 54);
+        const from = source || group.origin || group.at;
+        const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
+          : lerp(scattered, target, ease((progress - .52) / .48));
+        drawChip(position, chip);
+      }
+      if (motion && progress === 1) {
+        if (pot) sweep = null;
+        else wagers.delete(group.id);
       }
     }
   }
@@ -400,7 +495,7 @@ const MechanicalTable = (() => {
         spark.className = "mechanical-spark";
         place(spark, at);
         moving.append(spark);
-        return { ...job, from: armTip || dock, at, spark, start: now, duration: 430 };
+        return { ...job, from: armTip || dock, at, spark, start: now, duration: 820 };
       }
       const cards = job.cards.filter(card => card.isConnected);
       if (!cards.length) continue;
@@ -419,12 +514,16 @@ const MechanicalTable = (() => {
     armJob ||= beginJob(now, dock);
     if (!armJob) {
       if (armTip && Math.hypot(armTip.x - dock.x, armTip.y - dock.y) > 1) {
-        pose(lerp(armTip, dock, .26));
-        return true;
+        park ||= { from: armTip, start: now };
+        const progress = Math.min(1, (now - park.start) / 460);
+        pose(lerp(park.from, dock, ease(progress)));
+        if (progress < 1) return true;
       }
+      park = null;
       pose(dock);
       return false;
     }
+    park = null;
     const job = armJob;
     const t = Math.min(1, (now - job.start) / job.duration);
     if (job.kind === "fold") {
@@ -442,10 +541,11 @@ const MechanicalTable = (() => {
       }
     } else {
       const slot = { x: bounds.width / 2, y: 43 };
-      const at = t < .30 ? lerp(job.from, slot, ease(t / .30)) : lerp(slot, job.at, ease((t - .30) / .70));
+      const at = t < .28 ? lerp(job.from, slot, ease(t / .28))
+        : lerp(slot, job.at, ease(Math.max(0, Math.min(1, (t - .34) / .60))));
       pose(at);
       place(job.payload, at);
-      job.payload.style.visibility = t < .30 ? "hidden" : "visible";
+      job.payload.style.visibility = t < .28 ? "hidden" : "visible";
       if (t === 1) {
         job.payload.remove();
         job.cards.forEach(card => card.classList.remove("mechanical-pending"));
