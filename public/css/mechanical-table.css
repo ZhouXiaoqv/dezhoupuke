@@ -196,48 +196,28 @@
 .mechanical-base {
   position: absolute;
   z-index: 11;
-  top: -31px;
+  top: -40px;
   left: 50%;
   transform: translateX(-50%);
-  width: 210px;
-  height: 87px;
-  border: 1px solid #857969;
-  border-radius: 14px;
-  background:
-    repeating-linear-gradient(0deg, #9a8c7a32 0 1px, transparent 1px 6px),
-    linear-gradient(158deg, #f8f0e2, #cdbca4);
-  box-shadow: inset 0 0 0 4px #eee3d3, inset 0 0 0 6px #9b8c78, 0 5px 9px #44352147;
+  width: 240px;
+  height: 104px;
+  pointer-events: none;
 }
-.mechanical-base::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 9px;
-  transform: translateX(-50%);
-  width: 54px;
-  height: 10px;
-  border: 1px solid #a89a87;
-  border-radius: 3px;
-  background: #5a5145;
-  box-shadow: 0 2px #f4e9d7, inset 0 2px #352d25;
-  transition: height 110ms ease, background-color 110ms ease;
+.mechanical-base > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 5px 4px #49352250);
 }
-.mechanical-base[data-hatch="open"]::after { height: 17px; background: #29231e; }
-.mechanical-base i {
-  position: absolute;
-  bottom: 12px;
-  left: 14px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid #85745b;
-  background: radial-gradient(circle at 40% 36%, #91b59d, #477653);
+.mechanical-bay-hatch { transition: transform 105ms cubic-bezier(.25,.72,.36,1); }
+.mechanical-base[data-hatch="open"] .mechanical-bay-hatch { transform: translateY(-5px); }
+.mechanical-lamp-glass {
+  fill: url(#baseLampGlass);
+  stroke: #4e4737;
 }
-.mechanical-base i:nth-child(2) { left: 26px; background: radial-gradient(circle at 40% 36%, #ffc889, #a26f37); }
-.mechanical-base i:nth-child(3) { left: auto; right: 13px; background: radial-gradient(circle at 40% 36%, #eee0c8, #a7967b); }
-.mechanical-base-active i:first-child {
-  background: radial-gradient(circle at 38% 30%, #fff9df, var(--arm-lamp) 53%, #4e463a);
-  box-shadow: 0 0 8px var(--arm-lamp);
+.mechanical-base-active .mechanical-lamp-glass {
+  filter: drop-shadow(0 0 3px var(--arm-lamp));
 }
 .mechanical-blinds {
   position: absolute;
@@ -265,13 +245,6 @@
 .mechanical-arm-shadow { z-index: 10; overflow: visible; }
 .mechanical-arm { z-index: 26; overflow: visible; }
 .mechanical-moving-cards { z-index: 25; overflow: visible; }
-.arm-link-face { stroke: #93816c; stroke-width: 1.15px; }
-.arm-inset { fill: #7b69552a; stroke: #f9f1e0a1; stroke-width: .8px; }
-.arm-rail { fill: #fcf6e2b8; }
-.arm-hub-ring { fill: #f5ecdc; stroke: #9d8a73; stroke-width: 1.2px; }
-.arm-hub-inner { fill: #d6c6ad; stroke: #89755f; stroke-dasharray: 2 2; }
-.arm-pin { fill: #726451; stroke: #eee0c3; stroke-width: .6px; }
-.arm-jaw { stroke: #f5dfb480; stroke-width: .7px; }
 .mechanical-chip-amount, .mechanical-carry, .mechanical-spark {
   position: absolute;
   transform: translate(-50%, -50%);

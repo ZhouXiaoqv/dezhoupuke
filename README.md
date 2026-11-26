@@ -85,7 +85,7 @@ dezhoupuke/
 │       ├── lobby.js            # 大厅功能（筹码动画、互动面板、头像）
 │       ├── extras.js           # 场景选择、粒子效果、牌型评估
 │       ├── game.js             # 游戏渲染（座位、社区牌、状态）
-│       ├── mechanical-arm-rig.js # 逆向运动学、关节和软投影
+│       ├── mechanical-arm-rig.js # 逆向运动学、连杆造型与双层软投影
 │       ├── mechanical-arm-presets.js # 动作阶段、节拍和硬件反馈
 │       ├── mechanical-arm-actions.js # 动作队列、挂载物和释放交接
 │       ├── mechanical-reels.js # 座位余额机械滚轮
@@ -325,7 +325,7 @@ grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 
 座位余额使用至少五位独立滚轮，扣款向下滚动，进账向上滚动。结算时根据实际转移的面值采样 12–24 枚视觉筹码，错峰飞向收款座位，余额跟随筹码入账节奏并停在服务端余额。系统的减少动态效果设置会跳过飞行动画和滚动。
 
-机械臂通过 `arm.enqueue(name, task)` 或 `arm.enqueue(name, tasks)` 调度发手牌、翻公共牌和弃牌。任务提供桌面坐标或坐标回调，可附加 DOM 道具以及抓取、携带、释放和落地回调。预设组合取物、摆出、刹停、悬停和释放，并指定底座灯色、仓门和平滑归位参数。`MechanicalArmPresets.giftExample` 演示悬停和轻抛落地，可注册到独立的控制器验证扩展接口。
+机械臂通过 `arm.enqueue(name, task)` 或 `arm.enqueue(name, tasks)` 调度发手牌、翻公共牌和弃牌。任务提供桌面坐标或坐标回调，可附加 DOM 道具以及抓取、携带、释放和落地回调。预设组合取物、摆出、刹停、悬停和释放，并指定底座灯色、仓门和平滑归位参数。底座仓室带滑轨和出牌滚轮，机械臂的连杆和轴承投影随伸展距离和抬升调整。`MechanicalArmPresets.giftExample` 演示悬停和轻抛落地，可注册到独立的控制器验证扩展接口。
 
 ## 3D Seat Pets
 

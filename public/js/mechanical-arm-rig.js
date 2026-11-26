@@ -149,81 +149,223 @@ function createMechanicalArmRig(svg, shadow, base) {
   const position = (element, { x, y }, angle = 0) => {
     element.setAttribute("transform", "translate(" + x + " " + y + ") rotate(" + angle + ")");
   };
-  const steelId = svg.id + "Steel", darkId = svg.id + "Edge", blurId = shadow.id + "Blur";
   const defs = svgElement(svg, "defs");
-  for (const [id, stops] of [
-    [steelId, [[0, "#fffdf6"], [.31, "#f0e6d5"], [.60, "#d4c5ae"], [1, "#aa987e"]]],
-    [darkId, [[0, "#b6a48c"], [.54, "#8a7660"], [1, "#5c4d41"]]],
-  ]) {
+  function material(name, stops) {
+    const id = svg.id + name;
     const gradient = svgElement(defs, "linearGradient", { id, x1: 0, x2: 0, y1: 0, y2: "100%" });
     for (const [offset, color] of stops) svgElement(gradient, "stop", { offset, "stop-color": color });
+    return "url(#" + id + ")";
   }
-  const shadowDefs = svgElement(shadow, "defs");
-  const filter = svgElement(shadowDefs, "filter", { id: blurId, x: "-35%", y: "-60%", width: "170%", height: "220%" });
-  const blur = svgElement(filter, "feGaussianBlur", { stdDeviation: 5 });
-  const shadowPlane = svgElement(shadow, "g", { filter: "url(#" + blurId + ")" });
-  const segments = [34, 27, 19].map(width => svgElement(shadowPlane, "line", {
-    stroke: "#514331", "stroke-width": width, "stroke-linecap": "round",
-  }));
-  const jawsShadow = svgElement(shadowPlane, "ellipse", { rx: 18, ry: 10, fill: "#514331" });
+  const ivory = material("Ivory", [[0, "#fffbf0"], [.21, "#eee1cc"], [.66, "#e1d3bc"], [1, "#baa78b"]]);
+  const edge = material("Edge", [[0, "#b5a187"], [.62, "#82705c"], [1, "#54483d"]]);
+  const inset = material("Inset", [[0, "#282725"], [.44, "#524c42"], [1, "#867966"]]);
+  const bronze = material("Bronze", [[0, "#f1d5a1"], [.58, "#bba078"], [1, "#806c52"]]);
+  const roller = material("Roller", [[0, "#746657"], [.42, "#e1d3bc"], [.64, "#988870"], [1, "#4b4137"]]);
+  const grainId = svg.id + "Brushed";
+  const grain = svgElement(defs, "pattern", { id: grainId, width: 19, height: 8, patternUnits: "userSpaceOnUse" });
+  svgElement(grain, "path", { d: "M0 1h13m2 0h4M2 5h6m3 2h8", fill: "none", stroke: "#786350", opacity: .22, "stroke-width": .42 });
+  svgElement(grain, "path", { d: "M4 3h13m-14 3h10", fill: "none", stroke: "#fffbed", opacity: .68, "stroke-width": .48 });
+  const brushed = "url(#" + grainId + ")";
 
-  const links = [31, 24, 16].map((width, index) => {
-    const link = svgElement(svg, "g", { class: "arm-segment" });
-    const plates = [
-      svgElement(link, "rect", { x: -7, y: 5 - width / 2, height: width + 2, rx: 6, fill: "url(#" + darkId + ")" }),
-      svgElement(link, "rect", { x: -7, y: -width / 2, height: width, rx: 6, fill: "url(#" + steelId + ")", class: "arm-link-face" }),
-      svgElement(link, "rect", { x: 7, y: -width * .28, height: width * .56, rx: 3, class: "arm-inset" }),
-      svgElement(link, "rect", { x: 15, y: -width * .19, height: 2, rx: 1, class: "arm-rail" }),
-      svgElement(link, "rect", { x: 15, y: width * .12, height: 2, rx: 1, class: "arm-rail" }),
+  function rect(parent, x, y, width, height, rx, fill, stroke = "none") {
+    return svgElement(parent, "rect", { x, y, width, height, rx, fill, stroke });
+  }
+
+  function bolt(parent, x, y, radius) {
+    const screw = svgElement(parent, "g");
+    svgElement(screw, "circle", { r: radius, fill: inset, stroke: "#f7ebd2", "stroke-width": .45 });
+    svgElement(screw, "circle", { r: radius * .64, fill: bronze });
+    svgElement(screw, "path", { d: `M${-radius * .43} ${radius * .22}l${radius * .86} ${-radius * .44}`,
+      stroke: "#433b31", "stroke-width": .65 });
+    position(screw, { x, y });
+    return screw;
+  }
+
+  function beveledPlate(length, half, chamfer) {
+    const right = length + 6;
+    return `M-6 ${-half + chamfer}L${-6 + chamfer} ${-half}H${right - chamfer}` +
+      `L${right} ${-half + chamfer}V${half - chamfer}L${right - chamfer} ${half}H${-6 + chamfer}L-6 ${half - chamfer}Z`;
+  }
+
+  function upperLink(parent) {
+    const edgePlate = svgElement(parent, "path", { fill: edge, stroke: "#665746", transform: "translate(0 4.4)" });
+    const bevel = svgElement(parent, "path", { fill: ivory, stroke: "#8d795f" });
+    const face = svgElement(parent, "path", { fill: brushed, stroke: "#fffaeb", "stroke-width": .9 });
+    const ribWell = rect(parent, 13, 1, 1, 10, 3, edge, "#aa9477");
+    const rib = rect(parent, 15, 2, 1, 6, 2.3, ivory, "#f7ecd5");
+    const ribLight = rect(parent, 19, 3, 1, 1, .5, "#fff8e8");
+    const holes = [0, 1].map(() => rect(parent, 0, -11, 1, 8.5, 4, inset, "#b8a486"));
+    const screws = [-15, 14.5].flatMap(y => [.23, .43, .62, .81].map(x => ({ x, y, node: bolt(parent, 0, 0, 1.7) })));
+    return length => {
+      const outline = beveledPlate(length, 20, 9);
+      edgePlate.setAttribute("d", outline);
+      bevel.setAttribute("d", outline);
+      face.setAttribute("d", beveledPlate(length, 17, 11));
+      for (const [part, start] of [[ribWell, 13], [rib, 15], [ribLight, 19]]) {
+        part.setAttribute("width", Math.max(0, length - 2 * start));
+      }
+      const holeZone = Math.max(0, length - 44);
+      const holeWidth = Math.min(51, holeZone * .39);
+      holes.forEach((hole, index) => {
+        hole.setAttribute("width", holeWidth);
+        hole.setAttribute("x", 22 + holeZone * (index ? .54 : .04));
+      });
+      screws.forEach(({ x, y, node }) => position(node, { x: x * length, y }));
+    };
+  }
+
+  function trussLink(parent) {
+    const braceDepth = svgElement(parent, "path", { fill: "none", stroke: "#5d5245", "stroke-width": 6.5,
+      "stroke-linecap": "round", "stroke-linejoin": "round", transform: "translate(0 2.4)" });
+    const brace = svgElement(parent, "path", { class: "arm-truss-brace", fill: "none", stroke: "#ac9678",
+      "stroke-width": 5.2, "stroke-linecap": "round", "stroke-linejoin": "round" });
+    const highlight = svgElement(parent, "path", { fill: "none", stroke: "#ecdbbf", "stroke-width": 1.15, transform: "translate(0 -1)" });
+    const rails = [-16, 7].map(y => [
+      rect(parent, -6, y + 3.3, 1, 10, 4.2, edge, "#625646"),
+      rect(parent, -6, y, 1, 10, 4.2, ivory, "#89765e"),
+      rect(parent, -5, y + 1.2, 1, 7, 3.2, brushed, "#f9eed7"),
+    ]);
+    const ends = [0, 1].map(() => rect(parent, 0, -17, 9, 36, 3.5, ivory, "#8d7b63"));
+    const fasteners = [-11, 12].flatMap(y => [.24, .50, .76].map(x => ({ x, y, node: bolt(parent, 0, 0, 1.75) })));
+    return length => {
+      const diagonal = `M4 11L${length * .28} -10L${length * .52} 11L${length * .75} -10L${length - 4} 11`;
+      for (const part of [braceDepth, brace, highlight]) part.setAttribute("d", diagonal);
+      rails.forEach(parts => parts.forEach((part, index) => part.setAttribute("width", length + (index === 2 ? 10 : 12))));
+      ends[0].setAttribute("x", 6);
+      ends[1].setAttribute("x", length - 15);
+      fasteners.forEach(({ x, y, node }) => position(node, { x: x * length, y }));
+    };
+  }
+
+  function wristLink(parent) {
+    const body = [
+      rect(parent, -5, -8.4, 1, 20, 5, edge, "#665747"),
+      rect(parent, -5, -11, 1, 19, 5, ivory, "#9a856b"),
+      rect(parent, 0, -5, 1, 8, 2.4, inset, "#b9a58b"),
+      rect(parent, 3, -3.2, 1, 1.9, .9, bronze),
     ];
-    const bolts = [0, 1].map(() => svgElement(link, "circle", { r: index === 2 ? 1.5 : 2, cy: -width * .34, class: "arm-pin" }));
-    return { link, plates, bolts };
+    return length => body.forEach((part, index) => part.setAttribute("width", Math.max(0, length + [9, 9, -4, -8][index])));
+  }
+
+  const links = [upperLink, trussLink, wristLink].map(build => {
+    const link = svgElement(svg, "g", { class: "arm-segment" });
+    return { link, resize: build(link), length: -1 };
   });
-  const hubs = [23, 17, 12].map(radius => {
+  const radii = [24, 19, 14.5];
+  const hubs = radii.map(radius => {
     const hub = svgElement(svg, "g", { class: "arm-hinge" });
-    svgElement(hub, "circle", { r: radius, cy: 4, fill: "url(#" + darkId + ")" });
-    svgElement(hub, "circle", { r: radius, fill: "url(#" + steelId + ")", class: "arm-link-face" });
-    svgElement(hub, "circle", { r: radius * .72, class: "arm-hub-ring" });
-    svgElement(hub, "circle", { r: radius * .49, class: "arm-hub-inner" });
-    svgElement(hub, "circle", { r: radius * .19, class: "arm-pin" });
-    return hub;
+    svgElement(hub, "circle", { r: radius, cy: 4, fill: edge, stroke: "#73604c" });
+    svgElement(hub, "circle", { r: radius, fill: ivory, stroke: "#8c785e" });
+    svgElement(hub, "circle", { r: radius * .91, fill: brushed, stroke: "#fcf0d6", "stroke-width": .8 });
+    svgElement(hub, "circle", { r: radius * .77, fill: inset, stroke: bronze, "stroke-width": 1.2 });
+    svgElement(hub, "circle", { r: radius * .64, fill: ivory, stroke: "#5b5041", "stroke-width": .75 });
+    const marks = radius >= 19 ? 18 : 12;
+    const rotor = svgElement(hub, "g", { class: "arm-bearing-rotor" });
+    const ticks = Array.from({ length: marks }, (_, index) => {
+      const angle = index / marks * Math.PI * 2;
+      const dx = Math.cos(angle), dy = Math.sin(angle);
+      return `M${dx * radius * .47} ${dy * radius * .47}L${dx * radius * .59} ${dy * radius * .59}`;
+    }).join("");
+    svgElement(rotor, "path", { d: ticks, fill: "none", stroke: "#776550", "stroke-width": .7 });
+    svgElement(rotor, "circle", { r: radius * .35, fill: edge, stroke: "#fff1d1", "stroke-width": .75 });
+    svgElement(rotor, "path", { d: `M${-radius * .22} 0h${radius * .44}M0 ${-radius * .22}v${radius * .44}`,
+      fill: "none", stroke: "#352e27", "stroke-width": Math.max(1, radius * .055), "stroke-linecap": "round" });
+    return { hub, rotor };
   });
+
   const gripper = svgElement(svg, "g", { class: "arm-gripper" });
-  svgElement(gripper, "rect", { x: -12, y: -7, width: 17, height: 15, rx: 3, fill: "url(#" + steelId + ")", class: "arm-link-face" });
-  const jaws = [-1, 1].map(sign => svgElement(gripper, "path", {
-    d: "M0 0 H12 L16 " + (-sign * 3) + " H20 L16 " + (sign * 3) + " H0 Z",
-    fill: "url(#" + darkId + ")", class: "arm-jaw",
-  }));
+  rect(gripper, -15, -7, 23, 20, 4, edge, "#635749");
+  rect(gripper, -15, -10, 23, 20, 4, ivory, "#917d63");
+  rect(gripper, -12, -3.9, 23, 7.8, 2.4, inset, "#af9c82");
+  rect(gripper, -9, -6.7, 11.5, 1, .5, "#fff1d7");
+  rect(gripper, -8, 5.2, 12, 1.2, .5, bronze);
+  const jaws = [-1, 1].map(sign => {
+    const jaw = svgElement(gripper, "g", { class: "arm-jaw" });
+    svgElement(jaw, "path", { d: `M1 ${-sign * 3}H14L20 ${sign * 1.7}L18 ${sign * 3.1}H10L7 ${sign * 2}H1Z`,
+      fill: ivory, stroke: "#81715d", "stroke-width": .75 });
+    rect(jaw, 10, -2.6, 5.2, 5.2, 1.5, roller, "#594d3f");
+    svgElement(jaw, "path", { d: "M11.3 -1.5v3m2-3v3", stroke: "#fdebc9", opacity: .65, "stroke-width": .55 });
+    bolt(jaw, 5.1, 0, 1.35);
+    return jaw;
+  });
+
+  const shadowDefs = svgElement(shadow, "defs");
+  function projectedLayer(name, color) {
+    const id = shadow.id + name;
+    const filter = svgElement(shadowDefs, "filter", { id, filterUnits: "userSpaceOnUse" });
+    const blur = svgElement(filter, "feGaussianBlur", { stdDeviation: 5 });
+    const plane = svgElement(shadow, "g", { filter: `url(#${id})` });
+    const segments = [38, 26, 18].map(width => svgElement(plane, "line", {
+      stroke: color, "stroke-width": width, "stroke-linecap": "round",
+    }));
+    const bearings = radii.map(r => svgElement(plane, "circle", { r, fill: color }));
+    const clamp = svgElement(plane, "ellipse", { rx: 19, ry: 9, fill: color });
+    return { filter, plane, blur, segments, bearings, clamp };
+  }
+  const ambientShadow = projectedLayer("Ambient", "#6d543b");
+  const bodyShadow = projectedLayer("Body", "#423628");
+  let painted;
+
+  function project(layer, joints, angle, altitude, softness, opacity) {
+    const projected = joints.map(({ x, y }, index) => ({
+      x: x + altitude * (.4 + index * .19),
+      y: y + altitude * (.43 + index * .24),
+    }));
+    // Keep each blur surface around the projected silhouette, with room for its falloff.
+    const padding = 25 + softness * 3.5;
+    const xs = projected.map(point => point.x), ys = projected.map(point => point.y);
+    const x = Math.floor((Math.min(...xs) - padding) / 32) * 32;
+    const y = Math.floor((Math.min(...ys) - padding) / 32) * 32;
+    const width = Math.ceil((Math.max(...xs) + padding) / 32) * 32 - x;
+    const height = Math.ceil((Math.max(...ys) + padding) / 32) * 32 - y;
+    const region = `${x},${y},${width},${height}`;
+    if (layer.region !== region) {
+      layer.filter.setAttribute("x", x);
+      layer.filter.setAttribute("y", y);
+      layer.filter.setAttribute("width", width);
+      layer.filter.setAttribute("height", height);
+      layer.region = region;
+    }
+    layer.blur.setAttribute("stdDeviation", softness.toFixed(2));
+    layer.plane.setAttribute("opacity", opacity.toFixed(3));
+    layer.segments.forEach((segment, index) => {
+      const a = projected[index], b = projected[index + 1];
+      segment.setAttribute("x1", a.x);
+      segment.setAttribute("y1", a.y);
+      segment.setAttribute("x2", b.x);
+      segment.setAttribute("y2", b.y);
+    });
+    layer.bearings.forEach((bearing, index) => position(bearing, projected[index]));
+    position(layer.clamp, projected[3], angle);
+  }
 
   function draw({ pose, joints, state }) {
     if (svg.dataset.armState !== state) svg.dataset.armState = state;
-    links.forEach(({ link, plates, bolts }, index) => {
+    if (painted && painted.angle === pose.angle && painted.lift === pose.lift &&
+        joints.every((joint, index) => joint.x === painted.joints[index].x && joint.y === painted.joints[index].y)) return;
+    painted = { angle: pose.angle, lift: pose.lift, joints };
+    const bearings = links.map((segment, index) => {
       const start = joints[index], end = joints[index + 1];
       const dx = end.x - start.x, dy = end.y - start.y;
       const length = Math.hypot(dx, dy);
-      position(link, start, Math.atan2(dy, dx) * 180 / Math.PI);
-      plates.forEach(plate => {
-        const inset = Number(plate.getAttribute("x"));
-        plate.setAttribute("width", Math.max(0, length - 2 * inset));
-      });
-      bolts[0].setAttribute("cx", 11);
-      bolts[1].setAttribute("cx", Math.max(11, length - 11));
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      position(segment.link, start, angle);
+      if (Math.abs(segment.length - length) > .08) {
+        segment.resize(length);
+        segment.length = length;
+      }
+      return angle;
     });
-    hubs.forEach((hub, index) => position(hub, joints[index]));
+    hubs.forEach(({ hub, rotor }, index) => {
+      position(hub, joints[index]);
+      rotor.setAttribute("transform", `rotate(${bearings[index]})`);
+    });
     position(gripper, pose, pose.angle);
 
     const reach = Math.hypot(pose.x - joints[0].x, pose.y - joints[0].y);
-    const altitude = 3 + pose.lift * .15 + reach * .011;
-    blur.setAttribute("stdDeviation", (2.5 + altitude * .43).toFixed(2));
-    shadowPlane.setAttribute("opacity", Math.max(.12, .31 - altitude * .009).toFixed(3));
-    segments.forEach((segment, index) => {
-      const a = joints[index], b = joints[index + 1];
-      const dropA = altitude * (.4 + index * .22), dropB = dropA + altitude * .22;
-      for (const [name, value] of Object.entries({ x1: a.x + dropA * .65, y1: a.y + dropA, x2: b.x + dropB * .65, y2: b.y + dropB })) {
-        segment.setAttribute(name, value);
-      }
-    });
-    position(jawsShadow, { x: pose.x + altitude * .7, y: pose.y + altitude }, pose.angle);
+    const altitude = 4 + pose.lift * .21 + reach * .022;
+    project(ambientShadow, joints, pose.angle, altitude + 6, 5.2 + altitude * .43, .19);
+    project(bodyShadow, joints, pose.angle, altitude, 1.8 + altitude * .33, Math.max(.11, .26 - altitude * .007));
   }
 
   function hardware({ lamp = "", hatch = false, grip = false } = {}) {
