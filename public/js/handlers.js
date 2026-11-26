@@ -39,6 +39,7 @@ Net.on("room:state", (d) => {
 Net.on("room:players", (d) => {
   const container = $("roomPlayers");
   container.innerHTML = "";
+  $("roomSeatCount").textContent = ` · ${d.players.length}/${d.maxPlayers} 席`;
   isHost = d.hostId === Net.playerId;
   if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
 

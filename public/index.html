@@ -294,7 +294,7 @@
         <fieldset class="room-style-picker create-section">
           <legend class="create-section-label">房间样式</legend>
           <label><input type="radio" name="tableStyle" value="classic" checked /> 第一版 · 经典牌桌</label>
-          <label><input type="radio" name="tableStyle" value="mechanical" /> 第二版 · 机械牌桌（桌面）</label>
+          <label><input type="radio" name="tableStyle" value="mechanical" /> 第二版 · 机械牌桌（桌面，最多 9 人）</label>
         </fieldset>
 
         <!-- Action buttons -->
@@ -349,7 +349,7 @@
     <!-- ===== ROOM SCREEN ===== -->
     <div class="screen" id="roomScreen">
       <div class="room-code-big" id="roomCodeDisplay">------</div>
-      <div class="room-label">分享房间号给朋友加入</div>
+      <div class="room-label">分享房间号给朋友加入<span id="roomSeatCount"></span></div>
       <div class="room-share-row">
         <button class="btn btn-dim share-btn" id="copyCodeBtn">
           📋 复制房间号
