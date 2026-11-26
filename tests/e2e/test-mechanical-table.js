@@ -243,8 +243,7 @@ async function verifySeatClamps(browser) {
             left: hand.left - tongue.right, right: tongue.left - hand.right,
           }[edge];
           boxes.push([body, hand].filter(Boolean));
-          const badge = find('.seat-action');
-          const status = rect(badge.parentElement);
+          const name = rect(find('.seat-name'));
           return {
             edge,
             connected: !hand || (Math.abs(distance) <= 3 && !overlaps(hand, body)),
@@ -253,9 +252,10 @@ async function verifySeatClamps(browser) {
             stacked: avatar.width < plate.width && avatar.top < plate.top && avatar.bottom > plate.top,
             fasteners: seat.querySelectorAll('.mechanical-seat-fasteners i').length,
             reels: seat.querySelectorAll('.mechanical-seat-plate .mechanical-reel').length,
-            roles: [...seat.querySelectorAll('.mechanical-seat-role:not([hidden])')].map(role => role.textContent),
-            label: badge.textContent,
-            badgeFits: !badge.textContent || (rect(badge).left >= status.left && rect(badge).right <= status.right),
+            roles: [...seat.querySelectorAll('.mechanical-seat-role[data-lit]')].map(role => role.textContent),
+            roleWindows: seat.querySelectorAll('.mechanical-seat-role').length,
+            clearName: name.top > avatar.bottom,
+            statusRemoved: !find('.seat-action'),
             lamp: getComputedStyle(find('.mechanical-seat-lamp')).animationName,
             finish: getComputedStyle(find('.seat-info')).filter,
           };
@@ -273,13 +273,11 @@ async function verifySeatClamps(browser) {
       assert.equal(collision, false, details);
       assert.ok(labelsClear, details);
       assert.ok(measurements.every(seat => seat.connected && seat.inView && !seat.touchesBoard &&
-        seat.stacked && seat.fasteners === 4 && seat.reels === 5 && seat.badgeFits), details);
+        seat.stacked && seat.fasteners === 4 && seat.reels === 5 && seat.roleWindows === 3 &&
+        seat.clearName && seat.statusRemoved), details);
       assert.deepEqual(measurements[0].roles, ['D', 'SB']);
       assert.deepEqual(measurements[5].roles, ['BB']);
       assert.equal(measurements[0].lamp, 'mechanicalSeatBreathing');
-      assert.equal(measurements[1].label, '过牌');
-      assert.equal(measurements[3].label, '全下');
-      assert.equal(measurements[6].label, '弃牌');
       assert.equal(measurements[6].lamp, 'none');
       assert.match(measurements[6].finish, /saturate/);
     }
@@ -362,7 +360,7 @@ async function run() {
           window.consolePhaseTrace.push({ phase: state.phase, label: phase.getAttribute('aria-label'), steps });
         }
         if (window.openingReels || state.phase !== 'preflop') return;
-        window.openingReels = [...document.querySelectorAll('#table .seat .mechanical-reels')].map(el => ({
+        window.openingReels = [...document.querySelectorAll('#table .seat[data-player-id] .mechanical-reels')].map(el => ({
           direction: el.dataset.rolling,
           digits: el.querySelectorAll('.mechanical-reel').length,
           windows: [...el.querySelectorAll('.mechanical-reel')].every(slot => {
@@ -378,7 +376,7 @@ async function run() {
       const table = await page.evaluate(() => ({
         localId: Net.playerId,
         order: gameState.players.map(player => player.id),
-        seats: [...document.querySelectorAll('#table .seat')].sort((a, b) =>
+        seats: [...document.querySelectorAll('#table .seat[data-player-id]')].sort((a, b) =>
           Number(a.dataset.mechanicalSlot) - Number(b.dataset.mechanicalSlot)
         ).map(node => node.dataset.playerId),
         outfit: document.getElementById('tableOutfitBtn').hidden,

@@ -444,22 +444,14 @@ function renderGame(state) {
   prevPot = state.pot;
 
   // Only remove seats/dealer/blinds if player count changed (prevents flickering)
-  const existingSeats = table.querySelectorAll(".seat");
-  const playerCountChanged =
-    viewerChanged || existingSeats.length !== state.players.length ||
-    [...existingSeats].some(
-      (el, i) => el.dataset.playerId !== state.players[i]?.id,
-    );
-
-  if (playerCountChanged) {
-    table
-      .querySelectorAll(".seat,.dealer-btn,.blind-btn")
-      .forEach((el) => el.remove());
-  } else {
-    // Only remove dealer and blind buttons (they get repositioned)
-    table
-      .querySelectorAll(".dealer-btn,.blind-btn")
-      .forEach((el) => el.remove());
+  const mechanicalSeats = mechanical ? MechanicalTable.bindSeats(state.players, viewerIndex) : null;
+  if (!mechanical) {
+    const existingSeats = [...table.querySelectorAll(".seat")];
+    if (existingSeats.length !== state.players.length ||
+        existingSeats.some((seat, i) => seat.dataset.playerId !== state.players[i]?.id)) {
+      existingSeats.forEach(seat => seat.remove());
+    }
+    table.querySelectorAll(".dealer-btn,.blind-btn").forEach(button => button.remove());
   }
 
   const isMyTurn = isMyTurnState(state);
@@ -499,19 +491,14 @@ function renderGame(state) {
 
   // Seats
   state.players.forEach((p, i) => {
-    let seat = table.querySelector(`.seat-${i}`);
-    const seatExisted = seat && !playerCountChanged;
+    let seat = mechanicalSeats?.[i].seat ?? table.querySelector(`.seat-${i}`);
+    const seatExisted = !!seat;
 
     if (!seatExisted) {
       seat = document.createElement("div");
       const visualSlot = getSeatVisualSlot(i, state.players.length);
       seat.className = `seat seat-${i} seat-pos-${visualSlot}`;
       seat.dataset.playerId = p.id;
-    }
-
-    if (mechanical) {
-      const visualIndex = (i - viewerIndex + state.players.length) % state.players.length;
-      MechanicalTable.positionSeat(seat, visualIndex, state.players.length);
     }
 
     // Update classes
@@ -625,7 +612,7 @@ function renderGame(state) {
       winner: "🏆 WIN",
     };
     const actionClass = p.lastAction ? `act-${p.lastAction}` : "";
-    const infoEl = existingInfo || (mechanical ? MechanicalTable.createSeatInfo() : document.createElement("div"));
+    const infoEl = existingInfo || document.createElement("div");
     if (!mechanical) {
       infoEl.className = "seat-info";
       infoEl.style.borderLeftWidth = "3px";
@@ -649,31 +636,26 @@ function renderGame(state) {
     `;
     }
     const stack = infoEl.querySelector(".seat-stack");
-    if (mechanical) MechanicalTable.updateStack(stack, p, state);
-    else stack.textContent = p.stack;
     const result = state.winners?.find(w => w.id === p.id);
     const shownRank = result?.revealedRank ||
       (state.phase === "showdown" && (result?.hand || (mechanical && p.handRank)));
-    const badge = infoEl.querySelector(".seat-action");
-    const badgeClass = shownRank ? "seat-action revealed-rank" + (mechanical && result ? " act-winner" : "")
-      : `seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}`;
-    let badgeText = shownRank ? "🏆 " + shownRank
-      : actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "");
     if (mechanical) {
-      if (shownRank) badgeText = shownRank;
-      else if (p.folded) badgeText = "弃牌";
-      else if (p.lastAction === "winner") badgeText = "获胜";
-      else if (p.allIn || p.lastAction === "allin") badgeText = "全下";
-    }
-    if (badge.className !== badgeClass || badge.textContent !== badgeText) {
-      badge.className = badgeClass;
-      badge.textContent = badgeText;
+      MechanicalTable.updateStack(stack, p, state, mechanicalSeats[i].changed);
+      MechanicalTable.updateSeatMarkers(infoEl, i, state);
+    } else {
+      stack.textContent = p.stack;
+      const badge = infoEl.querySelector(".seat-action");
+      badge.className = shownRank ? "seat-action revealed-rank"
+        : `seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}`;
+      badge.textContent = shownRank ? "🏆 " + shownRank
+        : actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "");
     }
     const medallion = infoEl.querySelector(".seat-medallion");
     medallion.textContent = seatAvatar;
     medallion.style.borderColor = seatColor;
-    infoEl.querySelector(".seat-player-name").textContent = p.name + (!mechanical && isMySeat ? " (你)" : "");
-    if (mechanical) MechanicalTable.updateSeatMarkers(infoEl, i, state, isMySeat && !shownRank ? privateHint : "");
+    const name = infoEl.querySelector(".seat-player-name");
+    name.textContent = p.name + (!mechanical && isMySeat ? " (你)" : "");
+    if (mechanical) name.title = [p.name, shownRank || (isMySeat ? privateHint : "")].filter(Boolean).join(" · ");
     infoEl.title = mechanical ? "" : "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
     infoEl.onclick = mechanical ? null : (e) => {
       e.stopPropagation();

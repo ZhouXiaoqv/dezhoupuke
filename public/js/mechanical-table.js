@@ -1,11 +1,11 @@
 // The mechanical table consumes the same filtered game snapshots as the classic table.
 const MechanicalTable = (() => {
   const SLOTS = {
-    2: [0, 5], 3: [0, 4, 5], 4: [0, 2, 5, 7], 5: [0, 2, 4, 5, 7],
-    6: [0, 1, 3, 4, 5, 7], 7: [0, 1, 3, 4, 5, 6, 8],
+    1: [0], 2: [0, 5], 3: [0, 4, 5], 4: [0, 2, 5, 7], 5: [0, 2, 4, 5, 7],
+    6: [0, 1, 2, 4, 5, 7], 7: [0, 1, 2, 4, 5, 7, 8],
     8: [0, 1, 2, 4, 5, 6, 7, 8],
   };
-  const SEAT_EDGES = ["bottom", "bottom", "left", "left", "top", "top", "right", "right", "bottom"];
+  const SEAT_EDGES = { 0: "bottom", 1: "bottom", 2: "left", 4: "top", 5: "top", 6: "right", 7: "right", 8: "bottom" };
   const SEAT_ROLES = [
     ["dealerIdx", "D", "庄家"], ["sbIdx", "SB", "小盲"], ["bbIdx", "BB", "大盲"],
   ];
@@ -29,6 +29,7 @@ const MechanicalTable = (() => {
   const recycleLayer = $("mechanicalRecycledCards");
   const printLayer = $("mechanicalPrintFeed");
   const labelLayer = $("mechanicalChipLabels");
+  const wagerLayer = $("mechanicalWagerZones");
   const result = $("mechanicalResult");
   const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
@@ -46,6 +47,8 @@ const MechanicalTable = (() => {
   const wagers = new Map();
   const labels = new Map();
   const payouts = new Map();
+  const seats = new Map();
+  const wagerZones = new Map();
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, latestReceipt;
   let groups = new Map();
   let chipsDirty = true;
@@ -106,6 +109,7 @@ const MechanicalTable = (() => {
     recycleLayer.replaceChildren();
     printLayer.replaceChildren();
     table.querySelectorAll(".mechanical-pending").forEach(card => card.classList.remove("mechanical-pending"));
+    if (enabled()) bindSeats([]);
   }
 
   function setStyle(style) {
@@ -119,6 +123,7 @@ const MechanicalTable = (() => {
       container.querySelector(":scope > .my-hand")?.remove();
       $("tableOutfitBtn").hidden = active || !container.classList.contains("active") || !isRegistered || isSpectator;
       if (active) {
+        bindSeats([]);
         $("interactPanel").classList.remove("active");
         $("settlementOverlay").classList.remove("active");
         window.Pets3D?.clear();
@@ -133,10 +138,77 @@ const MechanicalTable = (() => {
     handToDeal = handNum;
   }
 
-  function positionSeat(seat, index, count) {
-    const slot = (SLOTS[count] || SLOTS[8])[index] ?? 0;
-    seat.dataset.mechanicalSlot = slot;
-    seat.dataset.mechanicalEdge = SEAT_EDGES[slot];
+  function seatPlan(ordered) {
+    const preferred = SLOTS[ordered.length] ?? [];
+    if (ordered.length < 2) return preferred;
+    const previous = new Map([...seats].map(([slot, seat]) => [seat.dataset.playerId, slot]));
+    const held = ordered.map(({ player }) => previous.get(player.id));
+    if (held.every(slot => slot === undefined)) return preferred;
+    if (held[0] === 0 && held.every((slot, index) => !index || slot > held[index - 1])) return held;
+
+    // The local seat is fixed at zero. Fill the other slots in turn order while
+    // keeping as many returning players as possible in their current stations.
+    const available = SLOTS[8].slice(1);
+    let best = preferred, lowestCost = Infinity;
+    for (let mask = 0; mask < (1 << available.length); mask++) {
+      const candidate = [0, ...available.filter((_, i) => mask & (1 << i))];
+      if (candidate.length !== ordered.length) continue;
+      const cost = candidate.reduce((sum, slot, i) => sum + Math.abs(slot - preferred[i]) +
+        (held[i] !== undefined && slot !== held[i] ? 100 : 0), 0);
+      if (cost < lowestCost) {
+        lowestCost = cost;
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  function bindSeats(players, viewerIndex = 0) {
+    const indexed = players.map((player, index) => ({ player, index }));
+    const ordered = [...indexed.slice(viewerIndex), ...indexed.slice(0, viewerIndex)];
+    const slots = seatPlan(ordered);
+    const occupants = new Map(ordered.map((occupant, index) => [slots[index], occupant]));
+    const occupied = [];
+    for (const slot of SLOTS[8]) {
+      let seat = seats.get(slot);
+      if (!seat) {
+        seat = document.createElement("div");
+        seat.className = `seat seat-pos-${slot}`;
+        seat.dataset.mechanicalSlot = slot;
+        seat.dataset.mechanicalEdge = SEAT_EDGES[slot];
+        seat.append(createSeatInfo());
+        seats.set(slot, seat);
+      }
+      if (!seat.isConnected) table.append(seat);
+      const occupant = occupants.get(slot);
+      const id = occupant?.player.id;
+      const changed = seat.dataset.playerId !== id;
+      if (changed) {
+        seat.querySelector(":is(.my-hand,.seat-cards)")?.remove();
+        seat.querySelector(".seat-bet")?.remove();
+        seat.className = `seat seat-pos-${slot}`;
+      }
+      const previousIndex = seat.dataset.playerIndex;
+      const indexChanged = previousIndex !== String(occupant?.index);
+      if (!changed && indexChanged && previousIndex !== undefined) seat.classList.remove(`seat-${previousIndex}`);
+      if (occupant) {
+        seat.dataset.playerId = id;
+        seat.dataset.playerIndex = occupant.index;
+        if (changed || indexChanged) seat.classList.add(`seat-${occupant.index}`);
+        occupied[occupant.index] = { seat, changed };
+      } else if (changed) {
+        delete seat.dataset.playerId;
+        delete seat.dataset.playerIndex;
+        const medallion = seat.querySelector(".seat-medallion");
+        medallion.textContent = "";
+        medallion.style.borderColor = "";
+        const name = seat.querySelector(".seat-player-name");
+        name.textContent = name.title = "";
+        MechanicalReels.set(seat.querySelector(".seat-stack"), 0, { instant: true });
+        updateSeatMarkers(seat, -1, {});
+      }
+    }
+    return occupied;
   }
 
   function createSeatInfo() {
@@ -150,24 +222,23 @@ const MechanicalTable = (() => {
           <span class="mechanical-seat-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <span class="mechanical-seat-lamp" aria-hidden="true"></span>
           <span class="mechanical-seat-roles">${SEAT_ROLES.map(([key, symbol, label]) =>
-            `<span class="mechanical-seat-role" data-seat-role="${key}" role="img" aria-label="${label}" title="${label}" hidden>${symbol}</span>`
+            `<span class="mechanical-seat-role" data-seat-role="${key}" role="img" aria-label="${label}熄灭" title="${label}">${symbol}</span>`
           ).join("")}</span>
           <div class="seat-name"><span class="seat-player-name"></span></div>
           <div class="seat-stack"></div>
-          <div class="mechanical-seat-status"><span class="seat-action"></span><span class="mechanical-seat-hint"></span></div>
         </div>
       </div>`;
+    MechanicalReels.set(info.querySelector(".seat-stack"), 0, { minDigits: 5, instant: true });
     return info;
   }
 
-  function updateSeatMarkers(info, index, snapshot, hint) {
+  function updateSeatMarkers(info, index, snapshot) {
     for (const role of info.querySelectorAll("[data-seat-role]")) {
-      role.hidden = snapshot[role.dataset.seatRole] !== index;
+      const lit = snapshot[role.dataset.seatRole] === index;
+      if (role.hasAttribute("data-lit") === lit) continue;
+      role.toggleAttribute("data-lit", lit);
+      role.setAttribute("aria-label", role.title + (lit ? "点亮" : "熄灭"));
     }
-    const label = info.querySelector(".mechanical-seat-hint");
-    label.textContent = hint;
-    const name = info.querySelector(".seat-player-name");
-    name.title = name.textContent;
   }
 
   function cardBack(slot = false) {
@@ -430,6 +501,7 @@ const MechanicalTable = (() => {
       queueCards("reveal", board.slice(last.community.length, next.community.length));
     }
     const oldGroups = groups;
+    placeWagerZones();
     groups = readGroups(next);
     if (sameHand && !reduced.matches) scheduleChips(oldGroups, groups);
     const payout = payouts.get(next.handNum);
@@ -451,7 +523,7 @@ const MechanicalTable = (() => {
       if (!player || !(transfer.amount > 0)) continue;
       let account = accounts.get(player.id);
       if (!account) {
-        account = { amount: 0, counts: Array(DENOMINATIONS.length).fill(0), final: player.stack,
+        account = { id: player.id, amount: 0, counts: Array(DENOMINATIONS.length).fill(0), final: player.stack,
           winner: next.winners?.some(winner => winner.id === player.id) };
         accounts.set(player.id, account);
       }
@@ -466,7 +538,7 @@ const MechanicalTable = (() => {
     payouts.set(next.handNum, { handNum: next.handNum, accounts });
   }
 
-  function updateStack(element, player, snapshot) {
+  function updateStack(element, player, snapshot, changed) {
     const account = payouts.get(snapshot.handNum)?.accounts.get(player.id);
     for (const payout of payouts.values()) {
       const earlier = payout.accounts.get(player.id);
@@ -474,14 +546,15 @@ const MechanicalTable = (() => {
     }
     if (account) {
       account.final = player.stack;
-      if (account.element !== element) {
+      if (changed || account.element !== element) {
         account.element = element;
-        MechanicalReels.set(element, account.shown, { payout: account.delivered === false ? "flow" : undefined });
+        MechanicalReels.set(element, account.shown, { instant: changed, payout: account.delivered === false ? "flow" : undefined });
       }
       return;
     }
     const initial = handToDeal === snapshot.handNum && snapshot.phase === "preflop"
       ? player.stack + player.bet : player.stack;
+    if (changed) MechanicalReels.set(element, initial, { instant: true });
     MechanicalReels.set(element, player.stack, { initial });
   }
 
@@ -511,9 +584,14 @@ const MechanicalTable = (() => {
     account.delivered = final;
     account.shown = final ? account.final : account.balanceBeforePayout + credit;
     const { element } = account;
-    if (!element?.isConnected) return;
+    if (!payoutSeat(account)) return;
     if (account.winner) pulseWinner(account, now, hits);
     if (state?.handNum === payout.handNum) MechanicalReels.set(element, account.shown, { payout: final ? "lock" : "flow" });
+  }
+
+  function payoutSeat({ element, id }) {
+    const seat = element?.isConnected ? element.closest(".seat") : null;
+    return seat?.dataset.playerId === id ? seat : null;
   }
 
   function drawPayouts(now) {
@@ -541,9 +619,8 @@ const MechanicalTable = (() => {
       const active = timeline.draw(now, {
         origin,
         targetAt(account) {
-          if (account.element?.isConnected) {
-            account.anchor = point(account.element.closest(".seat-info").querySelector(".seat-medallion").getBoundingClientRect());
-          }
+          const seat = payoutSeat(account);
+          if (seat) account.anchor = point(seat.querySelector(".seat-medallion").getBoundingClientRect());
           return account.anchor && { x: offset.x + account.anchor.x, y: offset.y + account.anchor.y };
         },
         drawChip: (at, value, angle) => drawChip(at, { value, angle }, payoutContext),
@@ -562,8 +639,10 @@ const MechanicalTable = (() => {
 
   function finishPayout(payout, instant = false) {
     if (state?.handNum === payout.handNum) {
-      for (const { element, final, delivered } of payout.accounts.values()) {
-        if (element?.isConnected && (instant || !delivered)) MechanicalReels.set(element, final, { payout: "lock", instant });
+      for (const account of payout.accounts.values()) {
+        if (payoutSeat(account) && (instant || !account.delivered)) {
+          MechanicalReels.set(account.element, account.final, { payout: "lock", instant });
+        }
       }
     }
     finalizePot(payout.handNum);
@@ -577,22 +656,39 @@ const MechanicalTable = (() => {
     delete payoutCanvas.dataset.chips;
   }
 
-  function wagerPosition(seat, origin) {
-    const { mechanicalSlot: slot, mechanicalEdge: edge } = seat.dataset;
-    if (slot === "0") return { x: origin.x - 145, y: origin.y - 78 };
-    const dx = bounds.width / 2 - origin.x;
-    const side = dx > 0 ? 1 : -1;
-    if (edge === "top") return { x: origin.x - side * 69, y: origin.y + 113 };
-    if (edge === "left" || edge === "right") {
-      const lower = slot === "2" || slot === "7";
-      return { x: origin.x + side * (lower ? 164 : 181), y: origin.y + (lower ? -24 : 23) };
-    }
-    const dy = bounds.height / 2 - origin.y;
-    const distance = Math.max(1, Math.hypot(dx, dy));
-    return {
-      x: origin.x + (dx * 106 - dy * 45 * side) / distance,
-      y: origin.y + (dy * 106 + dx * 45 * side) / distance,
+  function placeWagerZones() {
+    const { width, height, left } = bounds;
+    const scale = Math.min(1, width / 900, height / 465);
+    const zoneWidth = 92 * scale, zoneHeight = 74 * scale;
+    const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
+    const boardRight = $("community").getBoundingClientRect().right - left;
+    const rightLimit = seats.get(7).getBoundingClientRect().left - left - halfWidth - 3;
+    const farSideGap = (Math.max(height * .36, 145) + 52 + Math.max(height * .72, 258)) / 2;
+    // Each bay has its own lane around the board and the fixed hand positions.
+    const positions = {
+      0: [width * .374, Math.min(height * .78, height - 59 - halfHeight)],
+      1: [Math.max(width * .09, halfWidth + 50), height * .574],
+      2: [width * .24, Math.min(height * .57, height - 155)],
+      4: [width * .115, 85 + halfHeight],
+      5: [Math.min(width * .892, rightLimit), 83 + halfHeight],
+      6: [boardRight + halfWidth + 7, Math.max(110 + halfHeight, height * .427)],
+      7: [Math.min(width * .92, rightLimit), farSideGap],
+      8: [width * .655, height * .72],
     };
+    for (const slot of SLOTS[8]) {
+      let zone = wagerZones.get(slot);
+      if (!zone) {
+        const marker = document.createElement("span");
+        marker.className = "mechanical-wager-zone";
+        marker.dataset.wagerSlot = slot;
+        wagerLayer.append(marker);
+        zone = { marker };
+        wagerZones.set(slot, zone);
+      }
+      const [x, y] = positions[slot];
+      Object.assign(zone, { at: { x, y }, scale, width: zoneWidth, height: zoneHeight });
+      Object.assign(zone.marker.style, { left: `${x}px`, top: `${y}px`, width: `${zoneWidth}px`, height: `${zoneHeight}px` });
+    }
   }
 
   function readGroups(snapshot) {
@@ -611,15 +707,14 @@ const MechanicalTable = (() => {
       const counts = player.betChips ?? paymentCounts(payments.slice(streetStart));
       if (potCounts) counts.forEach((count, index) => { potCounts[index] -= count; });
       const seat = table.querySelector(".seat-" + index);
-      if (!seat) return;
-      const origin = point(seat.querySelector(".seat-info").getBoundingClientRect());
-      const at = wagerPosition(seat, origin);
-      next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name, counts });
+      const zone = wagerZones.get(Number(seat?.dataset.mechanicalSlot));
+      if (!zone) return;
+      next.set(player.id, { id: player.id, at: zone.at, zone, amount: player.bet, name: player.name, counts });
     });
     const collected = Math.max(0, snapshot.pot - live);
     if (collected) next.set("pot", { id: "pot", at: center, amount: collected, name: "已收底池",
       counts: potCounts ?? paymentCounts(potPayments) });
-    for (const group of next.values()) group.inventory = chipInventory(group.counts, group.amount);
+    for (const group of next.values()) group.inventory = chipInventory(group.counts, group.amount, group.zone);
     return next;
   }
 
@@ -636,6 +731,7 @@ const MechanicalTable = (() => {
       if (!label) {
         label = document.createElement("span");
         label.className = "mechanical-chip-amount";
+        if (group.zone) label.classList.add("mechanical-wager-amount");
         labelLayer.append(label);
         labels.set(id, label);
       }
@@ -643,7 +739,9 @@ const MechanicalTable = (() => {
       const besidePot = id === "pot" &&
         bounds.top + group.at.y + belowPile + 14 > $("community").getBoundingClientRect().top;
       label.style.left = group.at.x - (besidePot ? 72 : 0) + "px";
-      label.style.top = group.at.y + (besidePot ? 3 : belowPile) + "px";
+      const labelOffset = group.zone ? group.zone.height / 2 - 7 : besidePot ? 3 : belowPile;
+      label.style.top = group.at.y + labelOffset + "px";
+      if (group.zone) label.style.maxWidth = group.zone.width - 6 + "px";
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
       const amount = currency.format(group.amount);
@@ -665,7 +763,7 @@ const MechanicalTable = (() => {
     return counts;
   }
 
-  function chipInventory(counts, amount) {
+  function chipInventory(counts, amount, zone) {
     // Custom fractional wagers can pool into a whole unit before a street is collected.
     const represented = counts.reduce((total, count, index) => total + count * DENOMINATIONS[index][0], 0);
     if (represented - amount > 1e-8) {
@@ -691,7 +789,30 @@ const MechanicalTable = (() => {
       runs.push({ value, count: caps[index] });
     }
     if (amount - displayedValue > 1e-8) description.push("余 " + currency.format(amount - displayedValue));
-    return { ...layoutPiles(runs), description: description.join(" · ") };
+    const inventory = zone ? layoutWagerPiles(runs, zone.scale) : layoutPiles(runs);
+    return { ...inventory, description: description.join(" · ") };
+  }
+
+  function layoutWagerPiles(runs, scale) {
+    const values = runs.flatMap(({ value, count }) => Array(count).fill(value));
+    if (!values.length) return { piles: [], chips: [] };
+    const packed = values.length > 24;
+    const count = packed ? Math.max(3, Math.min(6, Math.ceil(values.length / 18)))
+      : (runs.length > 1 || values.length > 6 ? 2 : 1);
+    const columns = Math.min(3, count);
+    let index = 0;
+    const piles = Array.from({ length: count }, (_, pile) => {
+      const height = Math.ceil((values.length - index) / (count - pile));
+      const x = (pile % columns - (columns - 1) / 2) * (packed ? 23 : 44) * scale;
+      const y = (packed && count > 3 && pile < 3 ? -5 : 0) * scale;
+      const spacing = Math.min(4.8, (23 + y / scale) / Math.max(1, height - 1)) * scale;
+      const chips = Array.from({ length: height }, (_, level) => ({
+        value: values[index++], x: x + Math.sin(level * .87 + pile) * .8 * scale,
+        y: y - level * spacing, angle: Math.sin(level * 1.4 + pile * 3) * .046, scale,
+      }));
+      return { x, y, chips, scale };
+    });
+    return { piles, chips: piles.flatMap(pile => pile.chips) };
   }
 
   function layoutPiles(runs) {
@@ -823,12 +944,13 @@ const MechanicalTable = (() => {
 
   const chipSprites = new Map(DENOMINATIONS.map(([value, color]) => [value, makeChip(value, color)]));
 
-  function drawChip({ x, y }, { value, angle }, target = context, opacity = 1) {
+  function drawChip({ x, y }, { value, angle, scale = 1 }, target = context, opacity = 1) {
+    const size = CHIP_SCALE * scale;
     target.save();
     target.globalAlpha = opacity;
     target.translate(x, y);
     target.rotate(angle);
-    target.drawImage(chipSprites.get(value), -16 * CHIP_SCALE, -10 * CHIP_SCALE, 32 * CHIP_SCALE, 24 * CHIP_SCALE);
+    target.drawImage(chipSprites.get(value), -16 * size, -10 * size, 32 * size, 24 * size);
     target.restore();
   }
 
@@ -839,7 +961,7 @@ const MechanicalTable = (() => {
     for (const pile of piles) {
       if (!pile.chips.length) continue;
       const { x, y } = chipPoint(group, pile);
-      const radius = 20 + Math.min(8, pile.chips.length * .45);
+      const radius = (20 + Math.min(8, pile.chips.length * .45)) * (pile.scale ?? 1);
       context.save();
       context.translate(x + 4, y + 9);
       context.scale(1, .57);
@@ -856,6 +978,13 @@ const MechanicalTable = (() => {
 
   function drawChipGroup(group, motion, now) {
     const pot = group.id === "pot";
+    const { at, zone } = group;
+    if (zone) {
+      context.save();
+      context.beginPath();
+      context.rect(at.x - zone.width / 2, at.y - zone.height / 2, zone.width, zone.height);
+      context.clip();
+    }
     const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
     drawPileShadows(group, Math.max(0, (progress - .65) / .35));
     for (const [index, chip] of group.inventory.chips.entries()) {
@@ -865,12 +994,13 @@ const MechanicalTable = (() => {
         continue;
       }
       const source = motion.origins[index];
-      const scattered = !pot && source ? source : scatterPoint(group.at, index, pot ? 82 : 54);
-      const from = source || group.origin || group.at;
+      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? 82 : 13 * zone.scale);
+      const from = source || at;
       const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
         : lerp(scattered, target, ease((progress - .52) / .48));
       drawChip(position, chip);
     }
+    if (zone) context.restore();
     return progress === 1;
   }
 
@@ -1050,7 +1180,9 @@ const MechanicalTable = (() => {
     nextFrame();
   }
   new ResizeObserver(() => {
-    if (!enabled() || !state || !measure()) return;
+    if (!enabled() || !measure()) return;
+    placeWagerZones();
+    if (!state) return;
     groups = readGroups(state);
     syncLabels();
     nextFrame();
@@ -1066,6 +1198,6 @@ const MechanicalTable = (() => {
     nextFrame();
   });
 
-  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, positionSeat, createSeatInfo, updateSeatMarkers,
+  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers,
     cardBack, beforeRender, updateStack, render, showResult };
 })();
