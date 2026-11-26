@@ -38,8 +38,8 @@ const MechanicalTable = (() => {
   const result = $("mechanicalResult");
   const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
-  const bayLip = table.querySelector(".mechanical-bay-rim path");
-  const recyclerLip = table.querySelector(".mechanical-recycle-rim path");
+  const baySeam = table.querySelector(".mechanical-bay-seam");
+  const recyclerSeam = table.querySelector(".mechanical-recycle-seam");
   const printerOpening = table.querySelector(".mechanical-printer-opening");
   const container = $("table-container");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
@@ -359,10 +359,10 @@ const MechanicalTable = (() => {
     if (!frame && bounds) frame = requestAnimationFrame(draw);
   }
 
-  function measurePort(layer, lip, seamOffset = 0) {
-    const rect = lip.getBoundingClientRect();
+  function measurePort(layer, opening, anchor = .5, offset = 0) {
+    const rect = opening.getBoundingClientRect();
     const left = rect.left - bounds.left;
-    const y = rect.bottom - bounds.top + seamOffset;
+    const y = rect.top + rect.height * anchor - bounds.top + offset;
     layer.style.clipPath = `inset(${y}px ${bounds.right - rect.right}px 0 ${left}px)`;
     return { x: left + rect.width / 2, y, width: rect.width };
   }
@@ -390,10 +390,9 @@ const MechanicalTable = (() => {
       rig.resize(rect.width, rect.height);
     }
     bounds = rect;
-    bayPort = measurePort(feedLayer, bayLip);
-    // The recycler's front lip overlays the first three pixels of the intake.
-    recyclerPort = measurePort(recycleLayer, recyclerLip, -3);
-    printerPort = measurePort(printLayer, printerOpening, .5);
+    bayPort = measurePort(feedLayer, baySeam);
+    recyclerPort = measurePort(recycleLayer, recyclerSeam);
+    printerPort = measurePort(printLayer, printerOpening, 1, .5);
     measurePot();
     const ratio = Math.min(2, devicePixelRatio || 1);
     const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);

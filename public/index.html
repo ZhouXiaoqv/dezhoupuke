@@ -483,17 +483,12 @@
                 <path d="M79 92l16-14h50l16 14z" fill="#5b554a" stroke="#282723" stroke-width="1.2"/>
                 <path d="M83 92l16-14m-10 14l14-14m34 0l14 14m-10-14l16 14" stroke="#a49a86" stroke-width=".85"/>
                 <rect x="100" y="78.5" width="40" height="3.5" rx="1.75" fill="url(#baseRoller)" stroke="#27241e"/>
+                <rect class="mechanical-bay-seam" x="78" y="82" width="84" height="4" rx="1" fill="#221e1a"/>
                 <rect x="88" y="86" width="64" height="5.4" rx="2" fill="url(#baseRoller)" stroke="#2b2722"/>
                 <path class="mechanical-roller-treads" d="M92 87h56m-54 2h52m-40-10h30" stroke="#e4d0ad" stroke-opacity=".65" stroke-width=".7" stroke-dasharray="1 2"/>
-                <g class="mechanical-bay-door mechanical-bay-door-left">
-                  <path d="M77 72h40l3 2v16l-3 2H77z" fill="url(#baseRim)" stroke="#635545"/>
-                  <path d="M81 75h34m-33 14h33m-5-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
-                </g>
-                <g class="mechanical-bay-door mechanical-bay-door-right">
-                  <path d="M163 72h-40l-3 2v16l3 2h40z" fill="url(#baseRim)" stroke="#635545"/>
-                  <path d="M125 75h34m-34 14h33m-33-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
-                </g>
               </g>
+              <path d="M78 91h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
+              <path d="M82 92h76" stroke="#fff0d6" stroke-opacity=".84"/>
             </g>
             <g class="mechanical-recycle-slot" transform="translate(0 4)">
               <rect x="81" y="101" width="79" height="25" rx="5" fill="url(#baseRim)" stroke="#766653"/>
@@ -502,8 +497,10 @@
                 <rect x="91" y="106" width="58" height="6" rx="2" fill="url(#baseRoller)"/>
                 <rect x="91" y="113" width="58" height="6" rx="2" fill="url(#baseRoller)"/>
                 <path class="mechanical-recycle-teeth" d="M92 108h56m-56 3h56m-56 4h56m-56 2h56" stroke="#a18f74" stroke-dasharray="1.5 2.5"/>
-                <path d="M91 113h58" stroke="#181614" stroke-width="1.5"/>
+                <rect class="mechanical-recycle-seam" x="85" y="112.25" width="70" height="1.5" fill="#181614"/>
               </g>
+              <path d="M85 116h70v3l-3 2H88l-3-2z" fill="url(#baseRim)" stroke="#6f5c46" stroke-width=".7"/>
+              <path d="M90 117h60" stroke="#fff0d6" stroke-opacity=".75"/>
               <circle class="mechanical-recycle-lamp" cx="163.5" cy="112.5" r="3.4" fill="#7a603c" stroke="#f1daba"/>
             </g>
             <g stroke-width=".85">
@@ -566,16 +563,20 @@
         <div class="mechanical-only mechanical-bay-cards" id="mechanicalBayCards" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-recycled-cards" id="mechanicalRecycledCards" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-print-feed" id="mechanicalPrintFeed" aria-hidden="true"></div>
-        <svg class="mechanical-only mechanical-port-rim mechanical-bay-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
-          <g transform="translate(0 7)">
-            <path d="M78 53h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
-            <path d="M82 54h76" stroke="#fff0d6" stroke-opacity=".84"/>
-          </g>
-        </svg>
-        <svg class="mechanical-only mechanical-port-rim mechanical-recycle-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
-          <g transform="translate(0 -10)">
-            <path d="M85 130h70v3l-3 2H88l-3-2z" fill="url(#baseRim)" stroke="#6f5c46" stroke-width=".7"/>
-            <path d="M90 131h60" stroke="#fff0d6" stroke-opacity=".75"/>
+        <svg class="mechanical-only mechanical-bay-cover" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
+          <g transform="translate(0 -31)">
+            <g clip-path="url(#baseBayClip)">
+              <g class="mechanical-bay-door mechanical-bay-door-left">
+                <path d="M77 72h40l3 2v16l-3 2H77z" fill="url(#baseRim)" stroke="#635545"/>
+                <path d="M81 75h34m-33 14h33m-5-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
+              </g>
+              <g class="mechanical-bay-door mechanical-bay-door-right">
+                <path d="M163 72h-40l-3 2v16l3 2h40z" fill="url(#baseRim)" stroke="#635545"/>
+                <path d="M125 75h34m-34 14h33m-33-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
+              </g>
+            </g>
+            <path d="M77 73a4 4 0 0 1 4-2h78a4 4 0 0 1 4 2" fill="none" stroke="#83705a"/>
+            <path d="M80 70h80" stroke="#fff2dc" stroke-opacity=".85" stroke-width=".7"/>
           </g>
         </svg>
         <canvas class="mechanical-only mechanical-chips" id="mechanicalChips" aria-hidden="true"></canvas>

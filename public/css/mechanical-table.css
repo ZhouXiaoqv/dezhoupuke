@@ -571,7 +571,7 @@
 #table-container.mechanical-table #table .seat .seat-bet { display: none; }
 #table-container.mechanical-table :is(.hand-rank-label, .turn-label) { display: none; }
 
-.mechanical-base, .mechanical-port-rim {
+.mechanical-base, .mechanical-bay-cover {
   position: absolute;
   top: -84px;
   left: 50%;
@@ -657,9 +657,7 @@
   -webkit-line-clamp: 2;
   font: 700 12px/1.3 "Noto Sans SC", system-ui, sans-serif;
 }
-.mechanical-port-rim { overflow: visible; }
-.mechanical-bay-rim { z-index: 24; }
-.mechanical-recycle-rim { z-index: 22; }
+.mechanical-bay-cover { z-index: 24; }
 .mechanical-base > svg {
   display: block;
   width: 100%;
@@ -797,8 +795,8 @@
 }
 #mechanicalBlindValue[data-compact] { font-size: 8px; }
 .mechanical-bay-door { transition: transform 112ms cubic-bezier(.25,.72,.36,1); }
-.mechanical-base[data-hatch="open"] .mechanical-bay-door-left { transform: translateX(-43px); }
-.mechanical-base[data-hatch="open"] .mechanical-bay-door-right { transform: translateX(43px); }
+.mechanical-base[data-hatch="open"] ~ .mechanical-bay-cover .mechanical-bay-door-left { transform: translateX(-43px); }
+.mechanical-base[data-hatch="open"] ~ .mechanical-bay-cover .mechanical-bay-door-right { transform: translateX(43px); }
 .mechanical-base[data-feeding="true"] .mechanical-roller-treads { animation: mechanicalRoller 66ms linear infinite; }
 .mechanical-base[data-recycler="busy"] .mechanical-recycle-lamp {
   fill: #ed934b;
