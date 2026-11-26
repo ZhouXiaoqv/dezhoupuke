@@ -464,16 +464,18 @@ function createMechanicalArmRig(svg, shadow, base) {
   });
 
   const gripper = svgElement(svg, "g", { class: "arm-gripper" });
-  rect(gripper, -15, -7, 23, 20, 4, edge, "#635749");
-  rect(gripper, -15, -10, 23, 20, 4, ivory, "#917d63");
-  rect(gripper, -12, -3.9, 23, 7.8, 2.4, inset, "#af9c82");
-  rect(gripper, -9, -6.7, 11.5, 1, .5, "#fff1d7");
-  rect(gripper, -8, 5.2, 12, 1.2, .5, bronze);
-  const ejector = svgElement(gripper, "g", { class: "arm-ejector" });
+  rect(gripper, -15, -5.5, 8, 11, 2, roller, "#917d63");
+  const head = svgElement(gripper, "g", { class: "arm-gripper-head" });
+  rect(head, -15, -7, 23, 20, 4, edge, "#635749");
+  rect(head, -15, -10, 23, 20, 4, ivory, "#917d63");
+  rect(head, -12, -3.9, 23, 7.8, 2.4, inset, "#af9c82");
+  rect(head, -9, -6.7, 11.5, 1, .5, "#fff1d7");
+  rect(head, -8, 5.2, 12, 1.2, .5, bronze);
+  const ejector = svgElement(head, "g", { class: "arm-ejector" });
   rect(ejector, 5, -1.55, 10.6, 3.1, 1.2, chrome, "#5b4d3f");
   rect(ejector, 13.4, -2.05, 2.7, 4.1, .8, chrome, "#5b4d3f");
   const jaws = [-1, 1].map(sign => {
-    const jaw = svgElement(gripper, "g", { class: "arm-jaw" });
+    const jaw = svgElement(head, "g", { class: "arm-jaw" });
     svgElement(jaw, "path", { d: `M1 ${-sign * 3}H14L20 ${sign * 1.7}L18 ${sign * 3.1}H10L7 ${sign * 2}H1Z`,
       fill: ivory, stroke: "#81715d", "stroke-width": .75 });
     rect(jaw, 10, -2.6, 5.2, 5.2, 1.5, roller, "#594d3f");
@@ -481,6 +483,9 @@ function createMechanicalArmRig(svg, shadow, base) {
     bolt(jaw, 5.1, 0, 1.35);
     return jaw;
   });
+  const headEdge = svgElement(gripper, "g", { opacity: 0 });
+  rect(headEdge, -13, -2.6, 21, 5.2, 1.25, chrome, "#75664f");
+  rect(headEdge, 6, -.9, 15, 1.8, .7, bronze);
 
   const shadowDefs = svgElement(shadow, "defs");
   function projectedLayer(name, color) {
@@ -497,6 +502,17 @@ function createMechanicalArmRig(svg, shadow, base) {
   }
   const ambientShadow = projectedLayer("Ambient", "#6d543b");
   const bodyShadow = projectedLayer("Body", "#423628");
+  let paintedRoll;
+  function rollGripper(angle) {
+    if (angle === paintedRoll) return;
+    paintedRoll = angle;
+    const radians = angle * Math.PI / 180;
+    // Orthographic projection of a rigid head turning around its longitudinal axis.
+    const crossSection = Math.cos(radians);
+    head.setAttribute("transform", `scale(1 ${crossSection.toFixed(4)})`);
+    headEdge.setAttribute("opacity", Math.abs(Math.sin(radians)) ** 12);
+    for (const { clamp } of [ambientShadow, bodyShadow]) clamp.setAttribute("ry", 3 + 6 * Math.abs(crossSection));
+  }
   let painted;
   const carriage = base.querySelector(".mechanical-shoulder-carriage");
   const leadScrew = base.querySelector(".mechanical-lead-screw");
@@ -637,7 +653,7 @@ function createMechanicalArmRig(svg, shadow, base) {
   }
 
   const motion = MechanicalArmMotion.create({ draw });
-  return { motion, hardware, setRecyclerBusy(busy) {
+  return { motion, hardware, rollGripper, setRecyclerBusy(busy) {
     base.dataset.recycler = busy ? "busy" : "idle";
   }, resize(width, height) {
     const viewBox = "0 0 " + width + " " + height;

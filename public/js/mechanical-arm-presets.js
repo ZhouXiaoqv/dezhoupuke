@@ -11,6 +11,7 @@ const MechanicalArmPresets = (() => {
       { kind: "retractOutlet", duration: 68 },
       { kind: "extractOutlet", duration: 106 },
       { kind: "preparePlacement", duration: 267, lift: 19 },
+      { kind: "rollPayload", duration: 174 },
       { kind: "placePayload", duration: 98 },
       { kind: "hold", duration: 34 },
     ],

@@ -107,11 +107,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   display: block;
-  padding: 3px 5px;
-  border: 1px solid #a79a826b;
-  border-radius: 8px;
-  background: #ab9a8010;
-  box-shadow: inset 0 1px 1px #7b694f2b, 0 1px #fff7e4ad;
+  padding: 4px 6px;
 }
 #table-container.mechanical-table #community {
   position: relative;
@@ -127,66 +123,19 @@
 #table-container.mechanical-table #community .card-front {
   box-shadow: inset 0 0 0 1px #fff9eb, 0 1px 2px #66553644, 0 2px 3px #927b512e;
 }
-.mechanical-board-fasteners { position: absolute; inset: 0; pointer-events: none; }
-.mechanical-board-fasteners i {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background:
-    linear-gradient(#9d8c76, #9d8c76) center / 1px 3px no-repeat,
-    linear-gradient(#9d8c76, #9d8c76) center / 3px 1px no-repeat,
-    radial-gradient(circle at 32% 26%, #fff7e7, #bdad92);
-}
-.mechanical-board-fasteners i:nth-child(1) { top: 2px; left: 2px; }
-.mechanical-board-fasteners i:nth-child(2) { top: 2px; right: 2px; }
-.mechanical-board-fasteners i:nth-child(3) { bottom: 2px; right: 2px; }
-.mechanical-board-fasteners i:nth-child(4) { bottom: 2px; left: 2px; }
 .mechanical-board-slot {
-  --guide: linear-gradient(#9c8b716e, #9c8b716e);
   --board-card-width: calc(var(--mechanical-card-width) * var(--board-card-scale));
-  position: relative;
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   width: calc(var(--board-card-width) + 6px);
   height: calc(var(--board-card-width) * 10 / 7 + 6px);
-  padding: 2px;
-  border: 1px solid #a89a8247;
-  border-radius: 5px;
-  background:
-    var(--guide) left 2px top 2px / 6px 1px, var(--guide) left 2px top 2px / 1px 6px,
-    var(--guide) right 2px top 2px / 6px 1px, var(--guide) right 2px top 2px / 1px 6px,
-    var(--guide) left 2px bottom 2px / 6px 1px, var(--guide) left 2px bottom 2px / 1px 6px,
-    var(--guide) right 2px bottom 2px / 6px 1px, var(--guide) right 2px bottom 2px / 1px 6px,
-    repeating-linear-gradient(135deg, #927d6010 0 1px, transparent 1px 5px) #8270570f;
-  background-repeat: no-repeat;
-  box-shadow: inset 0 1px #73624823, inset 0 -1px #fff9efc2;
-  transition: border-color .18s ease, box-shadow .18s ease;
+  padding: 3px;
 }
 .mechanical-board-slot:nth-child(n + 4) { margin-inline-start: 5px; }
-.mechanical-board-divider {
-  position: absolute;
-  inset: 15% auto 15% -5px;
-  width: 1px;
-  background: linear-gradient(transparent, #95836b5e 18% 82%, transparent);
-  pointer-events: none;
-}
-.mechanical-board-slot::before,
-.mechanical-board-slot::after {
-  position: absolute;
-  color: #84725a7a;
-  font: 650 10px/1 "JetBrains Mono", monospace;
-  text-shadow: 0 1px #fff9eb7a;
-  pointer-events: none;
-}
-.mechanical-board-slot::before { content: attr(data-number); top: 5px; left: 6px; }
-.mechanical-board-slot::after { content: attr(data-engraving); inset: auto 0 5px; text-align: center; }
-.mechanical-board-slot:has(.card-front:not(.mechanical-pending))::before,
-.mechanical-board-slot:has(.card-front:not(.mechanical-pending))::after { visibility: hidden; }
-.mechanical-board-slot[data-highlighted]:has(.card-front:not(.mechanical-pending)) {
+#table-container.mechanical-table #community .mechanical-board-slot[data-highlighted] .card-front {
   border-color: #bc985ea3;
-  box-shadow: inset 0 0 0 1px #f6dc9d63, 0 0 5px #cead5c62;
+  box-shadow: inset 0 0 0 1px #fff0c7, 0 0 5px #cead5c85, 0 2px 3px #927b512e;
 }
 #table-container.mechanical-table .mechanical-card-slot {
   background: none;
@@ -921,6 +870,32 @@
   text-overflow: ellipsis;
 }
 .mechanical-carry { transform: none; translate: -50% -50%; animation: none; transition: none; }
+.mechanical-card-roll-plane {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(var(--arm-payload-roll, 0deg));
+}
+.mechanical-card-roll-plane > .card {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  transition: none;
+}
+.mechanical-turnable-card[data-reverse-art] { --arm-front-yaw: 180deg; }
+.mechanical-card-roll-plane > .card-front {
+  transform: rotateY(180deg) rotate(var(--arm-front-yaw, 0deg));
+}
+.mechanical-card-roll-plane::after {
+  content: "";
+  position: absolute;
+  inset: 2px auto 2px 50%;
+  width: 1.4px;
+  background: #c7b399;
+  transform: translateX(-50%) rotateY(90deg);
+}
 .mechanical-spark {
   width: 0;
   height: 0;

@@ -34,7 +34,6 @@ const MechanicalTable = (() => {
   const printLayer = $("mechanicalPrintFeed");
   const community = $("community");
   const communityStation = $("communityStation");
-  const communityLabels = ["翻牌", "翻牌", "翻牌", "转牌", "河牌"];
   const potMeter = $("mechanicalPotMeter");
   const potReels = $("mechanicalPotReels");
   const labelLayer = $("mechanicalChipLabels");
@@ -347,14 +346,6 @@ const MechanicalTable = (() => {
     if (community.children[index]) return community.children[index];
     const slot = document.createElement("div");
     slot.className = "mechanical-board-slot";
-    slot.dataset.number = String(index + 1).padStart(2, "0");
-    slot.dataset.engraving = communityLabels[index];
-    if (index >= 3) {
-      const divider = document.createElement("span");
-      divider.className = "mechanical-board-divider";
-      divider.setAttribute("aria-hidden", "true");
-      slot.append(divider);
-    }
     community.append(slot);
     return slot;
   }
@@ -388,7 +379,7 @@ const MechanicalTable = (() => {
     const bottom = potMeter.getBoundingClientRect().top - bounds.top - 5;
     const height = Math.max(1, bottom - top);
     const width = Math.min(bounds.width * .68, communityStation.getBoundingClientRect().width + 156);
-    center = { x: bounds.width / 2, y: top + height / 2 };
+    center = { x: bounds.width / 2, y: top + height / 2 + Math.min(9, height * .18) };
     potArea = { width, height };
   }
 
@@ -558,6 +549,8 @@ const MechanicalTable = (() => {
   function queueCards(action, slots, batch = null) {
     if (!animatesArm() || (batch && document.hidden)) return;
     arm.enqueue(action, slots.map(({ key, card }) => {
+      const faceUp = card.classList.contains("card-front") &&
+        (action === "reveal" || (!isSpectator && !!card.closest(".my-hand")));
       let last = cardGeometry(card);
       const entry = {
         card,
@@ -566,7 +559,7 @@ const MechanicalTable = (() => {
           return last;
         },
       };
-      let standard;
+      let standard, carrier;
       deliveries.set(key, entry);
       card.classList.add("mechanical-pending");
       function land(animate) {
@@ -577,7 +570,6 @@ const MechanicalTable = (() => {
         entry.onArrival?.();
         if (animate && action === "reveal" && entry.card.isConnected) {
           entry.card.classList.add("mechanical-card-seated");
-          SFX.flip();
         }
         if (batch) {
           batch.pending.delete(land);
@@ -590,15 +582,28 @@ const MechanicalTable = (() => {
         target() {
           const target = entry.target();
           const wristAngle = cardWristAngle(target);
+          carrier?.toggleAttribute("data-reverse-art", wristAngle > 0);
           return { ...target, wristAngle, angle: wristAngle + 90 };
         },
         feedLength: () => standard.height,
         payload() {
           standard = standardCardSize();
-          return sizePayload(cardBack(), standard);
+          if (!faceUp) return sizePayload(cardBack(), standard);
+          carrier = document.createElement("div");
+          carrier.className = "card mechanical-turnable-card";
+          carrier.setAttribute("aria-hidden", "true");
+          const plane = document.createElement("div");
+          plane.className = "mechanical-card-roll-plane";
+          const front = entry.card.cloneNode(true);
+          front.classList.remove("mechanical-pending", "mechanical-card-seated", "card-flip-in");
+          plane.append(cardBack(), front);
+          carrier.append(plane);
+          return sizePayload(carrier, standard);
         },
         payloadOffset: () => ({ x: standard.height / 2 + jawReach, y: 0 }),
         payloadAngle: 90,
+        payloadRoll: faceUp ? 180 : 0,
+        onTurnover: SFX.flip,
         onRelease: () => SFX.deal(),
         onLand: () => land(true),
         onCancel: () => land(false),
@@ -867,6 +872,7 @@ const MechanicalTable = (() => {
     const narrow = width < 720;
     const compact = narrow || height < 430;
     const scale = Math.min(narrow ? .60 : compact ? .70 : 1, width / 900, height / 465);
+    const drop = 8 * scale;
     const zoneWidth = 92 * scale, zoneHeight = 74 * scale;
     const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
     const board = communityStation.getBoundingClientRect();
@@ -893,21 +899,21 @@ const MechanicalTable = (() => {
     const nearSideHand = topX - topHalfWidth < leftUpper.x + sideCardWidth * 2 + 14;
     const nearSidePlate = topX - topHalfWidth < sidePlate.right - left;
     const sideHandTop = leftUpper.y - sideCardWidth * 5 / 7;
-    const topWager = { x: topX, y: Math.min(topBandY + topHalfHeight,
+    const topWager = { x: topX, y: Math.min(topBandY + topHalfHeight + drop,
       nearSideHand ? sideHandTop - topHalfHeight - 4 : Infinity,
       nearSidePlate ? sidePlate.top - top - topHalfHeight - 13 : Infinity) };
     const upper = { x: Math.min(leftUpper.x + 152, board.left - left - halfWidth - 8),
-      y: Math.max(leftUpper.y + 16 * scale, topBandY + zoneHeight + halfHeight + 6) };
+      y: Math.max(leftUpper.y + 16 * scale, topBandY + zoneHeight + halfHeight + 6) + drop };
     const lower = { x: leftLower.x + 54 * scale + 8, y: leftLower.y - 30 - halfHeight };
     const boardBottom = board.bottom - top;
     const bottom = compact
-      ? { x: bottomLeft.x + 80, y: boardBottom + halfHeight + 7 }
-      : { x: bottomLeft.x - 20, y: bottomLeft.y - 69 - halfHeight };
+      ? { x: bottomLeft.x + 80, y: boardBottom + halfHeight + 7 + drop }
+      : { x: bottomLeft.x - 20, y: bottomLeft.y - 69 - halfHeight + drop };
     // The center wager uses a lower lane on short tables to clear its neighbors' stacks.
     const hero = compact
-      ? { x: width / 2 - 64 - halfWidth, y: Math.max(height - 19 - halfHeight, bottom.y + zoneHeight + 5) }
+      ? { x: width / 2 - 64 - halfWidth, y: Math.max(height - 19 - halfHeight + drop, bottom.y + zoneHeight + 5) }
       : { x: width / 2 - Math.max(95, 70 + halfWidth),
-        y: Math.max(boardBottom + halfHeight + 6, height - 17 - 100 * scale) };
+        y: Math.max(boardBottom + halfHeight + 6, height - 17 - 100 * scale) + drop };
     const mirror = ({ x, y }) => ({ x: width - x, y });
     [hero, bottom, lower, upper, topWager, mirror(topWager), mirror(upper), mirror(lower), mirror(bottom)]
       .forEach((at, slot) => {
@@ -1329,8 +1335,8 @@ const MechanicalTable = (() => {
       return true;
     }
     if (now < motion.start) {
-      if (motion.oldPot) drawPot({ ...motion.oldPot, at: center }, motion.previous, now);
       for (const { group: wager, motion: flight } of motion.outgoing) drawWager(wager, flight, now);
+      if (motion.oldPot) drawPot({ ...motion.oldPot, at: center }, motion.previous, now);
       return false;
     }
     const { at } = group;
@@ -1352,6 +1358,11 @@ const MechanicalTable = (() => {
 
   function drawChips(now) {
     context.clearRect(0, 0, bounds.width, bounds.height);
+    // Within the wagers, the piles farther down the felt cover those behind them.
+    const depthOrder = [...groups.values()].filter(group => group.zone).sort((a, b) => a.at.y - b.at.y);
+    for (const group of depthOrder) {
+      if (drawWager(group, wagers.get(group.id), now)) wagers.delete(group.id);
+    }
     // A settling hand owns its pot even if a new hand is already gathering bets.
     for (const payout of payouts.values()) {
       if (!payout.pot) continue;
@@ -1362,13 +1373,8 @@ const MechanicalTable = (() => {
       }
       drawSettledChips(group, payout.timeline.piles);
     }
-    // Paint from the back of the felt to the front, using each group's base rather than seat order.
-    const depthOrder = [...groups.values()].sort((a, b) => a.at.y - b.at.y);
-    for (const group of depthOrder) {
-      if (group.id === "pot") {
-        if (!payouts.has(state?.handNum) && drawPot(group, sweep, now)) sweep = null;
-      } else if (drawWager(group, wagers.get(group.id), now)) wagers.delete(group.id);
-    }
+    const pot = groups.get("pot");
+    if (pot && !payouts.has(state?.handNum) && drawPot(pot, sweep, now)) sweep = null;
   }
 
   function draw(now) {

@@ -8,9 +8,9 @@
  *   valid?:function():boolean,ready?:function():boolean,
  *   payload?:HTMLElement|function():HTMLElement,
  *   payloadOffset?:{x:number,y:number}|function(HTMLElement):{x:number,y:number},
- *   payloadAngle?:number,outlet?:ArmOutlet,feedLength?:number|function(HTMLElement):number,
+ *   payloadAngle?:number,payloadRoll?:number,outlet?:ArmOutlet,feedLength?:number|function(HTMLElement):number,
  *   wristAngle?:number|function():number,
- *   onGrab?:function(HTMLElement):void,onCarry?:function(ArmRelease):void,
+ *   onGrab?:function(HTMLElement):void,onCarry?:function(ArmRelease):void,onTurnover?:function():void,
  *   onRelease?:function(ArmRelease):boolean|void,onLand?:function():void,
  *   onComplete?:function():void,onCancel?:function():void}} ArmTask
  *
@@ -18,6 +18,7 @@
  * slot supply fresh coordinates at phase boundaries and during payload landing.
  * The optional release hook can return true to take ownership of the payload.
  * onComplete marks the end of arm motion for the task. onLand marks payload arrival.
+ * payloadRoll turns the mounted object about the tool axis in the rollPayload phase.
  * Outlet jobs supply feedLength in CSS pixels along the feed direction. By
  * default they use the card bay. ready() can hold a job at the head of the FIFO.
  */
@@ -28,6 +29,18 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
   const queue = [];
   const flights = [];
   let active, shred, lastPreset, returning, initialized;
+  let wristRoll = { from: 0, to: 0, start: 0, duration: 1 };
+  const rollEase = easing([.43, .04, .28, 1]);
+
+  function rollAt(now) {
+    const { from, to, start, duration } = wristRoll;
+    const t = rollEase(Math.max(0, Math.min(1, (now - start) / duration)));
+    return from + (to - from) * t;
+  }
+
+  function turnWrist(to, duration, now) {
+    wristRoll = { from: rollAt(now), to, start: now, duration };
+  }
 
   function resolve(value) {
     return typeof value === "function" ? value() : value;
@@ -350,6 +363,22 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
         lift: phase.lift }, phase.duration, now, { aim: true, jointPath: true });
       return { duration: phase.duration };
     },
+    rollPayload(phase, now) {
+      const { task, payload } = active;
+      if (!task.payloadRoll || !payload) return {};
+      turnWrist(task.payloadRoll, phase.duration, now);
+      let turned = false;
+      return {
+        duration: phase.duration,
+        advance(time) {
+          const angle = rollAt(time);
+          payload.style.setProperty("--arm-payload-roll", `${angle}deg`);
+          if (turned || Math.abs(angle) < Math.abs(task.payloadRoll) / 2) return;
+          turned = true;
+          task.onTurnover?.();
+        },
+      };
+    },
     placePayload(phase, now) {
       motion.extend(wristStroke, phase.duration, now);
       let corrected = false;
@@ -419,6 +448,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     active.outlet?.setFeeding?.(false);
     if (active.failed) active.task.onCancel?.();
     else active.task.onComplete?.();
+    turnWrist(0, 155, now);
     lastPreset = active.preset;
     active = null;
   }
@@ -454,6 +484,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       motion.reset(home(), now);
       initialized = true;
     }
+    rig.rollGripper?.(rollAt(now));
     let frame = motion.tick(now);
     updateFlights(now);
     updateRecycler(now);
@@ -469,6 +500,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       active.task.onCancel?.();
       lastPreset = active.preset;
       active = null;
+      turnWrist(0, 155, now);
       hardware({}, now);
     }
     if (!active && queue.length) {
@@ -502,7 +534,8 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
         hardware({}, now);
       }
     }
-    return !!active || !!queue.length || !!flights.length || !!shred || !!returning;
+    return !!active || !!queue.length || !!flights.length || !!shred || !!returning ||
+      (wristRoll.from !== wristRoll.to && now < wristRoll.start + wristRoll.duration);
   }
 
   function reset() {
@@ -527,6 +560,8 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     queue.length = flights.length = 0;
     active = lastPreset = null;
     returning = initialized = false;
+    wristRoll = { from: 0, to: 0, start: 0, duration: 1 };
+    rig.rollGripper?.(0);
     hardware();
   }
 
