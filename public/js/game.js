@@ -314,7 +314,7 @@ function handleActionLog(entry) {
 }
 
 function isMyTurnState(state = gameState) {
-  if (!state || isSpectator || !Net.playerId) return false;
+  if (!state || state.cardGate || isSpectator || !Net.playerId) return false;
   const me = state.players?.find((p) => p.id === Net.playerId);
   const current = state.players?.[state.currentIdx];
   return (
@@ -531,6 +531,7 @@ function renderGame(state) {
     seat.classList.toggle(
       "active",
       state.currentIdx === i &&
+        !state.cardGate &&
         state.phase !== "showdown" &&
         state.phase !== "idle",
     );
@@ -841,7 +842,6 @@ function renderGame(state) {
   if (mechanical) $("handRankLabel").classList.remove("visible");
   else updateHandLabel(state);
   if (mechanical) {
-    MechanicalActionDesk.showStrength(!isSpectator && !me?.folded ? me?.hand : undefined, state.community);
     MechanicalTable.render(state);
   } else {
     requestAnimationFrame(() => {

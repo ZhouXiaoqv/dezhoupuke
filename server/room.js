@@ -558,6 +558,10 @@ class Room {
     this.game.handleAction(playerId, actionData);
   }
 
+  handleCardsReady(playerId, id) {
+    if (this.gameRunning) this.game?.acknowledgeCards(playerId, id);
+  }
+
   handleShowHandChoice(playerId, show) {
     if (!this.game || !this.gameRunning) return;
     if (this.spectators.has(playerId)) return;
@@ -703,6 +707,7 @@ class Room {
     if (this.nextHandTimer) clearTimeout(this.nextHandTimer);
     if (this.game && this.game.actionTimeout) clearTimeout(this.game.actionTimeout);
     this.game?.clearTurn();
+    this.game?.clearCardGate();
     if (this.game && this.game.showHandTimeout) clearTimeout(this.game.showHandTimeout);
     this.broadcast('room:destroyed', {});
     this.players.clear();

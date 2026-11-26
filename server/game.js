@@ -7,6 +7,7 @@ const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RANK_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
 const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
+const { randomUUID } = require('node:crypto');
 const gameLogger = require('./gameLogger');
 const { emptyChips, chipTotal, startingChips, addChips, transferChips } = require('./chips');
 
@@ -160,6 +161,7 @@ class Game {
     this.actionTimeout = null;
     this.turnTimeout = null;
     this.turn = null;
+    this.cardGate = null;
     this.phaseTimeout = null;
     this.handEndTimeout = null;
     this.handSettled = false;
@@ -224,6 +226,34 @@ class Game {
     this.turn = null;
   }
 
+  beginCardGate(boardFrom, count, resume) {
+    if (this.tableStyle !== 'mechanical') return false;
+    const waiting = new Set(this.players.filter(p => p.connected && !p.isBot && p._ws?.readyState === 1).map(p => p.id));
+    if (!waiting.size) return false;
+    const gate = { batch: { id: randomUUID(), boardFrom }, waiting, resume };
+    this.cardGate = gate;
+    // Allow time for the serial deals and earlier FIFO jobs, even with a full table.
+    gate.timeout = setTimeout(() => this.releaseCardGate(gate), 12_000 + count * 1_400);
+    return true;
+  }
+
+  clearCardGate() {
+    clearTimeout(this.cardGate?.timeout);
+    this.cardGate = null;
+  }
+
+  releaseCardGate(gate) {
+    if (this.cardGate !== gate) return;
+    this.clearCardGate();
+    gate.resume();
+  }
+
+  acknowledgeCards(playerId, id) {
+    const gate = this.cardGate;
+    if (!gate || gate.batch.id !== id || !gate.waiting.delete(playerId)) return;
+    if (!gate.waiting.size) this.releaseCardGate(gate);
+  }
+
   expireTurn(turn) {
     if (this.turn !== turn || this.handSettled) return;
     const player = this.players[this.currentIdx];
@@ -233,7 +263,7 @@ class Game {
   }
 
   sendTurnPrompt(player) {
-    if (player._ws?.readyState !== 1) return;
+    if (this.cardGate || player._ws?.readyState !== 1) return;
     player._ws.send(JSON.stringify({ type: 'game:yourTurn', data: {
       playerId: player.id,
       toCall: this.roundBet - player.bet,
@@ -297,6 +327,7 @@ class Game {
       community: this.community,
       pot: this.pot,
       ...(this.potChips && { potChips: this.potChips.slice() }),
+      ...(this.cardGate && { cardGate: this.cardGate.batch }),
       ...(this.turnDurationMs && { turn: this.turn && { ...this.turn, remainingMs: Math.max(0, this.turn.deadline - Date.now()) } }),
       dealerIdx: this.dealerIdx,
       sbIdx: this.sbIdx,
@@ -341,6 +372,7 @@ class Game {
   startHand() {
     this.clearActionTimeout();
     this.clearTurn();
+    this.clearCardGate();
     this.clearPhaseTimeout();
     this.clearHandEndTimeout();
 
@@ -403,12 +435,13 @@ class Game {
 
     this.currentIdx = this.nextIdx(bbIdx);
     this.actedCount = 0;
+    const gated = this.beginCardGate(null, playableCount * 2, () => this.processNextAction());
 
     this.broadcast('game:handStart', { handNum: this.handNum });
     for (const entry of blindLogs) this.broadcast('game:actionLog', entry);
     this.broadcastState();
 
-    this.scheduleNextAction();
+    if (!gated) this.scheduleNextAction();
   }
 
   postBlind(player, amount) {
@@ -445,12 +478,15 @@ class Game {
   }
 
   processNextAction() {
-    if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
+    if (this.cardGate || this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
     const inHand = this.inHandPlayers();
     if (inHand.length <= 1) { this.endHand(); return; }
 
     const canAct = this.canActPlayers();
-    if (canAct.length === 0) { this.advancePhase(); return; }
+    if (canAct.length === 0 || (this.tableStyle === 'mechanical' && canAct.length === 1 && canAct[0].bet === this.roundBet)) {
+      this.advancePhase();
+      return;
+    }
 
     const player = this.players[this.currentIdx];
 
@@ -476,7 +512,7 @@ class Game {
   }
 
   handleAction(playerId, actionData, timedOut = false) {
-    if (this.handSettled || !['preflop', 'flop', 'turn', 'river'].includes(this.phase)) return;
+    if (this.cardGate || this.handSettled || !['preflop', 'flop', 'turn', 'river'].includes(this.phase)) return;
 
     const player = this.players.find(p => p.id === playerId);
     if (!player || player.folded || player.allIn) return;
@@ -581,13 +617,15 @@ class Game {
     const allMatched = canAct.every(p => p.bet === this.roundBet);
     if (allMatched && this.actedCount >= canAct.length) {
       this.advancePhase();
+    } else if (this.tableStyle === 'mechanical' && action === 'fold') {
+      this.processNextAction();
     } else {
       this.scheduleNextAction();
     }
   }
 
   advancePhase() {
-    if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
+    if (this.cardGate || this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
     this.clearPhaseTimeout();
     this.clearTurn();
     for (const p of this.players) {
@@ -602,7 +640,7 @@ class Game {
     const inHand = this.inHandPlayers();
     if (inHand.length <= 1) { this.endHand(); return; }
 
-    const prevPhase = this.phase;
+    const boardFrom = this.community.length;
     if (this.phase === 'preflop') {
       this.phase = 'flop';
       this.deck.pop(); // Burn card
@@ -621,9 +659,12 @@ class Game {
     }
 
     const canAct = this.canActPlayers();
+    if (canAct.length > 1) this.currentIdx = this.nextIdx(this.dealerIdx);
+    const gated = this.beginCardGate(boardFrom, this.community.length - boardFrom, () => this.processNextAction());
+    gameLogger.logPhaseChange(this, this.phase);
+    this.broadcastState();
+    if (gated) return;
     if (canAct.length <= 1) {
-      gameLogger.logPhaseChange(this, this.phase);
-      this.broadcastState();
       this.phaseTimeout = setTimeout(() => {
         this.phaseTimeout = null;
         this.advancePhase();
@@ -631,10 +672,6 @@ class Game {
       return;
     }
 
-    // Post-flop: start from small blind position (or next active if SB folded)
-    this.currentIdx = this.nextIdx(this.dealerIdx);
-    gameLogger.logPhaseChange(this, this.phase);
-    this.broadcastState();
     this.actionTimeout = setTimeout(() => {
       this.actionTimeout = null;
       this.processNextAction();
@@ -642,7 +679,7 @@ class Game {
   }
 
   showdown() {
-    if (this.handSettled) return;
+    if (this.cardGate || this.handSettled) return;
     this.handSettled = true;
     this.clearActionTimeout();
     this.clearTurn();
@@ -760,8 +797,9 @@ class Game {
   }
 
   endHand() {
-    if (this.handSettled) return;
+    if (this.cardGate || this.handSettled) return;
     const inHand = this.inHandPlayers();
+    if (inHand.length === 0 && this.tableStyle === 'mechanical') return this.showdown();
     if (inHand.length === 1) {
       this.handSettled = true;
       this.clearActionTimeout();
@@ -839,6 +877,10 @@ class Game {
     const player = this.players.find(p => p.id === playerId);
     if (!player) return;
     player.connected = false;
+    if (this.cardGate) {
+      this.acknowledgeCards(playerId, this.cardGate.batch.id);
+      return;
+    }
 
     // If it's their turn, auto-fold
     if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle' && this.phase !== 'show_choice') {

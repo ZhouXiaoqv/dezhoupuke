@@ -58,6 +58,7 @@ const MechanicalTable = (() => {
   const seats = new Map();
   const wagerZones = new Map();
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, latestReceipt;
+  let cardBatch;
   let turnClock, submittedDeadline;
   let wellSize;
   let groups = new Map();
@@ -95,6 +96,7 @@ const MechanicalTable = (() => {
   }
 
   function clearHandEffects() {
+    retireCardBatch();
     clearTurnClock();
     submittedDeadline = undefined;
     MechanicalActionDesk.showStrength();
@@ -117,6 +119,7 @@ const MechanicalTable = (() => {
     clearPayouts();
     frame = bounds = null;
     latestReceipt = null;
+    cardBatch = null;
     arm.reset();
     clearHandEffects();
     moving.replaceChildren();
@@ -433,6 +436,8 @@ const MechanicalTable = (() => {
   }
 
   function beforeRender(next) {
+    // A timed-out gate can advance the server before a slow view finishes its queue.
+    if (cardBatch?.id !== next.cardGate?.id) retireCardBatch();
     if (!animatesArm() || !measure()) return;
     if (["showdown", "show_choice"].includes(next.phase)) preparePayout(next);
     if (!state || state.handNum !== next.handNum) return;
@@ -477,7 +482,6 @@ const MechanicalTable = (() => {
       return { ...mouth, y: mouth.y + standard.height * exposed + jawReach, angle: -90, lift: 2 };
     };
     arm.enqueue("fold", {
-      valid: () => !delivery?.cancelled,
       ready: () => !delivery || delivery.landed,
       source: () => ({ ...MechanicalArmMotion.advance(source, angle, -source.height / 2 - jawReach), angle, lift: 2 }),
       approach() {
@@ -517,8 +521,35 @@ const MechanicalTable = (() => {
     return paper;
   }
 
-  function queueCards(action, slots) {
-    if (!animatesArm()) return;
+  function updateHandStrength() {
+    const me = state?.players.find(player => player.id === Net.playerId);
+    const pending = cardBatch?.pending.size;
+    const boardFrom = pending ? cardBatch.boardFrom : undefined;
+    MechanicalActionDesk.showStrength(!isSpectator && !me?.folded && boardFrom !== null ? me?.hand : undefined,
+      state?.community.slice(0, boardFrom ?? undefined));
+  }
+
+  function confirmCardBatch(batch) {
+    if (batch !== cardBatch || batch.pending.size) return;
+    updateHandStrength();
+    if (!batch.sent && !isSpectator && Net.connected && gameState?.cardGate?.id === batch.id) {
+      batch.sent = true;
+      Net.send("game:cardsReady", { id: batch.id });
+    }
+  }
+
+  function finishCardBatch(batch) {
+    if (batch) for (const land of batch.pending) land(false);
+  }
+
+  function retireCardBatch() {
+    const previous = cardBatch;
+    cardBatch = null;
+    finishCardBatch(previous);
+  }
+
+  function queueCards(action, slots, batch = null) {
+    if (!animatesArm() || (batch && document.hidden)) return;
     arm.enqueue(action, slots.map(({ key, card }) => {
       let last = cardGeometry(card);
       const entry = {
@@ -531,14 +562,24 @@ const MechanicalTable = (() => {
       let standard;
       deliveries.set(key, entry);
       card.classList.add("mechanical-pending");
-      function finish(cancelled) {
+      function land(animate) {
+        if (entry.landed) return;
         if (deliveries.get(key) === entry) deliveries.delete(key);
         entry.card.classList.remove("mechanical-pending");
-        entry.landed = !cancelled;
-        entry.cancelled = cancelled;
-        if (!cancelled) entry.onArrival?.();
+        entry.landed = true;
+        entry.onArrival?.();
+        if (animate && action === "reveal" && entry.card.isConnected) {
+          entry.card.classList.add("mechanical-card-seated");
+          SFX.flip();
+        }
+        if (batch) {
+          batch.pending.delete(land);
+          confirmCardBatch(batch);
+        }
       }
+      batch?.pending.add(land);
       return {
+        valid: () => !entry.landed,
         target() {
           const target = entry.target();
           const wristAngle = cardWristAngle(target);
@@ -552,14 +593,8 @@ const MechanicalTable = (() => {
         payloadOffset: () => ({ x: standard.height / 2 + jawReach, y: 0 }),
         payloadAngle: 90,
         onRelease: () => SFX.deal(),
-        onLand() {
-          finish(false);
-          if (action === "reveal" && entry.card.isConnected) {
-            entry.card.classList.add("mechanical-card-seated");
-            SFX.flip();
-          }
-        },
-        onCancel: () => finish(true),
+        onLand: () => land(true),
+        onCancel: () => land(false),
       };
     }));
   }
@@ -624,6 +659,9 @@ const MechanicalTable = (() => {
     renderInstruments(next);
     const sameHand = last?.handNum === next.handNum;
     if (last && !sameHand) deliveries.clear();
+    const newBatch = next.cardGate && cardBatch?.id !== next.cardGate.id
+      ? cardBatch = { ...next.cardGate, pending: new Set() }
+      : null;
     const hands = next.players.map((player, index) => player.folded ? [] :
       seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card })));
     const board = [...community.querySelectorAll(".card")].map((card, slot) => ({ key: boardCardKey(slot), card }));
@@ -634,14 +672,18 @@ const MechanicalTable = (() => {
       card.classList.remove("card-flip-in");
       card.classList.add("mechanical-pending");
     }
-    if (handToDeal === next.handNum) {
+    if (newBatch?.boardFrom === null || (!next.cardGate && handToDeal === next.handNum)) {
       const cards = [0, 1].flatMap(round => hands.map(hand => hand[round]).filter(Boolean));
-      queueCards("deal", cards);
+      queueCards("deal", cards, newBatch);
       handToDeal = null;
     }
-    if (sameHand && next.community.length > last.community.length) {
+    if (newBatch && newBatch.boardFrom !== null) {
+      queueCards("reveal", board.slice(newBatch.boardFrom, next.community.length), newBatch);
+    } else if (!next.cardGate && sameHand && next.community.length > last.community.length) {
       queueCards("reveal", board.slice(last.community.length, next.community.length));
     }
+    if (cardBatch && !cardBatch.pending.size) confirmCardBatch(cardBatch);
+    else updateHandStrength();
     const oldGroups = groups;
     placeWagerZones();
     groups = readGroups(next);
@@ -1355,13 +1397,16 @@ const MechanicalTable = (() => {
   geometryObserver.observe(table);
   geometryObserver.observe(container);
 
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) finishCardBatch(cardBatch);
+  });
+
   reduced.addEventListener("change", () => {
-    if (!enabled()) return;
+    if (!enabled() || !reduced.matches) return;
+    finishCardBatch(cardBatch);
+    flipPhase(phaseLabel.getAttribute("aria-label"), false);
+    clearPayouts();
     arm.reset();
-    if (reduced.matches) {
-      flipPhase(phaseLabel.getAttribute("aria-label"), false);
-      clearPayouts();
-    }
     nextFrame();
   });
 

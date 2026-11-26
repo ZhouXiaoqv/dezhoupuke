@@ -18,6 +18,10 @@ function register(ws, ctx = {}) {
     ws._currentRoom.handlePlayerAction(ws._playerId, data);
   });
 
+  ws._on('game:cardsReady', (data) => {
+    if (isPlayer()) ws._currentRoom?.handleCardsReady(ws._playerId, data?.id);
+  });
+
   ws._on('game:showHand', (data) => {
     if (!isPlayer()) return;
     if (!ws._currentRoom) return;
