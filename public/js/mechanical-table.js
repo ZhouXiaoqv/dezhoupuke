@@ -193,6 +193,7 @@ const MechanicalTable = (() => {
           back.style.width = card.getBoundingClientRect().width + "px";
           return back;
         },
+        payloadOffset: card => ({ x: 12 + parseFloat(card.style.width) * .43, y: 0 }),
         onRelease: () => SFX.deal(),
         onLand() {
           card.classList.remove("mechanical-pending");

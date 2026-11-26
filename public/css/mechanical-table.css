@@ -210,14 +210,32 @@
   overflow: visible;
   filter: drop-shadow(0 5px 4px #49352250);
 }
-.mechanical-bay-hatch { transition: transform 105ms cubic-bezier(.25,.72,.36,1); }
-.mechanical-base[data-hatch="open"] .mechanical-bay-hatch { transform: translateY(-5px); }
+.mechanical-bay-door { transition: transform 80ms cubic-bezier(.25,.72,.36,1); }
+.mechanical-base[data-hatch="open"] .mechanical-bay-door-left { transform: translateX(-43px); }
+.mechanical-base[data-hatch="open"] .mechanical-bay-door-right { transform: translateX(43px); }
+.mechanical-feed-card { opacity: 0; transform: translateY(-24px); }
+.mechanical-base[data-feeding="true"] .mechanical-feed-card {
+  opacity: 1;
+  transform: translateY(8px);
+  transition: transform 78ms cubic-bezier(.21,.73,.34,1);
+}
+.mechanical-base[data-feeding="true"] .mechanical-roller-treads { animation: mechanicalRoller 66ms linear infinite; }
+@keyframes mechanicalRoller { to { stroke-dashoffset: -6; } }
 .mechanical-lamp-glass {
   fill: url(#baseLampGlass);
   stroke: #4e4737;
+  opacity: .82;
 }
-.mechanical-base-active .mechanical-lamp-glass {
+.mechanical-base:is([data-arm-stage="prepare"], [data-arm-stage="feed"], [data-arm-stage="grasp"], [data-arm-stage="release"]) .mechanical-lamp-glass {
+  opacity: 1;
   filter: drop-shadow(0 0 3px var(--arm-lamp));
+}
+.mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass {
+  animation: mechanicalLampStandby 2.8s ease-in-out infinite alternate;
+}
+@keyframes mechanicalLampStandby { from { opacity: .57; } to { opacity: .81; } }
+@media (prefers-reduced-motion: reduce) {
+  .mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass { animation: none; }
 }
 .mechanical-blinds {
   position: absolute;

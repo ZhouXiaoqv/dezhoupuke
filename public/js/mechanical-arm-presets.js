@@ -9,9 +9,9 @@ const MechanicalArmPresets = (() => {
     release: slide,
     home,
     phases: [
-      { kind: "pickup", duration: 120, chainedDuration: 25, dip: 4, hatch: true },
+      { kind: "pickup", duration: 120, chainedDuration: 25, dip: 4, hatch: true, feed: "card" },
       { kind: "travel", duration: 300, easing: sweep, bend: 33, chainedBend: 64,
-        lift: 27, shortOf: 44, releaseAt: 0.88 },
+        lift: 27, shortOf: 59, releaseAt: 0.88 },
       { kind: "brake", duration: 86, rebound: 1.5 },
     ],
   };
@@ -34,11 +34,12 @@ const MechanicalArmPresets = (() => {
     // A caller can register this example with the same generic controller and supply a payload.
     giftExample: {
       lamp: "#e8ae59",
+      releaseLamp: "#cf9bc3",
       release: { mode: "drop", duration: 270, arcHeight: 14, easing: [0.25, 0.45, 0.45, 1] },
       home: { duration: 500, easing: [0.4, 0, 0.2, 1] },
       phases: [
         { kind: "pickup", duration: 220, dip: 3, hatch: true },
-        { kind: "travel", duration: 450, easing: [0.25, 1, 0.35, 1], bend: 62, lift: 34, angle: 0, shortOf: 18 },
+        { kind: "travel", duration: 450, easing: [0.25, 1, 0.35, 1], bend: 62, lift: 34, wristAngle: 0, shortOf: 18 },
         { kind: "hold", duration: 300, bob: 3 },
         { kind: "release" },
       ],

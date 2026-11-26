@@ -1,9 +1,11 @@
 /**
  * @typedef {{x:number,y:number,angle?:number,lift?:number}} ArmTarget
- * @typedef {{pose:ArmTarget,tangent:{x:number,y:number},element:HTMLElement|null,
+ * @typedef {{pose:ArmTarget,socket:ArmTarget,tangent:{x:number,y:number},element:HTMLElement|null,
  *   target:ArmTarget,mode:"slide"|"drop"|"none"}} ArmRelease
  * @typedef {{target:ArmTarget|function():ArmTarget,source?:ArmTarget|function():ArmTarget,valid?:function():boolean,
  *   payload?:HTMLElement|function():HTMLElement,
+ *   payloadOffset?:{x:number,y:number}|function(HTMLElement):{x:number,y:number},
+ *   wristAngle?:number|function():number,
  *   onGrab?:function(HTMLElement):void,onCarry?:function(ArmRelease):void,
  *   onRelease?:function(ArmRelease):boolean|void,onLand?:function():void,
  *   onComplete?:function():void,onCancel?:function():void}} ArmTask
@@ -47,8 +49,25 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     element.style.rotate = angle + "deg";
   }
 
-  function cue(hatch = false) {
-    hardware({ lamp: active.preset.lamp, hatch, grip: !!active.payload });
+  function cue(stage, now, details) {
+    const { lamp, releaseLamp } = active.preset;
+    hardware({ stage, lamp: stage === "release" ? releaseLamp || "#efbf69" : lamp, ...details }, now);
+  }
+
+  function payloadPose(frame, element) {
+    const mount = active.task.payloadOffset;
+    const offset = typeof mount === "function" ? mount(element) : mount;
+    if (!offset) return frame.pose;
+    const radians = frame.pose.angle * Math.PI / 180;
+    const cos = Math.cos(radians), sin = Math.sin(radians);
+    return { ...frame.pose, x: frame.pose.x + offset.x * cos - offset.y * sin,
+      y: frame.pose.y + offset.x * sin + offset.y * cos };
+  }
+
+  function aimCarriage(now) {
+    const target = resolve(active.task.target);
+    motion.slideTo((target.x - bay().x) * .12, 125, now);
+    active.slid = true;
   }
 
   function grab(frame) {
@@ -56,14 +75,14 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     if (!element) return;
     active.payload = element;
     element.classList.add("mechanical-carry");
-    place(element, frame.pose);
+    place(element, payloadPose(frame, element));
     layer.append(element);
     active.task.onGrab?.(element);
-    cue();
   }
 
   function feedback(frame, target, element = active.payload) {
-    return { pose: frame.pose, tangent: frame.tangent, element: element ?? null,
+    return { pose: element ? payloadPose(frame, element) : frame.pose, socket: frame.pose,
+      tangent: frame.tangent, element: element ?? null,
       target, mode: active.preset.release.mode };
   }
 
@@ -73,7 +92,7 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     const { task, preset, payload } = active;
     const event = feedback(frame, resolve(task.target));
     active.payload = null;
-    cue();
+    cue("release", now, { hatch: false, eject: !!payload && event.mode !== "none" });
     if (task.onRelease?.(event) === true) return;
     if (!payload || event.mode === "none") {
       payload?.remove();
@@ -118,22 +137,46 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
 
   const primitives = {
     pickup(phase, now) {
-      if (active.chained) return { duration: phase.chainedDuration, arrive: grab };
-      cue(phase.hatch);
-      motion.move(resolve(active.task.source) ?? bay(), { ...phase, easing: [0.4, 0, 0.2, 1] }, now);
-      return { duration: phase.duration + motion.followDelay, arrive: grab };
+      const fromBay = !active.chained && !active.task.source && phase.hatch;
+      let contact = now + (active.chained ? phase.chainedDuration ?? 25 : phase.duration + motion.followDelay);
+      if (!active.chained) {
+        motion.move(resolve(active.task.source) ?? bay(), { ...phase, easing: [0.4, 0, 0.2, 1] }, now);
+      }
+      let feeding = false, touched = false;
+      return {
+        duration: contact - now + 50,
+        advance(time, frame, step) {
+          if (fromBay && !feeding && time >= contact - 80) {
+            feeding = true;
+            cue("feed", time, { hatch: true, feed: phase.feed === "card" });
+            contact = Math.max(contact, time + 80);
+            step.until = contact + 50;
+          }
+          if (!touched && time >= contact) {
+            touched = true;
+            step.until = time + 50;
+            aimCarriage(time);
+            cue("grasp", time);
+            grab(frame);
+          }
+        },
+        arrive(time) { cue("carry", time, { hatch: false }); },
+      };
     },
     travel(phase, now) {
+      if (!active.slid) aimCarriage(now);
       const from = motion.pose;
       const target = resolve(active.task.target);
       const vector = direction(from, target);
       const clearance = Math.min(phase.shortOf ?? 0, vector.distance * .55);
       const end = { x: target.x - vector.x * clearance, y: target.y - vector.y * clearance,
         lift: phase.lift ?? target.lift ?? from.lift,
-        angle: phase.angle ?? target.angle ?? Math.atan2(vector.y, vector.x) * 180 / Math.PI };
+      };
+      const wristAngle = resolve(active.task.wristAngle) ?? phase.wristAngle ?? phase.angle ?? target.angle ??
+        Math.atan2(vector.y, vector.x) * 180 / Math.PI;
       const bend = active.chained ? phase.chainedBend ?? phase.bend : phase.bend;
       const controls = typeof phase.controls === "function" ? phase.controls(from, end) : phase.controls;
-      motion.move(end, { ...phase, controls: controls ?? pathControls(from, end, bend) }, now);
+      motion.move(end, { ...phase, wristAngle, controls: controls ?? pathControls(from, end, bend) }, now);
       const releaseTime = phase.releaseAt === undefined ? null : now + phase.duration * phase.releaseAt + motion.followDelay;
       return { duration: Math.max(phase.duration, releaseTime ? releaseTime - now : 0), releaseTime };
     },
@@ -175,7 +218,7 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       active = { task, preset, phaseIndex: 0,
         chained: !!preset.chain && lastPreset?.chain === preset.chain && !returning };
       returning = false;
-      cue();
+      cue(preset.phases[0]?.kind === "pickup" ? "prepare" : "aim", now, { hatch: false, press: true });
       nextPhase(now, frame);
       return;
     }
@@ -204,33 +247,38 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       active.task.onCancel?.();
       lastPreset = active.preset;
       active = null;
-      hardware();
+      hardware({}, now);
     }
     if (!active && queue.length) {
       startNext(now, frame);
       frame = motion.tick(now);
     }
     if (active) {
-      const { step, payload, task } = active;
+      const { step, task } = active;
+      step.advance?.(now, frame, step);
+      const { payload } = active;
       if (payload) {
-        place(payload, frame.pose);
-        task.onCarry?.(feedback(frame, resolve(task.target)));
+        const carried = feedback(frame, resolve(task.target));
+        place(payload, carried.pose);
+        task.onCarry?.(carried);
       }
       if (step.releaseTime != null && now >= step.releaseTime) release(now, frame);
       if (now >= step.until) {
-        step.arrive?.(frame);
+        step.arrive?.(now, frame);
         nextPhase(now, frame);
       }
     }
     updateFlights(now);
     if (!active && !queue.length) {
       if (lastPreset && !returning) {
-        hardware();
+        hardware({ stage: "returning" }, now);
+        motion.slideTo(0, 350, now);
         motion.move(home(), { ...lastPreset.home, state: "returning" }, now);
         returning = true;
         lastPreset = null;
       } else if (returning && !frame.active) {
         returning = false;
+        hardware({}, now);
       }
     }
     return !!active || !!queue.length || !!flights.length || !!returning;

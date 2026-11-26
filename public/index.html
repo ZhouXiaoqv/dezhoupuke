@@ -412,7 +412,7 @@
                 <stop stop-color="#252421"/><stop offset=".62" stop-color="#514e47"/><stop offset="1" stop-color="#746c5e"/>
               </linearGradient>
               <linearGradient id="baseRoller" x2="0" y2="1">
-                <stop stop-color="#49453e"/><stop offset=".43" stop-color="#c3b39a"/><stop offset=".59" stop-color="#888070"/><stop offset="1" stop-color="#302d27"/>
+                <stop stop-color="#24221e"/><stop offset=".43" stop-color="#696157"/><stop offset=".64" stop-color="#4d473e"/><stop offset="1" stop-color="#25221d"/>
               </linearGradient>
               <radialGradient id="baseLampGlass" cx=".36" cy=".32" r=".68">
                 <stop stop-color="#fff7df"/><stop offset=".54" style="stop-color:var(--arm-lamp,#66816d)"/>
@@ -422,6 +422,9 @@
                 <path d="M0 1h11m4 0h3M3 5h10m1 2h4" fill="none" stroke="#574736" stroke-opacity=".13" stroke-width=".45"/>
                 <path d="M1 3h13m1 3h3" fill="none" stroke="#fffdf3" stroke-opacity=".7" stroke-width=".5"/>
                 <circle cx="5" cy="7" r=".38" fill="#896e51" opacity=".32"/>
+              </pattern>
+              <pattern id="baseFeedBack" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-33)">
+                <rect width="5" height="5" fill="#af8d61"/><path d="M1 0v5M3 0v5" stroke="#e2c59a" stroke-width=".7"/>
               </pattern>
               <clipPath id="baseBayClip"><rect x="78" y="73" width="84" height="20" rx="3"/></clipPath>
               <g id="baseScrew">
@@ -441,7 +444,12 @@
             <rect x="22" y="17" width="196" height="70" rx="8" fill="url(#baseFace)" stroke="#82715c"/>
             <rect x="23" y="18" width="194" height="68" rx="7" fill="url(#baseBrushed)"/>
             <path d="M30 19.5h180m-179 65.5h178" fill="none" stroke="#fcf3df" stroke-width="1.1"/>
-            <path d="M95 60v-12l7-8h36l7 8v12l-6 7h-38z" fill="url(#baseRim)" stroke="#a18a6e"/>
+            <rect x="85" y="51" width="70" height="13" rx="5" fill="url(#baseBayMetal)" stroke="#c9b69a"/>
+            <path d="M89 55h62m-62 5h62" stroke="#827663" stroke-opacity=".75" stroke-width=".65"/>
+            <g class="mechanical-shoulder-carriage">
+              <path d="M95 60v-12l7-8h36l7 8v12l-6 7h-38z" fill="url(#baseRim)" stroke="#a18a6e"/>
+              <path d="M100 51h40m-37 12h34" stroke="#f2dfbd" stroke-opacity=".6"/>
+            </g>
             <use href="#baseScrew" x="30" y="25"/><use href="#baseScrew" x="210" y="25"/>
             <use href="#baseScrew" x="30" y="79"/><use href="#baseScrew" x="210" y="79"/>
             <rect x="73" y="68" width="94" height="29" rx="6" fill="url(#baseRim)" stroke="#766653"/>
@@ -452,8 +460,19 @@
               <path d="M83 92l16-14m-10 14l14-14m34 0l14 14m-10-14l16 14" stroke="#a49a86" stroke-width=".85"/>
               <rect x="100" y="78.5" width="40" height="3.5" rx="1.75" fill="url(#baseRoller)" stroke="#27241e"/>
               <rect x="88" y="86" width="64" height="5.4" rx="2" fill="url(#baseRoller)" stroke="#2b2722"/>
-              <path d="M92 87h56m-54 2h52m-40-10h30" stroke="#f4deba" stroke-opacity=".54" stroke-width=".55" stroke-dasharray="1 2"/>
-              <path class="mechanical-bay-hatch" d="M77 71h86v7h-9l-3-2H89l-3 2h-9z" fill="url(#baseRim)" stroke="#312c25" stroke-width="1.1"/>
+              <path class="mechanical-roller-treads" d="M92 87h56m-54 2h52m-40-10h30" stroke="#e4d0ad" stroke-opacity=".65" stroke-width=".7" stroke-dasharray="1 2"/>
+              <g class="mechanical-feed-card">
+                <rect x="128" y="63" width="31" height="32" rx="3" fill="url(#baseFeedBack)" stroke="#fcdfad" stroke-width="1.25"/>
+                <rect x="130" y="65" width="27" height="28" rx="2" fill="none" stroke="#765b3e" stroke-width=".65"/>
+              </g>
+              <g class="mechanical-bay-door mechanical-bay-door-left">
+                <path d="M77 72h40l3 2v16l-3 2H77z" fill="url(#baseRim)" stroke="#635545"/>
+                <path d="M81 75h34m-33 14h33m-5-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
+              </g>
+              <g class="mechanical-bay-door mechanical-bay-door-right">
+                <path d="M163 72h-40l-3 2v16l3 2h40z" fill="url(#baseRim)" stroke="#635545"/>
+                <path d="M125 75h34m-34 14h33m-33-8h5" stroke="#f8e8cf" stroke-opacity=".8" stroke-width=".7"/>
+              </g>
             </g>
             <path d="M82 94h76" stroke="#fff2db" stroke-opacity=".72"/>
             <g stroke-width=".85">
@@ -466,8 +485,10 @@
               <ellipse cx="58.3" cy="76.2" rx="1.25" ry=".65" fill="#ffe9b8"/>
             </g>
             <rect x="187" y="70" width="15" height="13" rx="3.3" fill="#635547" stroke="#f9e9cf"/>
-            <rect x="189" y="71.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
-            <path d="M192 74h5m-3.5 2h2" stroke="#f9e9cc" stroke-linecap="round"/>
+            <g class="mechanical-press-button">
+              <rect x="189" y="71.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
+              <path d="M192 74h5m-3.5 2h2" stroke="#f9e9cc" stroke-linecap="round"/>
+            </g>
           </svg>
         </div>
         <div class="mechanical-only mechanical-blinds" id="mechanicalBlinds"></div>

@@ -86,6 +86,71 @@ async function verifyArmController(page) {
   assert.deepEqual(result.registered, ['deal', 'reveal', 'fold']);
 }
 
+async function verifyMovingRig(page) {
+  const result = await page.evaluate(() => {
+    const element = id => {
+      const node = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      node.id = id;
+      return node;
+    };
+    const svg = element('testMovingArm');
+    const base = document.getElementById('mechanicalBase').cloneNode(true);
+    const rig = createMechanicalArmRig(svg, element('testMovingShadow'), base);
+    rig.resize(900, 540);
+    const motion = rig.motion;
+    const gather = () => {
+      const cylinder = svg.querySelector('#testMovingArmHydraulic');
+      const rails = [...svg.querySelectorAll('.arm-parallel-link')].map(rail => {
+        const transform = rail.transform.baseVal;
+        const { e: x, f: y } = transform.getItem(0).matrix;
+        return { x, y, angle: transform.getItem(1).angle };
+      });
+      const angle = selector => svg.querySelector(selector).transform.baseVal.getItem(0).angle;
+      return {
+        piston: Number(cylinder.children[0].getAttribute('width')),
+        barrel: Number(cylinder.children[1].getAttribute('width')),
+        rails,
+        ratio: angle('.arm-bearing-rotor') - angle('.arm-bearing-dial'),
+      };
+    };
+    motion.reset({ x: 522, y: 40, angle: 24, lift: 0 });
+    const folded = gather();
+    motion.move({ x: 645, y: 410, angle: 65 }, { duration: 300, wristAngle: 0 }, 0);
+    motion.slideTo(100, 125, 0);
+    const reached = motion.tick(400);
+    const extended = gather();
+    const gripper = svg.querySelector('.arm-gripper');
+    const pin = svg.querySelector('.arm-ejector');
+    rig.hardware({ stage: 'feed', hatch: true, feed: true }, 410);
+    motion.tick(490);
+    const feeding = [base.dataset.hatch, base.dataset.feeding, Number(gripper.dataset.aperture)];
+    rig.hardware({ stage: 'grasp' }, 500);
+    motion.tick(550);
+    const grasped = Number(gripper.dataset.aperture);
+    rig.hardware({ stage: 'release', hatch: false, eject: true }, 560);
+    motion.tick(582);
+    const stroke = Number(pin.dataset.stroke);
+    motion.tick(600);
+    const released = Number(gripper.dataset.aperture);
+    rig.hardware({ stage: 'returning' }, 650);
+    motion.tick(950);
+    return { folded, extended, reached: reached.pose.angle, slide: reached.offset, feeding,
+      grasped, stroke, released, parked: Number(gripper.dataset.aperture), retracted: Number(pin.dataset.stroke) };
+  });
+  assert.ok(Math.abs(result.extended.piston - result.folded.piston) > 15);
+  assert.equal(result.extended.barrel, result.folded.barrel);
+  for (const { rails } of [result.folded, result.extended]) {
+    assert.ok(Math.abs(rails[0].angle - rails[1].angle) < .001);
+    assert.ok(Math.abs(Math.hypot(rails[0].x - rails[1].x, rails[0].y - rails[1].y) - 26) < .001);
+  }
+  assert.notEqual(result.folded.ratio, result.extended.ratio);
+  assert.equal(result.reached, 0);
+  assert.equal(result.slide, 12);
+  assert.deepEqual(result.feeding, ['open', 'true', 80]);
+  assert.deepEqual([result.grasped, result.released, result.parked], [15, 100, 30]);
+  assert.deepEqual([result.stroke, result.retracted], [3, 0]);
+}
+
 async function run() {
   const browser = await launchBrowser();
   try {
@@ -94,6 +159,7 @@ async function run() {
     const suffix = Date.now().toString(36);
     await Promise.all([register(host, 'mh' + suffix), register(guest, 'mg' + suffix)]);
     await verifyArmController(host);
+    await verifyMovingRig(host);
     await host.click('#cardCreate');
     await host.click('input[name="tableStyle"][value="mechanical"]');
     await host.click('#createRoomBtn');
