@@ -433,6 +433,10 @@
                 <path d="M1 3h13m1 3h3" fill="none" stroke="#fffdf3" stroke-opacity=".7" stroke-width=".5"/>
                 <circle cx="5" cy="7" r=".38" fill="#896e51" opacity=".32"/>
               </pattern>
+              <pattern class="mechanical-lead-screw" id="baseLeadScrew" width="6" height="8" patternUnits="userSpaceOnUse">
+                <path d="M-2 8l5-8m1 8l5-8" fill="none" stroke="#ded2bf" stroke-width="1.2"/>
+                <path d="M0 8l5-8m1 8l5-8" fill="none" stroke="#2b2722" stroke-width=".75"/>
+              </pattern>
               <clipPath id="baseBayClip"><rect x="78" y="73" width="84" height="20" rx="3"/></clipPath>
               <clipPath id="baseRecyclerClip"><rect x="85" y="104" width="70" height="17" rx="3"/></clipPath>
               <g id="baseScrew">
@@ -451,11 +455,16 @@
             <rect x="19" y="-34" width="336" height="176" rx="13" fill="#a69377" stroke="#fffaeb" stroke-width="1.3"/>
             <rect id="baseFaceShape" x="22" y="-31" width="330" height="170" rx="10" fill="var(--base-face, url(#baseFace))" stroke="var(--base-edge, #82715c)"/>
             <use href="#baseFaceShape" style="--base-face:url(#baseBrushed);--base-edge:none"/>
-            <rect x="23" y="12" width="324" height="16" rx="5" fill="url(#baseBayMetal)" stroke="#c9b69a"/>
-            <path d="M28 16h313m-313 8h313" stroke="#a1947d" stroke-width=".8"/>
+            <rect x="23" y="10" width="326" height="20" rx="5" fill="url(#baseBayMetal)" stroke="#c9b69a"/>
+            <rect x="28" y="16" width="316" height="8" rx="4" fill="url(#baseRoller)" stroke="#27241e"/>
+            <rect x="30" y="16" width="312" height="8" rx="3" fill="url(#baseLeadScrew)"/>
+            <path d="M28 13h316m-316 14h316" stroke="#a1947d" stroke-width=".8"/>
             <g class="mechanical-shoulder-carriage">
-              <path d="M222 25V15l5-5h26l5 5v10l-5 5h-26z" fill="url(#baseRim)" stroke="#a18a6e"/>
-              <path d="M225 16h30m-28 10h26" stroke="#f2dfbd" stroke-opacity=".6"/>
+              <rect x="222" y="9" width="36" height="23" rx="3" fill="#55483a" stroke="#786650"/>
+              <rect x="222" y="8" width="36" height="22" rx="3" fill="url(#baseRim)" stroke="#a18a6e"/>
+              <path d="M225 10h30m-30 18h30" stroke="#f2dfbd" stroke-opacity=".8"/>
+              <use href="#baseScrew" x="227" y="13"/><use href="#baseScrew" x="253" y="13"/>
+              <use href="#baseScrew" x="227" y="25"/><use href="#baseScrew" x="253" y="25"/>
             </g>
             <use href="#baseScrew" x="31" y="62"/><use href="#baseScrew" x="343" y="62"/>
             <use href="#baseScrew" x="34" y="128"/><use href="#baseScrew" x="340" y="128"/>

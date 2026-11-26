@@ -33,14 +33,16 @@ const MechanicalArmMotion = (() => {
 
   const radians = Math.PI / 180;
   const limits = [25, 155];
-  const tubes = [160, 158, 154];
-  const strokes = [tubes[1] - 18, tubes[2] - 16];
+  const tubes = [140, 168, 171];
+  const strokes = [tubes[1] - 18, tubes[2] - 18];
   const upperMin = tubes[0], upperMax = upperMin + strokes[0] + strokes[1];
-  const forearm = 76, tool = 28, jawReach = 20;
-  const comfortableReach = Math.sqrt(upperMax ** 2 + forearm ** 2 + 2 * upperMax * forearm * Math.cos(45 * radians));
-  const railMin = -208, railMax = 90;
-  const parkRail = 86;
-  const parking = { shoulder: 157.5, elbow: -140, upper: upperMin, angle: 8, lift: 0, park: 1 };
+  const forearm = 76, tool = 28, wristStroke = 32;
+  const gripAngle = (2 + .15 * 29) * radians;
+  const jawReach = 2 + 20 * Math.cos(gripAngle) - 1.7 * Math.sin(gripAngle);
+  const railMin = -199, railMax = 91;
+  const parkRail = 68;
+  const parking = { shoulder: 157.5, elbow: -135, upper: upperMin, angle: 8, lift: 0, extension: 0, park: 1 };
+  const clampRail = x => Math.max(railMin, Math.min(railMax, x));
 
   function advance(point, angle, length) {
     return { x: point.x + Math.cos(angle * radians) * length, y: point.y + Math.sin(angle * radians) * length };
@@ -49,15 +51,15 @@ const MechanicalArmMotion = (() => {
   function forward(root, shoulder, elbow, wrist) {
     const hinge = advance(root, shoulder.shoulder, shoulder.upper);
     const socket = advance(hinge, shoulder.shoulder + elbow.elbow, forearm);
-    const tip = { ...advance(socket, wrist.angle, tool), angle: wrist.angle, lift: wrist.lift };
-    return { pose: tip, joints: [root, hinge, socket, tip] };
+    const tip = { ...advance(socket, wrist.angle, tool + wrist.extension), angle: wrist.angle,
+      lift: wrist.lift, extension: wrist.extension };
+    return { pose: tip, grip: advance(tip, wrist.angle, jawReach), joints: [root, hinge, socket, tip] };
   }
 
   function solve(root, tip, minBend = limits[0], maxBend = limits[1]) {
-    const socket = advance(tip, tip.angle, -tool);
+    const socket = advance(tip, tip.angle, -tool - tip.extension);
     const dx = socket.x - root.x;
-    // The rail sits above the work area. Keep the wrist on its table-facing side near the pivot.
-    const dy = Math.max(12, socket.y - root.y);
+    const dy = socket.y - root.y;
     const distance = Math.hypot(dx, dy);
     // Choose the sleeve extension for a right-angle elbow first, then use the bend for the remaining reach.
     const square = distance ** 2 - forearm ** 2;
@@ -67,7 +69,7 @@ const MechanicalArmMotion = (() => {
     const bend = -Math.min(maxBend, Math.max(minBend, requested)) * radians;
     const along = upper + forearm * Math.cos(bend), across = forearm * Math.sin(bend);
     return { shoulder: (Math.atan2(dy, dx) - Math.atan2(across, along)) / radians, elbow: bend / radians,
-      upper, angle: tip.angle, lift: tip.lift, park: 0 };
+      upper, angle: tip.angle, lift: tip.lift, extension: tip.extension, park: 0 };
   }
 
   function jointMix(from, to, t) {
@@ -76,15 +78,15 @@ const MechanicalArmMotion = (() => {
       elbow: mix(from.elbow, to.elbow, t),
       upper: mix(from.upper, to.upper, t),
       angle: from.angle + angleDelta(from.angle, to.angle) * t,
-      lift: mix(from.lift, to.lift, t), park: mix(from.park, to.park, t),
+      lift: mix(from.lift, to.lift, t), extension: mix(from.extension, to.extension, t), park: mix(from.park, to.park, t),
     };
   }
 
   /**
-   * @typedef {{x?:number,y?:number,angle?:number,lift?:number,park?:boolean}} ArmPose
+   * @typedef {{x?:number,y?:number,angle?:number,lift?:number,extension?:number,park?:boolean}} ArmPose
    * @typedef {{duration:number,easing?:(number[]|function(number):number),
    *   controls?:ArmPose[],rebound?:number,reboundDuration?:number,
-   *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,jointPath?:boolean,aligned?:boolean,aim?:boolean|"close"|"left",
+   *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,jointPath?:boolean,aligned?:boolean,aim?:boolean,toolOnly?:boolean,
    *   wristEasing?:(number[]|function(number):number),state?:"moving"|"holding"|"returning"}} ArmMove
    *
    * The driver accepts Cartesian targets or the built-in parking pose. The tip and
@@ -107,24 +109,19 @@ const MechanicalArmMotion = (() => {
     }
 
     function slideTo(offset, duration, time) {
-      slides.push({ from: slideAt(time), to: Math.max(railMin, Math.min(railMax, offset)),
+      slides.push({ from: slideAt(time), to: clampRail(offset),
         start: time, duration: Math.max(1, duration) });
     }
 
-    function aimAt(target, duration, time, close) {
-      const wrist = advance(target, target.angle, -tool);
-      const height = Math.max(0, wrist.y - root.y);
+    function aimAt(target, duration, time) {
+      const wrist = advance(target, target.angle, -tool - target.extension);
+      const height = wrist.y - root.y;
       const anchor = wrist.x - root.x;
-      const inner = Math.sqrt(Math.max(0, 132 ** 2 - height ** 2));
-      const outer = Math.sqrt(Math.max(0, (close ? 172 : comfortableReach) ** 2 - height ** 2));
+      const clearance = Math.sqrt(Math.max(0, 113 ** 2 - height ** 2));
       const current = slideAt(time);
-      const positions = [];
-      for (const [left, right] of [[anchor - outer, anchor - inner], [anchor + inner, anchor + outer]]) {
-        const min = Math.max(left, railMin), max = Math.min(right, railMax);
-        if (min <= max) positions.push(Math.max(min, Math.min(max, current)));
-      }
-      positions.sort((a, b) => Math.abs(a - current) - Math.abs(b - current));
-      slideTo(positions[0] ?? anchor, duration, time);
+      const candidates = [anchor - clearance, anchor + clearance].filter(x => x >= railMin && x <= railMax);
+      const nearest = candidates.sort((a, b) => Math.abs(a - current) - Math.abs(b - current))[0];
+      slideTo(nearest ?? anchor, duration, time);
     }
 
     function sampleCommand(command, time) {
@@ -141,8 +138,9 @@ const MechanicalArmMotion = (() => {
     }
 
     function servo(time, lag) {
-      const command = motions.findLast(move => move.start + (move.aligned ? followDelay : lag) <= time);
-      return sampleCommand(command, time - (command?.aligned ? followDelay : lag));
+      const delay = command => command?.toolOnly ? 0 : command?.aligned ? followDelay : lag;
+      const command = motions.findLast(move => move.start + delay(move) <= time);
+      return sampleCommand(command, time - delay(command));
     }
 
     function resize(origin) {
@@ -155,23 +153,24 @@ const MechanicalArmMotion = (() => {
       motions.length = 0;
       slides.length = 0;
       initialOffset = pose.park ? parkRail : 0;
-      initial = pose.park ? parking : solve(shoulderAt(time), { angle: 0, lift: 0, ...pose });
+      initial = pose.park ? parking : solve(shoulderAt(time), { angle: 0, lift: 0, extension: 0, ...pose });
       return tick(time);
     }
 
     /** @param {ArmPose} pose @param {ArmMove} options */
     function move(pose, options, time) {
-      const from = sample(time);
+      const [main, elbow, wrist] = [servo(time, 0), servo(time, elbowDelay), servo(time, wristDelay)];
+      const from = { ...main, elbow: elbow.elbow, angle: wrist.angle, extension: wrist.extension, lift: wrist.lift };
       const start = forward(shoulderAt(time), from, from, from).pose;
       const { duration, controls, dip = 0, bob = 0, rebound = 0, reboundDuration = duration, state = "moving" } = options;
-      const target = { ...start, ...pose, angle: options.wristAngle ?? pose.angle ?? start.angle };
+      const target = { ...start, ...pose, angle: options.wristAngle ?? pose.angle ?? start.angle,
+        extension: Math.max(0, Math.min(wristStroke, pose.extension ?? start.extension)) };
       const curve = easing(options.easing);
       const wristCurve = easing(options.wristEasing ?? options.easing);
       const wristDuration = options.wristDuration ?? duration;
       const span = Math.max(1, duration, wristDuration, rebound ? reboundDuration : 0);
       if (state === "returning") slideTo(pose.park ? parkRail : 0, Math.min(350, duration), time);
-      else if (options.aim === "left") slideTo(railMin, duration, time);
-      else if (options.aim) aimAt(target, duration, time, options.aim === "close");
+      else if (options.aim) aimAt(target, duration, time);
       const followsPath = pose.x !== undefined || pose.y !== undefined || bob || dip || target.angle !== start.angle;
       const jointPath = options.jointPath || from.park;
       const endRoot = shoulderAt(time + duration);
@@ -189,6 +188,7 @@ const MechanicalArmMotion = (() => {
         const wobble = rebound ? clamp(elapsed / Math.max(1, reboundDuration)) : 1;
         const damped = Math.sin(wobble * Math.PI * 3) * (1 - wobble) ** 2 * 1.35;
         const angle = start.angle + angleDelta(start.angle, target.angle) * wristCurve(wristProgress);
+        const extension = mix(start.extension, target.extension, t);
         let next;
         if (pose.park) {
           next = jointMix(from, parking, t);
@@ -197,16 +197,17 @@ const MechanicalArmMotion = (() => {
           const y = point.y + dip * Math.sin(Math.PI * clamp((progress - .25) / .75)) -
             bob * Math.sin(progress * Math.PI) ** 2;
           const goal = solve(jointPath ? endRoot : shoulderAt(time + elapsed),
-            { x: point.x, y, angle: jointPath ? target.angle : angle, lift: target.lift }, minBend, maxBend);
+            { x: point.x, y, angle: jointPath ? target.angle : angle, lift: target.lift,
+              extension: jointPath ? target.extension : extension }, minBend, maxBend);
           next = jointPath ? jointMix(from, goal, t) : { ...goal, lift: mix(start.lift, target.lift, t) };
           if (jointPath) next.angle = angle;
         } else {
-          next = { ...from, angle, lift: mix(start.lift, target.lift, t) };
+          next = { ...from, angle, extension, lift: mix(start.lift, target.lift, t) };
         }
         next.angle += rebound * damped;
         knots.push(next);
       }
-      motions.push({ start: time, span, knots, state, aligned: options.aligned });
+      motions.push({ start: time, span, knots, state, aligned: options.aligned, toolOnly: options.toolOnly });
     }
 
     function configuration(time) {
@@ -218,7 +219,7 @@ const MechanicalArmMotion = (() => {
       const near = configuration(time - 10).pose;
       const far = configuration(time + 10).pose;
       const latest = motions.at(-1);
-      const active = !!latest && time < latest.start + latest.span + followDelay;
+      const active = !!latest && time < latest.start + latest.span + (latest.toolOnly ? 0 : followDelay);
       const dx = far.x - near.x, dy = far.y - near.y;
       const length = Math.hypot(dx, dy);
       const bearing = now.pose.angle * radians;
@@ -232,10 +233,14 @@ const MechanicalArmMotion = (() => {
       return output;
     }
 
-    return { resize, reset, move, slideTo, tick, get pose() { return output?.pose; }, followDelay };
+    function extend(extension, duration, time) {
+      move({ extension }, { duration, toolOnly: true, easing: [.4, 0, .2, 1] }, time);
+    }
+
+    return { resize, reset, move, extend, slideTo, tick, get pose() { return output?.pose; }, followDelay };
   }
 
-  return { create, easing, interpolate, angleDelta, tubes, strokes, forearm, tool, jawReach };
+  return { create, easing, interpolate, angleDelta, advance, tubes, strokes, forearm, tool, jawReach, wristStroke };
 })();
 
 function createMechanicalArmRig(svg, shadow, base) {
@@ -299,10 +304,19 @@ function createMechanicalArmRig(svg, shadow, base) {
     return { length: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) * 180 / Math.PI };
   }
 
-  const { tubes, strokes, forearm, tool } = MechanicalArmMotion;
+  const { tubes, strokes, forearm, tool, wristStroke } = MechanicalArmMotion;
+
+  function clipGroup(parent, name, x, y, width, height) {
+    const id = svg.id + name;
+    const clip = svgElement(defs, "clipPath", { id });
+    rect(clip, x, y, width, height, 0, "white");
+    return svgElement(parent, "g", { "clip-path": `url(#${id})` });
+  }
 
   function upperLink(parent) {
     const [outerLength, middleLength, innerLength] = tubes;
+    const total = strokes[0] + strokes[1];
+    parent = clipGroup(parent, "SleeveGuide", -12, -30, outerLength + total + 24, 65);
     rect(parent, 4, -15, outerLength - 5, 31, 6, inset, "#615648");
     for (const y of [-9, 1]) rect(parent, 20, y, outerLength - 32, 3, 1, chrome, "#665d50");
 
@@ -337,27 +351,41 @@ function createMechanicalArmRig(svg, shadow, base) {
       svgElement(middle, "path", { d: "M" + x + " 7v" + (x % 14 === 1 ? 4 : 2),
         stroke: "#78654e", "stroke-width": .8 });
     }
-    const outer = sleeve(0, outerLength, 19, ivory, [[29, 40, 8], [80, 57, 8]]);
-    for (const x of [21, 72, 77, 143]) {
+    const windows = [[29, 34, 8], [72, 48, 8]];
+    const outer = sleeve(0, outerLength, 19, ivory, windows);
+    for (const x of [21, 64, 70, 124]) {
       for (const y of [-14, 12]) bolt(outer, x, y, 1.55);
     }
 
+    // The cylinder is fixed to the shoulder axis. The piston travels with the elbow pin.
+    const actuatorClip = svg.id + "ActuatorWindows";
+    const clip = svgElement(defs, "clipPath", { id: actuatorClip });
+    for (const [x, width, half] of windows) rect(clip, x, -half - 2, width, half * 2, 3, "white");
+    const actuator = svgElement(parent, "g", { class: "arm-hydraulic", "clip-path": `url(#${actuatorClip})` });
+    rect(actuator, 7, -10, outerLength - 18, 17, 1, inset);
+    const piston = svgElement(actuator, "g", { class: "arm-hydraulic-piston" });
+    rect(piston, -(total + 46), -6, total + 46, 7, 2, chrome, "#5f574c");
+    for (let x = -(total + 40); x < -10; x += 26) rect(piston, x, -5.5, 1.2, 6, 0, "#968a7a");
+    rect(actuator, 7, -8, 75, 12, 3, inset, "#6c6254");
+    rect(actuator, 77, -9, 8, 14, 2, bronze, "#6c6254");
+    bolt(actuator, 9, -2.5, 3);
+    bolt(piston, 0, -2.5, 2.6);
+
     return extension => {
-      const total = strokes[0] + strokes[1];
       const progress = Math.max(0, Math.min(1, (extension - outerLength) / total));
       const middleOffset = outerLength - middleLength + strokes[0] * progress;
       const innerOffset = middleOffset + middleLength - innerLength + strokes[1] * progress;
       position(middle, { x: middleOffset, y: 0 });
       position(inner, { x: innerOffset, y: 0 });
+      position(piston, { x: extension, y: 0 });
     };
   }
 
   function trussLink(parent) {
-    const spacing = 13;
     const diagonal = svgElement(parent, "g", { class: "arm-diagonal-link" });
-    const braceLength = Math.hypot(forearm * .24, spacing * 2);
-    rect(diagonal, 0, -3.5, braceLength, 7, 2.8, edge, "#625646");
-    rect(diagonal, 2, -2.1, braceLength - 4, 4.2, 1.5, chrome, "#817869");
+    const braceRod = svgElement(diagonal, "g");
+    rect(braceRod, -23, -2.1, 23, 4.2, 1.5, chrome, "#817869");
+    rect(diagonal, 0, -3.5, 20, 7, 2.8, edge, "#625646");
     const rails = [11, 8].map((width, index) => {
       const rail = svgElement(parent, "g", { class: "arm-parallel-link", "data-link": index === 0 ? "main" : "auxiliary" });
       const half = width / 2;
@@ -367,20 +395,25 @@ function createMechanicalArmRig(svg, shadow, base) {
       for (const fraction of [.24, .5, .76]) bolt(rail, forearm * fraction, 0, 1.5);
       return rail;
     });
-    return (elbow, angle) => {
-      const pins = [-spacing, spacing].map(y => offset(elbow, angle, 0, y));
-      const from = offset(elbow, angle, forearm * .38, -spacing);
-      const to = offset(elbow, angle, forearm * .62, spacing);
-      position(diagonal, from, axis(from, to).angle);
-      rails.forEach((rail, index) => position(rail, pins[index], angle));
+    return (elbowPins, wristPins) => {
+      const from = MechanicalArmMotion.interpolate(elbowPins[0], wristPins[0], .38);
+      const to = MechanicalArmMotion.interpolate(elbowPins[1], wristPins[1], .62);
+      const brace = axis(from, to);
+      position(diagonal, from, brace.angle);
+      position(braceRod, { x: brace.length, y: 0 });
+      rails.forEach((rail, index) => position(rail, elbowPins[index], axis(elbowPins[index], wristPins[index]).angle));
     };
   }
 
   function wristLink(parent) {
-    rect(parent, -5, -8.4, tool + 9, 20, 5, edge, "#665747");
-    rect(parent, -5, -11, tool + 9, 19, 5, ivory, "#9a856b");
-    rect(parent, 0, -5, tool - 4, 8, 2.4, inset, "#b9a58b");
-    rect(parent, 3, -3.2, tool - 8, 1.9, .9, bronze);
+    const slide = clipGroup(parent, "WristGuide", tool - 13, -9, wristStroke + 10, 18);
+    const rods = svgElement(slide, "g", { class: "arm-wrist-rods" });
+    for (const y of [-6, 3]) rect(rods, tool - 12 - wristStroke, y, wristStroke + 2, 3.8, 1.3, chrome, "#6d675c");
+    rect(parent, -5, -8.4, tool - 4, 20, 4, edge, "#665747");
+    rect(parent, -5, -11, tool - 4, 19, 4, ivory, "#9a856b");
+    rect(parent, tool - 17, -9, 10, 16, 2, inset, "#ece0c6");
+    for (const y of [-5.2, 2]) rect(parent, tool - 14.5, y, 6, 3.2, 1, chrome, "#696052");
+    return extension => position(rods, { x: extension, y: 0 });
   }
 
   const truss = svgElement(svg, "g", { class: "arm-segment arm-forearm" });
@@ -389,8 +422,8 @@ function createMechanicalArmRig(svg, shadow, base) {
   const raisedSleeve = svgElement(svg, "g", { class: "arm-raised-sleeve" });
   const upper = svgElement(raisedSleeve, "g", { class: "arm-segment" });
   const slideSleeves = upperLink(upper);
-  const wrist = svgElement(svg, "g", { class: "arm-segment" });
-  wristLink(wrist);
+  const wrist = svgElement(svg, "g", { class: "arm-segment arm-wrist" });
+  const slideWrist = wristLink(wrist);
   const radii = [24, 19, 14.5];
   const hubs = radii.map(radius => {
     const hub = svgElement(svg, "g", { class: "arm-hinge" });
@@ -466,6 +499,7 @@ function createMechanicalArmRig(svg, shadow, base) {
   const bodyShadow = projectedLayer("Body", "#423628");
   let painted;
   const carriage = base.querySelector(".mechanical-shoulder-carriage");
+  const leadScrew = base.querySelector(".mechanical-lead-screw");
   const button = base.querySelector(".mechanical-press-button");
   const lampGlass = base.querySelector(".mechanical-lamp-glass");
   let jawMove = { from: .3, to: .3, start: 0, duration: 1 };
@@ -548,11 +582,16 @@ function createMechanicalArmRig(svg, shadow, base) {
     position(upper, shoulder, upperAxis.angle);
     slideSleeves(upperAxis.length);
     position(wrist, socket, pose.angle);
-    const pinAngle = forearmAxis.angle + 90;
-    updateTruss(elbow, forearmAxis.angle);
+    slideWrist(pose.extension);
+    const { angleDelta } = MechanicalArmMotion;
+    const pinAngle = forearmAxis.angle + 90 + angleDelta(upperAxis.angle, forearmAxis.angle) * .09
+      + angleDelta(forearmAxis.angle, pose.angle) * .045;
+    const pins = point => [-pinSpacing, pinSpacing].map(x => offset(point, pinAngle, x));
+    updateTruss(pins(elbow), pins(socket));
     position(eccentricPins[0], elbow, pinAngle);
     position(eccentricPins[1], socket, pinAngle);
     carriage?.setAttribute("transform", `translate(${carriageOffset} 0)`);
+    leadScrew?.setAttribute("patternTransform", `translate(${carriageOffset % 6} 0)`);
 
     const drive = [upperAxis.angle, forearmAxis.angle - upperAxis.angle, pose.angle - forearmAxis.angle];
     const gears = [1, -30 / 18, 24 / 12];

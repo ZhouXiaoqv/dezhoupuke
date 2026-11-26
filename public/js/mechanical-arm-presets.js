@@ -1,18 +1,18 @@
 // A preset supplies timing, hardware cues and an ordered list of motion primitives.
 const MechanicalArmPresets = (() => {
-  const sweep = [0.16, 1, 0.3, 1];
-  const slide = { mode: "slide", duration: 180, easing: [0.08, 0.92, 0.24, 1] };
   const home = { duration: 450, easing: [0.4, 0, 0.2, 1] };
   const deal = {
     lamp: "#4bcb9d",
-    release: slide,
+    release: { mode: "place", duration: 150, easing: [.32, .08, .27, 1] },
     home,
     phases: [
       { kind: "stageOutlet", duration: 175, feedDuration: 140, exposed: .57, clearance: 27 },
-      { kind: "gripOutlet", duration: 118, grip: 62 },
-      { kind: "extractOutlet", duration: 160 },
-      { kind: "travel", duration: 260, easing: sweep, bend: 33,
-        lift: 27, shortOf: 59, releaseAt: 0.93 },
+      { kind: "gripOutlet", duration: 92, grip: 62 },
+      { kind: "retractOutlet", duration: 68 },
+      { kind: "extractOutlet", duration: 106 },
+      { kind: "preparePlacement", duration: 267, lift: 19 },
+      { kind: "placePayload", duration: 98 },
+      { kind: "hold", duration: 34 },
     ],
   };
   return {
@@ -26,7 +26,8 @@ const MechanicalArmPresets = (() => {
         phases: [
           { kind: "stageOutlet", duration: 175, feedDuration: 240, feedSteps: 9, exposed: .30, clearance: 22 },
           { kind: "gripOutlet", duration: 120, grip: 60 },
-          { kind: "extractOutlet", duration: 240 },
+          { kind: "retractOutlet", duration: 76 },
+          { kind: "extractOutlet", duration: 164 },
           { kind: "release", duration: 46 },
         ],
       },
@@ -35,9 +36,11 @@ const MechanicalArmPresets = (() => {
         release: { mode: "recycle", duration: 360 },
         home,
         phases: [
-          { kind: "pickup", duration: 290, grip: 80 },
-          { kind: "travel", duration: 270, easing: [0.25, 0.85, 0.35, 1], jointPath: true, lift: 10, standoff: 13 },
-          { kind: "recycle", duration: 94 },
+          { kind: "pickup", duration: 280, grip: 65 },
+          { kind: "travel", duration: 282, easing: [0.25, 0.85, 0.35, 1], jointPath: true, lift: 10,
+            approach: true, scaleTo: 1, scaleDuration: 165 },
+          { kind: "feedRecycler", duration: 104 },
+          { kind: "recycle", duration: 108 },
         ],
       },
     },

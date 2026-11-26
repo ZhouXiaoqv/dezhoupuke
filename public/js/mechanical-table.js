@@ -291,7 +291,23 @@ const MechanicalTable = (() => {
 
   function cardGeometry(card) {
     const rect = card.getBoundingClientRect();
-    return { ...point(rect), width: rect.width, height: rect.height };
+    const style = getComputedStyle(card);
+    return { ...point(rect), width: parseFloat(style.width), height: parseFloat(style.height) };
+  }
+
+  function standardCardSize() {
+    const style = getComputedStyle($("community").firstElementChild);
+    return { width: parseFloat(style.width), height: parseFloat(style.height) };
+  }
+
+  function sizePayload(card, { width, height }) {
+    card.style.width = width + "px";
+    card.style.height = height + "px";
+    return card;
+  }
+
+  function cardWristAngle({ y }) {
+    return y >= 135 ? 90 : -90;
   }
 
   function beforeRender(next) {
@@ -312,23 +328,18 @@ const MechanicalTable = (() => {
 
   function queueFold(card, delivery) {
     const at = delivery ? delivery.target() : cardGeometry(card);
-    const fromAbove = at.y > bounds.height * .64;
-    const length = fromAbove ? at.height : at.width;
-    const bite = length / 2 + jawReach;
-    const angle = fromAbove ? 90 : at.x < bounds.width / 2 ? 180 : 0;
-    const radians = angle * Math.PI / 180;
-    const cos = Math.cos(radians), sin = Math.sin(radians);
-    const sheet = card.cloneNode(true);
+    const standard = standardCardSize();
+    const sheet = sizePayload(card.cloneNode(true), standard);
     sheet.classList.remove("mechanical-pending", "seat-card-deal", "card-flip-in");
     sheet.classList.add("mechanical-carry", "mechanical-fold-card");
-    sheet.style.width = at.width + "px";
-    sheet.style.height = at.height + "px";
     let source = at;
+    sheet.style.scale = String(source.height / standard.height);
     placeEffect(sheet, at);
     if (delivery) {
       sheet.style.visibility = "hidden";
       delivery.onArrival = () => {
         source = delivery.target();
+        sheet.style.scale = String(source.height / standard.height);
         placeEffect(sheet, source);
         sheet.style.visibility = "";
       };
@@ -338,16 +349,23 @@ const MechanicalTable = (() => {
       sheet.remove();
       paper?.remove();
     };
+    const angle = cardWristAngle(at);
+    const pointAtMouth = exposed => {
+      const mouth = recycleMouth();
+      return { ...mouth, y: mouth.y + standard.height * exposed + jawReach, angle: -90, lift: 2 };
+    };
     arm.enqueue("fold", {
       valid: () => !delivery?.cancelled,
       ready: () => !delivery || delivery.landed,
-      source: () => ({ x: source.x - cos * bite, y: source.y - sin * bite, angle, lift: 2 }),
-      target: () => {
-        const mouth = recycleMouth();
-        return { ...mouth, y: mouth.y + length + jawReach, angle: -90 };
+      source: () => ({ ...MechanicalArmMotion.advance(source, angle, -source.height / 2 - jawReach), angle, lift: 2 }),
+      approach() {
+        const front = pointAtMouth(1);
+        return { ...front, y: front.y + 4 };
       },
+      target: () => pointAtMouth(.40),
       payload: sheet,
-      payloadOffset: { x: bite, y: 0 },
+      feedLength: standard.height,
+      payloadOffset: () => ({ x: standard.height * Number(sheet.style.scale) / 2 + jawReach, y: 0 }),
       payloadAngle: -angle,
       onRelease() { paper = shredPaper(); },
       onLand: cleanup,
@@ -388,7 +406,7 @@ const MechanicalTable = (() => {
           return last;
         },
       };
-      const { width, height } = last;
+      let standard;
       deliveries.set(key, entry);
       card.classList.add("mechanical-pending");
       function finish(cancelled) {
@@ -399,15 +417,17 @@ const MechanicalTable = (() => {
         if (!cancelled) entry.onArrival?.();
       }
       return {
-        target: entry.target,
-        feedLength: height,
-        payload() {
-          const back = cardBack();
-          back.style.width = width + "px";
-          back.style.height = height + "px";
-          return back;
+        target() {
+          const target = entry.target();
+          const wristAngle = cardWristAngle(target);
+          return { ...target, wristAngle, angle: wristAngle + 90 };
         },
-        payloadOffset: { x: height / 2 + jawReach, y: 0 },
+        feedLength: () => standard.height,
+        payload() {
+          standard = standardCardSize();
+          return sizePayload(cardBack(), standard);
+        },
+        payloadOffset: () => ({ x: standard.height / 2 + jawReach, y: 0 }),
         payloadAngle: 90,
         onRelease: () => SFX.deal(),
         onLand() {

@@ -1,9 +1,10 @@
 /**
- * @typedef {{x:number,y:number,angle?:number,lift?:number}} ArmTarget
+ * @typedef {{x:number,y:number,angle?:number,lift?:number,width?:number,wristAngle?:number}} ArmTarget
  * @typedef {{pose:function():ArmTarget,layer:HTMLElement,setFeeding:function(boolean):void}} ArmOutlet
  * @typedef {{pose:ArmTarget,socket:ArmTarget,tangent:{x:number,y:number},element:HTMLElement|null,
- *   target:ArmTarget,mode:"slide"|"drop"|"recycle"|"none"}} ArmRelease
+ *   target:ArmTarget,mode:"slide"|"drop"|"place"|"recycle"|"none"}} ArmRelease
  * @typedef {{target:ArmTarget|function():ArmTarget,source?:ArmTarget|function():ArmTarget,
+ *   approach?:function():ArmTarget,
  *   valid?:function():boolean,ready?:function():boolean,
  *   payload?:HTMLElement|function():HTMLElement,
  *   payloadOffset?:{x:number,y:number}|function(HTMLElement):{x:number,y:number},
@@ -22,7 +23,7 @@
  */
 function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, presets, bay, recycleMouth, home }) {
   const { motion, hardware } = rig;
-  const { easing, interpolate, angleDelta, jawReach } = MechanicalArmMotion;
+  const { easing, interpolate, angleDelta, advance, jawReach, wristStroke } = MechanicalArmMotion;
   const cardOutlet = { pose: bay, layer: feedLayer };
   const queue = [];
   const flights = [];
@@ -60,15 +61,23 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     hardware({ stage, lamp: stage === "release" ? releaseLamp || "#efbf69" : lamp, ...details }, now);
   }
 
-  function payloadPose(frame, element) {
+  function mountOffset(element) {
     const mount = active.task.payloadOffset;
-    const offset = typeof mount === "function" ? mount(element) : mount;
+    return typeof mount === "function" ? mount(element) : mount;
+  }
+
+  function turnedOffset(angle, { x, y }) {
+    const radians = angle * Math.PI / 180;
+    const cos = Math.cos(radians), sin = Math.sin(radians);
+    return { x: x * cos - y * sin, y: x * sin + y * cos };
+  }
+
+  function payloadPose(frame, element) {
+    const offset = mountOffset(element);
     const angle = frame.pose.angle + (active.task.payloadAngle ?? 0);
     if (!offset) return { ...frame.pose, angle };
-    const radians = frame.pose.angle * Math.PI / 180;
-    const cos = Math.cos(radians), sin = Math.sin(radians);
-    return { ...frame.pose, angle, x: frame.pose.x + offset.x * cos - offset.y * sin,
-      y: frame.pose.y + offset.x * sin + offset.y * cos };
+    const vector = turnedOffset(frame.pose.angle, offset);
+    return { ...frame.pose, angle, x: frame.pose.x + vector.x, y: frame.pose.y + vector.y };
   }
 
   function feed(source) {
@@ -80,8 +89,8 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     place(element, payloadPose({ pose: source }, element));
     feedLayer.append(element);
     active.feedMotion = element.animate([
-      { translate: "0 -23px", clipPath: "inset(100% 0 0)", opacity: 0 },
-      { translate: "0 0", clipPath: "inset(40% 0 0)", opacity: 1 },
+      { translate: "-50% calc(-50% - 23px)", clipPath: "inset(100% 0 0)", opacity: 0 },
+      { translate: "-50% -50%", clipPath: "inset(40% 0 0)", opacity: 1 },
     ], { duration: 80, easing: "cubic-bezier(.22,.63,.30,1)", fill: "forwards" });
   }
 
@@ -112,7 +121,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     const event = feedback(frame, resolve(task.target));
     active.payload = null;
     const recycling = event.mode === "recycle";
-    cue(recycling ? "recycle" : "release", now, { hatch: false, eject: !!payload && !recycling && event.mode !== "none" });
+    cue(recycling ? "recycle" : "release", now, { hatch: false, eject: !!payload && ["slide", "drop"].includes(event.mode) });
     if (task.onRelease?.(event) === true) return;
     if (!payload || event.mode === "none") {
       payload?.remove();
@@ -122,8 +131,10 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     delete payload.dataset.armMount;
     payload.dataset.armFlight = event.mode;
     if (recycling) {
-      recycleLayer?.append(payload);
-      shred = { task, payload, pose: event.pose, start: now, duration: preset.release.duration };
+      if (recycleLayer && payload.parentElement !== recycleLayer) recycleLayer.append(payload);
+      const mouth = recycleMouth?.() ?? event.pose;
+      const tail = event.pose.y + resolve(task.feedLength) / 2 - mouth.y;
+      shred = { task, payload, pose: event.pose, travel: Math.max(0, tail) + 4, start: now, duration: preset.release.duration };
       rig.setRecyclerBusy?.(true);
       return;
     }
@@ -132,12 +143,10 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
 
   function updateRecycler(now) {
     if (!shred) return;
-    const { task, payload, pose, start, duration } = shred;
+    const { task, payload, pose, travel, start, duration } = shred;
     const progress = Math.min(1, (now - start) / duration);
     const mouth = recycleMouth?.() ?? pose;
-    const travel = (Math.max(0, pose.y - mouth.y) * 2 + 4) * progress;
-    place(payload, { ...pose, x: mouth.x, y: pose.y - travel });
-    payload.style.scale = String(1 - progress * .44);
+    place(payload, { ...pose, x: mouth.x, y: pose.y - travel * (1 - (1 - progress) ** 1.35) });
     if (progress < 1) return;
     shred = null;
     payload.remove();
@@ -169,6 +178,10 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       }
       const angle = event.pose.angle + angleDelta(event.pose.angle, target.angle ?? 0) * t;
       place(payload, { ...point, angle });
+      if (event.mode === "place") {
+        const scale = target.width / parseFloat(payload.style.width);
+        payload.style.scale = String(1 + (scale - 1) * t);
+      }
       if (progress === 1) {
         payload.remove();
         task.onLand?.();
@@ -182,11 +195,18 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     return { ...mouth, y: mouth.y + active.feedLength * active.exposed + jawReach };
   }
 
-  function dockMove(target, duration, now, aligned = true) {
+  function dockMove(target, duration, now, { aim = false, jointPath = false } = {}) {
     motion.move(target, {
       duration: Math.max(1, duration - motion.followDelay), easing: [0.4, 0, 0.2, 1],
-      aligned, jointPath: !aligned, aim: aligned ? false : "left",
+      aligned: true, jointPath, aim,
     }, now);
+  }
+
+  function placementContact() {
+    const target = resolve(active.task.target);
+    const angle = target.wristAngle;
+    const offset = turnedOffset(angle, mountOffset(active.payload));
+    return { x: target.x - offset.x, y: target.y - offset.y, angle, lift: 2 };
   }
 
   const primitives = {
@@ -202,8 +222,10 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       const usesHatch = outlet === cardOutlet;
       active.feedLength = length;
       active.exposed = phase.exposed;
+      active.outletStroke = Math.min(wristStroke, phase.clearance);
       const at = outletGrip();
-      dockMove({ ...at, y: at.y + phase.clearance }, phase.duration, now, false);
+      dockMove({ ...at, ...advance(at, at.angle, -active.outletStroke), extension: 0 }, phase.duration, now,
+        { aim: true, jointPath: true });
       const stagedAt = now + phase.duration;
       const curve = easing([.23, .66, .38, 1]);
       let feedStart;
@@ -230,7 +252,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     },
     gripOutlet(phase, now) {
       const { outlet } = active;
-      dockMove(outletGrip(), phase.duration, now);
+      motion.extend(active.outletStroke, phase.duration, now);
       const contact = now + phase.duration;
       let touched = false;
       return {
@@ -248,9 +270,13 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
         },
       };
     },
+    retractOutlet(phase, now) {
+      motion.extend(0, phase.duration, now);
+      return { duration: phase.duration };
+    },
     extractOutlet(phase, now) {
       const mouth = active.outlet.pose();
-      dockMove({ ...mouth, y: mouth.y + active.feedLength + jawReach + 3 }, phase.duration, now);
+      dockMove({ ...mouth, y: mouth.y + active.feedLength + jawReach + 3, extension: 0 }, phase.duration, now);
       return {
         duration: phase.duration,
         arrive(time) {
@@ -264,7 +290,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       const sourceAt = () => ({ angle: 0, ...(resolve(active.task.source) ?? bay()) });
       const grip = phase.grip ?? 80;
       const duration = Math.max(1, phase.duration - motion.followDelay);
-      motion.move(sourceAt(), { ...phase, duration, aim: fromBay ? "close" : true, jointPath: true,
+      motion.move({ ...sourceAt(), extension: 0 }, { ...phase, duration, aim: true, jointPath: true,
         easing: [0.4, 0, 0.2, 1] }, now);
       let contact = now + duration + motion.followDelay;
       let feeding = false, touched = false;
@@ -293,21 +319,53 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     },
     travel(phase, now) {
       const from = motion.pose;
-      const target = resolve(active.task.target);
+      const target = resolve(phase.approach ? active.task.approach : active.task.target);
       const vector = direction(from, target);
       const clearance = Math.min(phase.shortOf ?? 0, vector.distance * .55);
       const end = { x: target.x - vector.x * clearance,
         y: target.y - vector.y * clearance + (phase.standoff ?? 0),
         lift: phase.lift ?? target.lift ?? from.lift,
+        extension: 0,
       };
       const wristAngle = resolve(active.task.wristAngle) ?? phase.wristAngle ?? phase.angle ?? target.angle ??
         Math.atan2(vector.y, vector.x) * 180 / Math.PI;
       const controls = typeof phase.controls === "function" ? phase.controls(from, end) : phase.controls;
       const duration = Math.max(1, phase.duration - motion.followDelay);
-      const aim = active.preset.release.mode === "recycle" ? "close" : true;
-      motion.move(end, { ...phase, duration, aim, wristAngle, controls: controls ?? pathControls(from, end, phase.bend) }, now);
+      motion.move(end, { ...phase, duration, aim: true, wristAngle, controls: controls ?? pathControls(from, end, phase.bend) }, now);
       const releaseTime = phase.releaseAt === undefined ? null : now + duration * phase.releaseAt + motion.followDelay;
-      return { duration: Math.max(phase.duration, releaseTime ? releaseTime - now : 0), releaseTime };
+      const step = { duration: Math.max(phase.duration, releaseTime ? releaseTime - now : 0), releaseTime };
+      if (phase.scaleTo !== undefined) {
+        const initial = parseFloat(active.payload.style.scale) || 1;
+        const curve = easing([.35, 0, .25, 1]);
+        step.advance = time => {
+          const t = curve(Math.min(1, (time - now) / phase.scaleDuration));
+          active.payload.style.scale = String(initial + (phase.scaleTo - initial) * t);
+        };
+      }
+      return step;
+    },
+    preparePlacement(phase, now) {
+      const contact = placementContact();
+      dockMove({ ...contact, ...advance(contact, contact.angle, -wristStroke), extension: 0,
+        lift: phase.lift }, phase.duration, now, { aim: true, jointPath: true });
+      return { duration: phase.duration };
+    },
+    placePayload(phase, now) {
+      motion.extend(wristStroke, phase.duration, now);
+      let corrected = false;
+      return {
+        duration: phase.duration,
+        advance(time, frame, step) {
+          if (time < step.until || corrected || direction(frame.pose, placementContact()).distance <= 2) return;
+          corrected = true;
+          dockMove({ ...placementContact(), extension: wristStroke }, 115, time, { aim: true });
+          step.until = time + 115;
+        },
+        arrive(time, frame) {
+          if (direction(frame.pose, placementContact()).distance <= 3) release(time, frame);
+          else active.failed = true;
+        },
+      };
     },
     brake(phase, now) {
       motion.move({}, { ...phase, reboundDuration: phase.duration, state: "holding" }, now);
@@ -321,18 +379,29 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       release(now, frame);
       return { duration: phase.duration ?? 0 };
     },
-    recycle(phase) {
+    feedRecycler(phase) {
       let inserting = false;
       return {
         duration: 1,
         advance(now, _frame, step) {
           if (inserting || shred) return;
           inserting = true;
-          dockMove(resolve(active.task.target), phase.duration, now);
+          const target = resolve(active.task.target);
+          recycleLayer.append(active.payload);
+          dockMove({ ...target, ...advance(target, target.angle, -wristStroke), extension: 0 }, phase.duration, now);
           step.until = now + phase.duration;
         },
         ready: () => inserting,
-        arrive(now, frame) { release(now, frame); },
+      };
+    },
+    recycle(phase, now) {
+      motion.extend(wristStroke, phase.duration, now);
+      return {
+        duration: phase.duration,
+        arrive(time, frame) {
+          if (direction(frame.pose, resolve(active.task.target)).distance <= 3) release(time, frame);
+          else active.failed = true;
+        },
       };
     },
   };

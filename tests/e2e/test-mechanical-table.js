@@ -186,17 +186,17 @@ async function verifyMovingRig(page) {
         distance(reached.joints[2], reached.joints[3])],
       grasped, stroke, released, parked: Number(gripper.dataset.aperture), retracted: Number(pin.dataset.stroke) };
   });
-  assert.deepEqual(result.folded.sleeves, [0, 2, 6]);
-  assert.deepEqual(result.extended.sleeves.map(Math.round), [0, 142, 284]);
+  assert.deepEqual(result.folded.sleeves, [0, -28, -31]);
+  assert.deepEqual(result.extended.sleeves.map(Math.round), [0, 122, 272]);
   assert.deepEqual(result.extended.geometry, result.folded.geometry);
-  assert.deepEqual(result.lengths.map(Math.round), [438, 76, 28]);
+  assert.deepEqual(result.lengths.map(Math.round), [443, 76, 28]);
   for (const { rails } of [result.folded, result.extended]) {
     assert.ok(Math.abs(rails[0].angle - rails[1].angle) < .001);
     assert.ok(Math.abs(Math.hypot(rails[0].x - rails[1].x, rails[0].y - rails[1].y) - 26) < .001);
   }
   assert.notEqual(result.folded.ratio, result.extended.ratio);
   assert.equal(result.reached, 0);
-  assert.equal(result.slide, 90);
+  assert.equal(result.slide, 91);
   assert.deepEqual(result.feeding, ['open', 'true', 80]);
   assert.deepEqual([result.grasped, result.released, result.parked], [15, 100, 30]);
   assert.deepEqual([result.stroke, result.retracted], [3, 0]);
@@ -336,18 +336,18 @@ async function run() {
             if (node.classList.contains('mechanical-fold-card')) window.armFoldTrace.push('grip');
             else window.armDealTrace.push(fed.has(node) ? 'grip' : 'unfed');
           }
-          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') {
-            window.armDealTrace.push(carried.has(target) ? 'slide' : 'ungripped');
+          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'place') {
+            window.armDealTrace.push(carried.has(target) ? 'place' : 'ungripped');
           }
-          if (target === recycler) for (const node of addedNodes) {
-            window.armFoldTrace.push(carried.has(node) ? 'recycle' : 'ungripped');
+          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'recycle') {
+            window.armFoldTrace.push(carried.has(target) ? 'recycle' : 'ungripped');
             window.dealTraceAtRecycle = window.armDealTrace.slice();
           }
         }
       });
       observer.observe(base, { attributeFilter: ['data-hatch'] });
       observer.observe(feed, { childList: true });
-      observer.observe(recycler, { childList: true });
+      observer.observe(recycler, { subtree: true, attributeFilter: ['data-arm-flight'] });
       observer.observe(payloads, { subtree: true, childList: true, attributeFilter: ['data-arm-flight'] });
       Net.on('game:state', state => {
         const phase = document.getElementById('mechanicalPhaseLabel');
@@ -390,7 +390,7 @@ async function run() {
       assert.ok(table.backs >= 4);
       await page.waitForFunction(() => !document.querySelector('.mechanical-pending'));
     }
-    const dealt = count => Array.from({ length: count }, () => ['open', 'feed', 'grip', 'slide']).flat();
+    const dealt = count => Array.from({ length: count }, () => ['open', 'feed', 'grip', 'place']).flat();
     assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(6));
     const opening = await host.evaluate(() => window.openingReels);
     assert.equal(opening.length, 3);
@@ -440,8 +440,8 @@ async function run() {
         blinds: document.getElementById('mechanicalBlindValue').textContent,
         expectedBlinds: `${gameState.sb} / ${gameState.bb}`,
         clear,
-        halfFold: shoulder.x > elbow.x && elbow.x < wrist.x && upper >= 155 && upper <= 160 && bend >= -150 && bend <= -135,
-        contained: [...arm.querySelectorAll('.arm-segment, .arm-hinge, .arm-gripper')]
+        halfFold: shoulder.x > elbow.x && elbow.x < wrist.x && upper >= 155 && upper <= 160 && bend >= -137 && bend <= -133,
+        contained: [...arm.querySelectorAll('[data-arm-sleeve], .arm-forearm, .arm-wrist, .arm-hinge, .arm-gripper')]
           .every(part => inside(part.getBoundingClientRect(), shell)),
         docked: inside(arm.querySelectorAll('.arm-hinge')[2].getBoundingClientRect(), wristSaddle) &&
           jaws.every(jaw => jaw.right > cradle.left && jaw.right < cradle.right &&
