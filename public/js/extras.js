@@ -331,7 +331,7 @@ function evaluateHand(cards) {
   let best = null;
   for (const combo of combos) {
     const r = evaluate5(combo);
-    if (!best || compareEval(r, best) > 0) best = r;
+    if (!best || compareEval(r, best) > 0) best = { ...r, cards: combo };
   }
   return best;
 }

@@ -30,8 +30,8 @@ const MechanicalTable = (() => {
   const recycleLayer = $("mechanicalRecycledCards");
   const printLayer = $("mechanicalPrintFeed");
   const community = $("community");
-  const communityLabels = ["翻 1", "翻 2", "翻 3", "转", "河"];
-  const potWell = $("mechanicalPotWell");
+  const communityStation = $("communityStation");
+  const communityLabels = ["翻牌", "翻牌", "翻牌", "转牌", "河牌"];
   const potMeter = $("mechanicalPotMeter");
   const potReels = $("mechanicalPotReels");
   const labelLayer = $("mechanicalChipLabels");
@@ -61,7 +61,7 @@ const MechanicalTable = (() => {
   let receiptCountdown;
   let cardBatch;
   let turnClock, submittedDeadline;
-  let wellSize;
+  let potArea;
   let groups = new Map();
   let chipsDirty = true;
   const deliveries = new Map();
@@ -341,7 +341,14 @@ const MechanicalTable = (() => {
     if (community.children[index]) return community.children[index];
     const slot = document.createElement("div");
     slot.className = "mechanical-board-slot";
+    slot.dataset.number = String(index + 1).padStart(2, "0");
     slot.dataset.engraving = communityLabels[index];
+    if (index >= 3) {
+      const divider = document.createElement("span");
+      divider.className = "mechanical-board-divider";
+      divider.setAttribute("aria-hidden", "true");
+      slot.append(divider);
+    }
     community.append(slot);
     return slot;
   }
@@ -371,19 +378,12 @@ const MechanicalTable = (() => {
   }
 
   function measurePot() {
-    const deck = printerPort.y + 3;
-    const board = community.getBoundingClientRect().top - bounds.top - 6;
-    const open = board - deck;
-    // When the table is short, arrange the two instruments along the same rail.
-    const compact = open < 61;
-    const height = compact ? Math.max(15, Math.min(44, open - 1)) : Math.min(84, open - 29);
-    const width = Math.min(148, Math.max(70, height * 1.78));
-    center = { x: bounds.width / 2, y: board - height / 2 };
-    wellSize = { width, height };
-    Object.assign(potWell.style, { left: `${center.x}px`, top: `${center.y}px`, width: `${width}px`, height: `${height}px` });
-    potMeter.toggleAttribute("data-compact", compact);
-    potMeter.style.left = `${center.x - (compact ? width / 2 + 66 : 0)}px`;
-    potMeter.style.top = `${compact ? center.y : board - height - 15}px`;
+    const top = printerPort.y + 2;
+    const bottom = potMeter.getBoundingClientRect().top - bounds.top - 2;
+    const height = Math.max(1, bottom - top);
+    const width = Math.min(228, communityStation.getBoundingClientRect().width - 10);
+    center = { x: bounds.width / 2, y: top + height / 2 };
+    potArea = { width, height };
   }
 
   function measure() {
@@ -417,7 +417,8 @@ const MechanicalTable = (() => {
   function cardGeometry(card) {
     const rect = card.getBoundingClientRect();
     const style = getComputedStyle(card);
-    return { ...point(rect), width: parseFloat(style.width), height: parseFloat(style.height) };
+    const scale = parseFloat(style.scale) || 1;
+    return { ...point(rect), width: parseFloat(style.width) * scale, height: parseFloat(style.height) * scale };
   }
 
   function standardCardSize() {
@@ -665,6 +666,10 @@ const MechanicalTable = (() => {
     const hands = next.players.map((player, index) => player.folded ? [] :
       seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card })));
     const board = [...community.querySelectorAll(".card")].map((card, slot) => ({ key: boardCardKey(slot), card }));
+    const winningIds = new Set(next.phase === "showdown" ? next.winners?.map(winner => winner.id) : []);
+    const bestCards = new Set(next.players.filter(player => winningIds.has(player.id) && player.hand.length === 2 && player.hand.every(Boolean))
+      .flatMap(player => evaluateHand([...player.hand, ...next.community])?.cards ?? []));
+    board.forEach(({ card }, index) => card.parentElement.toggleAttribute("data-highlighted", bestCards.has(next.community[index])));
     for (const { key, card } of [...hands.flat(), ...board]) {
       const delivery = deliveries.get(key);
       if (!delivery || delivery.card === card) continue;
@@ -852,7 +857,7 @@ const MechanicalTable = (() => {
     const scale = Math.min(narrow ? .60 : compact ? .70 : 1, width / 900, height / 465);
     const zoneWidth = 92 * scale, zoneHeight = 74 * scale;
     const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
-    const board = community.getBoundingClientRect();
+    const board = communityStation.getBoundingClientRect();
     const upperSeat = seats.get(3);
     const topSeat = seats.get(4);
     const leftUpper = point(upperSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
@@ -1056,14 +1061,20 @@ const MechanicalTable = (() => {
   }
 
   function layoutPiles(runs) {
-    const { piles, chips } = buildPiles(runs, 30);
+    const compact = potArea.height < 46;
+    const { piles, chips } = buildPiles(runs, compact ? 16 : 42);
     if (!chips.length) return { piles, chips };
-    const minX = Math.min(...chips.map(chip => chip.x)) - 21;
-    const maxX = Math.max(...chips.map(chip => chip.x)) + 21;
-    const minY = Math.min(...chips.map(chip => chip.y)) - 14;
-    const maxY = Math.max(...chips.map(chip => chip.y)) + 19;
-    const scale = Math.min(1, (wellSize.width - 5) / ((maxX - minX) * 1.42), (wellSize.height - 4) / ((maxY - minY) * 1.42));
-    for (const part of [...piles, ...chips]) {
+    const parts = [...piles, ...chips];
+    if (compact) for (const part of parts) {
+      part.x *= 1.7;
+      part.y *= .32;
+    }
+    const minX = Math.min(...chips.map(chip => chip.x)) - 22;
+    const maxX = Math.max(...chips.map(chip => chip.x)) + 22;
+    const minY = Math.min(...chips.map(chip => chip.y)) - 12;
+    const maxY = Math.max(...chips.map(chip => chip.y)) + 24;
+    const scale = Math.min(1, potArea.width / (maxX - minX), potArea.height / (maxY - minY));
+    for (const part of parts) {
       part.x = (part.x - (minX + maxX) / 2) * scale;
       part.y = (part.y - (minY + maxY) / 2) * scale;
       part.scale = scale;
@@ -1183,9 +1194,11 @@ const MechanicalTable = (() => {
     for (const pile of piles) {
       if (!pile.chips.length) continue;
       const { x, y } = chipPoint(group, pile);
-      const radius = (20 + Math.min(8, pile.chips.length * .45)) * (pile.scale ?? 1);
+      const scale = pile.scale ?? 1;
+      const radius = (20 + Math.min(8, pile.chips.length * .45)) * scale;
+      const shadowOffset = group.zone ? 1 : scale;
       context.save();
-      context.translate(x + 4, y + 9);
+      context.translate(x + 4 * shadowOffset, y + 9 * shadowOffset);
       context.scale(1, .57);
       const falloff = context.createRadialGradient(0, 0, 3, 0, 0, radius);
       falloff.addColorStop(0, "#3e2b1e76");
@@ -1210,7 +1223,7 @@ const MechanicalTable = (() => {
         continue;
       }
       const source = motion.origins[index];
-      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? wellSize.height * .52 : 13 * zone.scale);
+      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? Math.min(55, potArea.height * .52) : 13 * zone.scale);
       const from = source || at;
       const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
         : lerp(scattered, target, ease((progress - .52) / .48));

@@ -806,7 +806,7 @@ function renderGame(state) {
     const card = state.community[i];
     const backKey = mechanical ? "mechanical-slot" : viewerCardBack;
     const key = JSON.stringify([state.handNum, card ? [card.rank, card.suit] : backKey]);
-    const previous = mechanical ? slot.firstElementChild : comm.children[i];
+    const previous = mechanical ? slot.querySelector(".card") : comm.children[i];
     if (previous?.dataset.cardKey === key) continue;
     const el = card
       ? createCardEl(card)
