@@ -23,8 +23,8 @@ function createMechanicalPayout(targets, sourcePiles, start, denominations) {
     account.counts[denomination]--;
     assign(particle, account);
   }
-  // A capped table pile or a split payout that made change can leave some
-  // displayed denominations unmatched. Route those chips by relative share.
+  // A split payout can make change and leave an original chip unmatched.
+  // Route those chips by relative share.
   for (const particle of particles) {
     if (particle.account) continue;
     const account = accounts.reduce((best, next) => next.value / next.target.amount < best.value / best.target.amount ? next : best);
@@ -41,20 +41,29 @@ function createMechanicalPayout(targets, sourcePiles, start, denominations) {
 
   const count = particles.length;
   const minGap = 15 - 8 * Math.min(1, Math.max(0, (count - 15) / 60));
+  const gaps = Array.from({ length: Math.max(0, count - 1) }, (_, index) => {
+    const progress = index / Math.max(1, count - 2);
+    return minGap + (52 - minGap) * (1 - progress) ** (count < 18 ? 2 : 1.35);
+  });
+  const warmup = gaps.map((gap, index) => gap * Math.exp(-index / 5));
+  const warmupMs = warmup.reduce((sum, gap) => sum + gap, 0);
+  const tailMs = gaps.reduce((sum, gap, index) => sum + gap - warmup[index], 0);
+  // Preserve the first few beats, then pack large pots into a progressively denser stream.
+  const pace = Math.min(1, (2900 - warmupMs) / Math.max(1, tailMs));
+  const launchSpan = warmupMs + tailMs * pace;
   let launch = start;
   for (const [index, particle] of particles.entries()) {
     const { account, chip } = particle;
     const progress = index / Math.max(1, count - 1);
-    const intervalProgress = index / Math.max(1, count - 2);
     // Shorten later flights without letting them land ahead of earlier ones.
-    const duration = 500 - Math.min(138, (count - 1) * 5) * progress;
+    const duration = 500 - Math.min(138, (count - 1) * 5) * (launch - start) / Math.max(1, launchSpan);
     particle.launch = launch;
     particle.arrival = launch + duration;
     particle.scatterTime = 86 - 38 * progress;
     particle.theta = Math.random() * Math.PI * 2;
     particle.reach = 14 + Math.random() * 27;
     particle.curve = (Math.random() < .5 ? -1 : 1) * (24 + Math.random() * 68);
-    launch += minGap + (52 - minGap) * (1 - Math.min(1, intervalProgress)) ** (count < 18 ? 2 : 1.35);
+    if (index < gaps.length) launch += warmup[index] + (gaps[index] - warmup[index]) * pace;
 
     account.landed += chip.value;
     particle.final = ++account.hits === account.particles.length;
