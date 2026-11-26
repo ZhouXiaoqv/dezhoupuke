@@ -1,11 +1,12 @@
 // The mechanical table consumes the same filtered game snapshots as the classic table.
 const MechanicalTable = (() => {
+  const STATIONS = ["bottom", "bottom", "left", "left", "top", "top", "right", "right", "bottom"];
+  const STATION_IDS = STATIONS.map((_, slot) => slot);
   const SLOTS = {
     1: [0], 2: [0, 5], 3: [0, 4, 5], 4: [0, 2, 5, 7], 5: [0, 2, 4, 5, 7],
     6: [0, 1, 2, 4, 5, 7], 7: [0, 1, 2, 4, 5, 7, 8],
-    8: [0, 1, 2, 4, 5, 6, 7, 8],
+    8: [0, 1, 2, 4, 5, 6, 7, 8], 9: STATION_IDS,
   };
-  const SEAT_EDGES = { 0: "bottom", 1: "bottom", 2: "left", 4: "top", 5: "top", 6: "right", 7: "right", 8: "bottom" };
   const SEAT_ROLES = [
     ["dealerIdx", "D", "庄家"], ["sbIdx", "SB", "小盲"], ["bbIdx", "BB", "大盲"],
   ];
@@ -34,7 +35,6 @@ const MechanicalTable = (() => {
   const potMeter = $("mechanicalPotMeter");
   const potReels = $("mechanicalPotReels");
   const labelLayer = $("mechanicalChipLabels");
-  const wagerLayer = $("mechanicalWagerZones");
   const result = $("mechanicalResult");
   const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
@@ -67,6 +67,7 @@ const MechanicalTable = (() => {
   let bayPort, recyclerPort, printerPort;
   const recycleMouth = () => recyclerPort;
   const base = $("mechanicalBase");
+  const cabinetShell = base.querySelector(".mechanical-base-shell");
   const notice = createMechanicalNotice($("mechanicalNoticeLift"), $("mechanicalNoticeText"));
   const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), base);
   const printOutlet = {
@@ -163,7 +164,7 @@ const MechanicalTable = (() => {
 
     // The local seat is fixed at zero. Fill the other slots in turn order while
     // keeping as many returning players as possible in their current stations.
-    const available = SLOTS[8].slice(1);
+    const available = STATION_IDS.slice(1);
     let best = preferred, lowestCost = Infinity;
     for (let mask = 0; mask < (1 << available.length); mask++) {
       const candidate = [0, ...available.filter((_, i) => mask & (1 << i))];
@@ -184,13 +185,13 @@ const MechanicalTable = (() => {
     const slots = seatPlan(ordered);
     const occupants = new Map(ordered.map((occupant, index) => [slots[index], occupant]));
     const occupied = [];
-    for (const slot of SLOTS[8]) {
+    for (const slot of STATION_IDS) {
       let seat = seats.get(slot);
       if (!seat) {
         seat = document.createElement("div");
         seat.className = `seat seat-pos-${slot}`;
         seat.dataset.mechanicalSlot = slot;
-        seat.dataset.mechanicalEdge = SEAT_EDGES[slot];
+        seat.dataset.mechanicalEdge = STATIONS[slot];
         seat.append(createSeatInfo());
         seats.set(slot, seat);
       }
@@ -804,38 +805,44 @@ const MechanicalTable = (() => {
   }
 
   function placeWagerZones() {
-    const { width, height, left } = bounds;
-    const scale = Math.min(1, width / 900, height / 465);
+    const { width, height, left, top } = bounds;
+    const narrow = width < 720;
+    const compact = narrow || height < 430;
+    const scale = Math.min(narrow ? .60 : compact ? .70 : 1, width / 900, height / 465);
     const zoneWidth = 92 * scale, zoneHeight = 74 * scale;
     const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
-    const boardRight = $("community").getBoundingClientRect().right - left;
-    const rightLimit = seats.get(7).getBoundingClientRect().left - left - halfWidth - 3;
-    const farSideGap = (Math.max(height * .36, 145) + 52 + Math.max(height * .72, 258)) / 2;
-    // Each bay has its own lane around the board and the fixed hand positions.
-    const positions = {
-      0: [width * .374, Math.min(height * .78, height - 59 - halfHeight)],
-      1: [Math.max(width * .09, halfWidth + 50), height * .574],
-      2: [width * .24, Math.min(height * .57, height - 155)],
-      4: [width * .115, 85 + halfHeight],
-      5: [Math.min(width * .892, rightLimit), 83 + halfHeight],
-      6: [boardRight + halfWidth + 7, Math.max(110 + halfHeight, height * .427)],
-      7: [Math.min(width * .92, rightLimit), farSideGap],
-      8: [width * .655, height * .72],
-    };
-    for (const slot of SLOTS[8]) {
-      let zone = wagerZones.get(slot);
-      if (!zone) {
-        const marker = document.createElement("span");
-        marker.className = "mechanical-wager-zone";
-        marker.dataset.wagerSlot = slot;
-        wagerLayer.append(marker);
-        zone = { marker };
-        wagerZones.set(slot, zone);
-      }
-      const [x, y] = positions[slot];
-      Object.assign(zone, { at: { x, y }, scale, width: zoneWidth, height: zoneHeight });
-      Object.assign(zone.marker.style, { left: `${x}px`, top: `${y}px`, width: `${zoneWidth}px`, height: `${zoneHeight}px` });
-    }
+    const board = community.getBoundingClientRect();
+    const upperSeat = seats.get(3);
+    const leftUpper = point(upperSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    const leftLower = point(seats.get(2).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    const topLeft = point(seats.get(4).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    const bottomLeft = point(seats.get(1).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    // Fit the top wager between the side hand and the cabinet when the table narrows.
+    const sideCardWidth = parseFloat(getComputedStyle(upperSeat).getPropertyValue("--seat-card-width"));
+    const sideHandRight = leftUpper.x + sideCardWidth * 2 + 14;
+    const cabinetLeft = cabinetShell.getBoundingClientRect().left - left;
+    const topScale = Math.min(scale, Math.max(.4, (cabinetLeft - sideHandRight - 8) / 92));
+    const topHalfWidth = 46 * topScale, topHalfHeight = 37 * topScale;
+    const topWager = { x: Math.min(cabinetLeft - topHalfWidth - 4, Math.max(topLeft.x, sideHandRight + topHalfWidth + 4)),
+      y: topLeft.y + (narrow ? 70 : 77) + topHalfHeight };
+    const upper = { x: Math.min(leftUpper.x + 152, board.left - left - halfWidth - 8),
+      y: Math.max(leftUpper.y + 16 * scale, topWager.y + topHalfHeight + halfHeight + 6) };
+    const lower = { x: leftLower.x + 54 * scale + 8, y: leftLower.y - 30 - halfHeight };
+    const boardBottom = board.bottom - top;
+    const bottom = compact
+      ? { x: bottomLeft.x + 80, y: boardBottom + halfHeight + 7 }
+      : { x: bottomLeft.x - 20, y: bottomLeft.y - 69 - halfHeight };
+    // The center wager uses a lower lane on short tables to clear its neighbors' stacks.
+    const hero = compact
+      ? { x: width / 2 - 64 - halfWidth, y: Math.max(height - 19 - halfHeight, bottom.y + zoneHeight + 5) }
+      : { x: width / 2 - Math.max(95, 70 + halfWidth),
+        y: Math.max(boardBottom + halfHeight + 6, height - 17 - 100 * scale) };
+    const mirror = ({ x, y }) => ({ x: width - x, y });
+    [hero, bottom, lower, upper, topWager, mirror(topWager), mirror(upper), mirror(lower), mirror(bottom)]
+      .forEach((at, slot) => {
+        const chipScale = STATIONS[slot] === "top" ? topScale : scale;
+        wagerZones.set(slot, { at, scale: chipScale, width: 92 * chipScale, height: 74 * chipScale });
+      });
   }
 
   function readGroups(snapshot) {
@@ -1338,14 +1345,16 @@ const MechanicalTable = (() => {
     } else presentReceipt(ticket);
     nextFrame();
   }
-  new ResizeObserver(() => {
+  const geometryObserver = new ResizeObserver(() => {
     if (!enabled() || !measure()) return;
     placeWagerZones();
     if (!state) return;
     groups = readGroups(state);
     syncLabels();
     nextFrame();
-  }).observe(table);
+  });
+  geometryObserver.observe(table);
+  geometryObserver.observe(container);
 
   reduced.addEventListener("change", () => {
     if (!enabled()) return;

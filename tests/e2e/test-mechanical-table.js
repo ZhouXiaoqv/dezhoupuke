@@ -208,8 +208,8 @@ async function verifySeatClamps(browser) {
     const page = await context.newPage();
     await page.goto(process.env.POKER_TEST_URL);
     await page.evaluate(() => {
-      const state = buildLayoutTestState();
-      Object.assign(state, { tableStyle: 'mechanical', currentIdx: 0, dealerIdx: 0, sbIdx: 0, bbIdx: 5 });
+      const state = buildLayoutTestState('mechanical');
+      Object.assign(state, { currentIdx: 0, dealerIdx: 0, sbIdx: 0, bbIdx: 5 });
       Net.playerId = state.players[0].id;
       isLayoutTestRoom = true;
       state.players[0].hand = [makeLayoutTestCard('A', 1), makeLayoutTestCard('8', 2)];
@@ -269,7 +269,8 @@ async function verifySeatClamps(browser) {
       });
       const { measurements, collision, labelsClear } = layout;
       const details = JSON.stringify({ width, ...layout });
-      assert.deepEqual([...new Set(measurements.map(seat => seat.edge))].sort(), ['bottom', 'left', 'right', 'top']);
+      assert.deepEqual(measurements.map(seat => seat.edge).sort(),
+        ['bottom', 'bottom', 'bottom', 'left', 'left', 'right', 'right', 'top', 'top']);
       assert.equal(collision, false, details);
       assert.ok(labelsClear, details);
       assert.ok(measurements.every(seat => seat.connected && seat.inView && !seat.touchesBoard &&

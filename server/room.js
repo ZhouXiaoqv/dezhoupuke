@@ -9,19 +9,21 @@ const logger = require('./logger');
 
 const ROOM_RESUME_TTL = 30 * 60 * 1000;
 const MAX_PLAYERS = 8;
+const MECHANICAL_MAX_PLAYERS = 9;
 
 class Room {
   constructor(code, hostId, hostName, hostWs, options = {}) {
     this.code = code;
     this.hostId = hostId;
     this.createdAt = Date.now();
-    const requestedMaxPlayers = Number(options.maxPlayers) || MAX_PLAYERS;
-    this.maxPlayers = Math.min(Math.max(2, requestedMaxPlayers), MAX_PLAYERS);
+    this.tableStyle = options.tableStyle === 'mechanical' ? 'mechanical' : 'classic';
+    const capacity = this.tableStyle === 'mechanical' ? MECHANICAL_MAX_PLAYERS : MAX_PLAYERS;
+    const requestedMaxPlayers = Number(options.maxPlayers) || capacity;
+    this.maxPlayers = Math.min(Math.max(2, requestedMaxPlayers), capacity);
     this.startStack = options.startStack || START_STACK;
     this.sb = options.sb || 10;
     this.bb = options.bb || 20;
     this.gameMode = options.gameMode || 'classic';
-    this.tableStyle = options.tableStyle === 'mechanical' ? 'mechanical' : 'classic';
     this.shortDeck = options.shortDeck || false;
     this.allInOrFold = options.allInOrFold || false;
     this.userStore = options.userStore || null;

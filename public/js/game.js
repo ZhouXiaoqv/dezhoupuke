@@ -45,7 +45,7 @@ function makeLayoutTestCard(rankStr, suit) {
   };
 }
 
-function buildLayoutTestState() {
+function buildLayoutTestState(tableStyle = "classic") {
   const cardBacks = [
     "default-blue",
     "solid-purple",
@@ -61,6 +61,7 @@ function buildLayoutTestState() {
     handNum: 1,
     phase: "river",
     gameMode: "classic",
+    tableStyle,
     pot: 240,
     roundBet: 40,
     minRaise: 20,
@@ -75,7 +76,7 @@ function buildLayoutTestState() {
       makeLayoutTestCard("J", 3),
       makeLayoutTestCard("10", 0),
     ],
-    players: Array.from({ length: 8 }, (_, i) => ({
+    players: Array.from({ length: tableStyle === "mechanical" ? 9 : 8 }, (_, i) => ({
       id: `layout-ai-${i}`,
       name: `\u7535\u8111 ${i + 1}`,
       stack: 2000 - i * 75,

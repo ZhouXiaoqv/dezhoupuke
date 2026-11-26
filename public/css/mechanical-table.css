@@ -32,6 +32,8 @@
   margin-top: calc(70px - var(--desk-reserved-height));
   border: 10px solid #ded4c2;
   border-radius: 96px;
+  --top-seat-offset: clamp(249px, 27%, 283px);
+  --side-seat-inset: clamp(104px, 27%, 152px);
   background:
     repeating-linear-gradient(131deg, #b5a69112 0 1px, transparent 1px 9px),
     repeating-linear-gradient(43deg, #fffaf240 0 1px, transparent 1px 12px),
@@ -176,6 +178,7 @@
 
 #table-container.mechanical-table #table .seat[data-mechanical-slot] {
   --seat-width: 112px;
+  --seat-card-width: 36px;
   --tongue-depth: 23px;
   --tongue-lap: 5px;
   --hand-gap: calc(var(--tongue-depth) - var(--tongue-lap) - 2px);
@@ -190,16 +193,11 @@
 }
 #table .seat[data-mechanical-slot="0"] { --mech-x: 50%; }
 #table .seat[data-mechanical-slot="1"] { --mech-x: 23%; }
-#table .seat[data-mechanical-slot="2"] { --mech-y: 72%; }
-#table .seat[data-mechanical-slot="4"] { --mech-x: 25%; }
-#table .seat[data-mechanical-slot="5"] { --mech-x: 75%; }
-#table .seat[data-mechanical-slot="6"] { --mech-y: max(36%, 145px); }
-#table .seat[data-mechanical-slot="7"] { --mech-y: max(72%, 258px); }
+#table .seat[data-mechanical-slot="4"] { --mech-x: calc(50% - var(--top-seat-offset)); }
+#table .seat[data-mechanical-slot="5"] { --mech-x: calc(50% + var(--top-seat-offset)); }
+#table .seat:is([data-mechanical-slot="3"], [data-mechanical-slot="6"]) { --mech-y: var(--side-seat-inset); }
+#table .seat:is([data-mechanical-slot="2"], [data-mechanical-slot="7"]) { --mech-y: calc(100% - var(--side-seat-inset)); }
 #table .seat[data-mechanical-slot="8"] { --mech-x: 77%; }
-@media (min-width: 769px) {
-  #table .seat[data-mechanical-slot="4"] { --mech-x: min(25%, calc(50% - 226px)); }
-  #table .seat[data-mechanical-slot="5"] { --mech-x: max(75%, calc(50% + 298px)); }
-}
 #table .seat[data-mechanical-edge="top"] {
   --mech-y: -43px;
   --tongue-x: 50%;
@@ -543,15 +541,18 @@
   transform: var(--hand-transform);
   transition: none;
 }
-#table-container.mechanical-table #table .seat-cards .card { width: 36px; }
+#table-container.mechanical-table #table .seat-cards .card { width: var(--seat-card-width); }
 #table-container.mechanical-table #table .my-hand .card { width: var(--mechanical-card-width); }
 @media (max-width: 900px) {
   #table-container.mechanical-table #table .seat:is([data-mechanical-edge="left"], [data-mechanical-edge="right"]) {
     --seat-width: 80px;
+    --seat-card-width: 30px;
     --side-offset: min(51px, calc((100vw - 690px) / 2 - 31px));
   }
-  #table-container.mechanical-table #table .seat:is([data-mechanical-edge="left"], [data-mechanical-edge="right"]) .seat-cards .card { width: 30px; }
   .seat:is([data-mechanical-edge="left"], [data-mechanical-edge="right"]) .mechanical-seat-plate { padding-inline: 6px; }
+}
+@media (min-width: 769px) and (max-height: 725px) {
+  #table .seat[data-mechanical-edge="bottom"] { --mech-y: calc(100% + 10px); }
 }
 @media (min-width: 769px) and (max-height: 810px) {
   #table-container.mechanical-table { --mechanical-card-width: clamp(42px, 5vw, 46px); }
@@ -571,7 +572,7 @@
   position: absolute;
   top: -84px;
   left: 50%;
-  transform: translateX(-150px);
+  transform: translateX(-50%);
   width: 374px;
   height: 198px;
   pointer-events: none;
@@ -829,33 +830,12 @@
 @media (prefers-reduced-motion: reduce) {
   .mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass { animation: none; }
 }
-.mechanical-wager-zones, .mechanical-chips, .mechanical-chip-labels, .mechanical-arm, .mechanical-arm-shadow, .mechanical-moving-cards {
+.mechanical-chips, .mechanical-chip-labels, .mechanical-arm, .mechanical-arm-shadow, .mechanical-moving-cards {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-}
-.mechanical-wager-zones { z-index: 10; }
-.mechanical-wager-zone {
-  position: absolute;
-  transform: translate(-50%, -50%);
-}
-.mechanical-wager-zone::before, .mechanical-wager-zone::after {
-  content: "";
-  position: absolute;
-  border: 1px solid #a18a6240;
-  border-radius: 50%;
-}
-.mechanical-wager-zone::before {
-  inset: 5% 15% 15%;
-  box-shadow: inset 0 1px 2px #866b4638, 0 1px #fff8e7a3;
-  background: radial-gradient(ellipse, #a48a4f0a, #aa926019);
-}
-.mechanical-wager-zone::after {
-  inset: 10% 19% 20%;
-  border-style: dashed;
-  border-color: #ae977b46;
 }
 .mechanical-chips { z-index: 13; }
 .mechanical-chip-labels { z-index: 16; }

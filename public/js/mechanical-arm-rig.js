@@ -643,6 +643,7 @@ function createMechanicalArmRig(svg, shadow, base) {
     const viewBox = "0 0 " + width + " " + height;
     svg.setAttribute("viewBox", viewBox);
     shadow.setAttribute("viewBox", viewBox);
-    motion.resize({ x: width / 2 + 90, y: -20 });
+    // The carriage datum is x=240 in the cabinet's centered 374 px viewBox.
+    motion.resize({ x: width / 2 + (240 - 374 / 2), y: -20 });
   } };
 }
