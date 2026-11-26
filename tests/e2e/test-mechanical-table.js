@@ -504,8 +504,8 @@ async function run() {
     }
     const showdown = await host.evaluate(() => ({
       total: gameState.pot,
-      collected: Number(document.querySelector('#mechanicalChipLabels [data-amount]')?.dataset.amount),
-      inventory: document.querySelector('#mechanicalChipLabels [data-amount]')?.title,
+      collected: Number(document.getElementById('mechanicalPotMeter').dataset.amount),
+      inventory: document.getElementById('mechanicalPotMeter').title,
       cards: document.querySelectorAll('#community .card-front').length,
       revealed: gameState.players.filter(player => !player.folded && player.hand.every(Boolean)).length,
       waitingForImpact: gameState.winners.every(winner => {

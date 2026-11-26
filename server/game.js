@@ -13,6 +13,7 @@ const { emptyChips, chipTotal, startingChips, addChips, transferChips } = requir
 const SB = 10;
 const BB = 20;
 const START_STACK = 2000;
+const MECHANICAL_TURN_MS = 20_000;
 
 // ===== Deck =====
 function createDeck(shortDeck = false) {
@@ -110,6 +111,7 @@ class Game {
     this.allInOrFold = options.allInOrFold || false;
     this.gameMode = options.gameMode || 'classic';
     this.tableStyle = options.tableStyle === 'mechanical' ? 'mechanical' : 'classic';
+    this.turnDurationMs = this.tableStyle === 'mechanical' ? options.turnDurationMs ?? MECHANICAL_TURN_MS : 0;
 
     this.players = players.map((p, i) => ({
       id: p.id,
@@ -156,6 +158,8 @@ class Game {
     this.showHandPending = null;
     this.showHandTimeout = null;
     this.actionTimeout = null;
+    this.turnTimeout = null;
+    this.turn = null;
     this.phaseTimeout = null;
     this.handEndTimeout = null;
     this.handSettled = false;
@@ -214,6 +218,34 @@ class Game {
     }
   }
 
+  clearTurn() {
+    clearTimeout(this.turnTimeout);
+    this.turnTimeout = null;
+    this.turn = null;
+  }
+
+  expireTurn(turn) {
+    if (this.turn !== turn || this.handSettled) return;
+    const player = this.players[this.currentIdx];
+    if (player?.id !== turn.playerId) return;
+    const action = this.roundBet > player.bet ? 'fold' : 'check';
+    this.handleAction(player.id, { action }, true);
+  }
+
+  sendTurnPrompt(player) {
+    if (player._ws?.readyState !== 1) return;
+    player._ws.send(JSON.stringify({ type: 'game:yourTurn', data: {
+      playerId: player.id,
+      toCall: this.roundBet - player.bet,
+      minRaise: this.roundBet + this.minRaise,
+      maxRaise: player.stack + player.bet,
+      pot: this.pot,
+      gameMode: this.gameMode,
+      allInOrFold: this.allInOrFold,
+      ...(this.turn && { turnDeadline: this.turn.deadline }),
+    }}));
+  }
+
   clearPhaseTimeout() {
     if (this.phaseTimeout) {
       clearTimeout(this.phaseTimeout);
@@ -265,6 +297,7 @@ class Game {
       community: this.community,
       pot: this.pot,
       ...(this.potChips && { potChips: this.potChips.slice() }),
+      ...(this.turnDurationMs && { turn: this.turn && { ...this.turn, remainingMs: Math.max(0, this.turn.deadline - Date.now()) } }),
       dealerIdx: this.dealerIdx,
       sbIdx: this.sbIdx,
       bbIdx: this.bbIdx,
@@ -307,6 +340,7 @@ class Game {
   // ===== Game Flow =====
   startHand() {
     this.clearActionTimeout();
+    this.clearTurn();
     this.clearPhaseTimeout();
     this.clearHandEndTimeout();
 
@@ -432,32 +466,26 @@ class Game {
       this.handleAction(player.id, { action: toCall > 0 ? 'call' : 'check' });
       return;
     }
-    const actionData = {
-      playerId: player.id,
-      toCall,
-      minRaise: this.roundBet + this.minRaise,
-      maxRaise: player.stack + player.bet,
-      pot: this.pot,
-      gameMode: this.gameMode,
-      allInOrFold: this.allInOrFold,
-    };
-
-    // Send yourTurn ONLY to the current player (not broadcast)
-    if (player._ws && player._ws.readyState === 1) {
-      player._ws.send(JSON.stringify({ type: 'game:yourTurn', data: actionData }));
+    if (this.turnDurationMs && this.turn?.playerId !== player.id) {
+      this.clearTurn();
+      const turn = this.turn = { playerId: player.id, deadline: Date.now() + this.turnDurationMs, durationMs: this.turnDurationMs };
+      this.turnTimeout = setTimeout(() => this.expireTurn(turn), this.turnDurationMs);
+      this.broadcastState();
     }
+    this.sendTurnPrompt(player);
   }
 
-  handleAction(playerId, actionData) {
-    if (this.handSettled) return;
-    this.clearActionTimeout();
+  handleAction(playerId, actionData, timedOut = false) {
+    if (this.handSettled || !['preflop', 'flop', 'turn', 'river'].includes(this.phase)) return;
 
     const player = this.players.find(p => p.id === playerId);
     if (!player || player.folded || player.allIn) return;
     if (this.players[this.currentIdx].id !== playerId) return; // Not their turn
+    const { action, amount, turnDeadline } = actionData || {};
+    if (this.turnDurationMs && turnDeadline !== undefined && turnDeadline !== this.turn?.deadline) return;
+    if (!timedOut && this.turn && Date.now() >= this.turn.deadline) return this.expireTurn(this.turn);
 
     const toCall = this.roundBet - player.bet;
-    const { action, amount } = actionData;
     let actionLogEntry = null;
 
     // All-in-or-fold mode: only fold, check, or allin allowed
@@ -472,15 +500,15 @@ class Game {
       case 'fold':
         player.folded = true;
         player.lastAction = 'fold';
-        actionLogEntry = this.buildActionLogEntry(player, 'fold', 0);
-        gameLogger.logAction(this, player, '弃牌', 0);
+        actionLogEntry = this.buildActionLogEntry(player, 'fold', 0, timedOut ? { timedOut: true } : undefined);
+        gameLogger.logAction(this, player, timedOut ? '超时弃牌' : '弃牌', 0);
         break;
 
       case 'check':
-        if (toCall > 0) return this.scheduleNextAction(); // Invalid
+        if (toCall > 0) return this.sendTurnPrompt(player);
         player.lastAction = 'check';
-        actionLogEntry = this.buildActionLogEntry(player, 'check', 0);
-        gameLogger.logAction(this, player, '过牌', 0);
+        actionLogEntry = this.buildActionLogEntry(player, 'check', 0, timedOut ? { timedOut: true } : undefined);
+        gameLogger.logAction(this, player, timedOut ? '超时过牌' : '过牌', 0);
         break;
 
       case 'call': {
@@ -501,7 +529,7 @@ class Game {
         const previousBet = this.roundBet;
         const raiseAmount = Math.max(amount || 0, this.roundBet + this.minRaise);
         const toPay = Math.min(raiseAmount - player.bet, player.stack);
-        if (toPay <= 0) return this.scheduleNextAction();
+        if (!Number.isFinite(toPay) || toPay <= 0) return this.sendTurnPrompt(player);
         this.commitBet(player, toPay);
         this.lastRaise = toPay;
         this.minRaise = Math.max(this.minRaise, toPay);
@@ -534,9 +562,11 @@ class Game {
       }
 
       default:
-        return this.scheduleNextAction();
+        return this.sendTurnPrompt(player);
     }
 
+    this.clearActionTimeout();
+    this.clearTurn();
     this.actedCount++;
 
     // Update current player first, then broadcast
@@ -559,6 +589,7 @@ class Game {
   advancePhase() {
     if (this.handSettled || this.phase === 'showdown' || this.phase === 'show_choice' || this.phase === 'idle') return;
     this.clearPhaseTimeout();
+    this.clearTurn();
     for (const p of this.players) {
       p.bet = 0;
       p.betChips?.fill(0);
@@ -614,6 +645,7 @@ class Game {
     if (this.handSettled) return;
     this.handSettled = true;
     this.clearActionTimeout();
+    this.clearTurn();
     this.clearPhaseTimeout();
     this.phase = 'showdown';
     const inHand = this.inHandPlayers();
@@ -733,6 +765,7 @@ class Game {
     if (inHand.length === 1) {
       this.handSettled = true;
       this.clearActionTimeout();
+      this.clearTurn();
       this.clearPhaseTimeout();
       const winner = inHand[0];
       const payout = this.payoutFromPot();
@@ -831,17 +864,9 @@ class Game {
     }
 
     // If it's their turn, prompt
-    if (this.players[this.currentIdx]?.id === playerId && this.phase !== 'showdown' && this.phase !== 'idle' && this.phase !== 'show_choice') {
-      const toCall = this.roundBet - player.bet;
-      ws.send(JSON.stringify({ type: 'game:yourTurn', data: {
-        playerId,
-        toCall,
-        minRaise: this.roundBet + this.minRaise,
-        maxRaise: player.stack + player.bet,
-        pot: this.pot,
-        gameMode: this.gameMode,
-        allInOrFold: this.allInOrFold,
-      }}));
+    if (this.players[this.currentIdx]?.id === playerId && ['preflop', 'flop', 'turn', 'river'].includes(this.phase) &&
+        (!this.turnDurationMs || this.turn?.playerId === playerId)) {
+      this.sendTurnPrompt(player);
     }
   }
 }

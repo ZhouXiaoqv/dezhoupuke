@@ -360,7 +360,7 @@ function sendRaise(amount) {
   if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
-  Net.send("game:action", { action: "raise", amount });
+  sendGameAction("raise", amount);
 }
 
 $("customRaiseConfirm").addEventListener("click", () => submitRaise($("customRaiseAmount")));
@@ -369,13 +369,13 @@ $("btnFold").addEventListener("click", () => {
   if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
-  Net.send("game:action", { action: "fold" });
+  sendGameAction("fold");
 });
 $("btnCheck").addEventListener("click", () => {
   if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
-  Net.send("game:action", { action: "check" });
+  sendGameAction("check");
 });
 $("btnCall").addEventListener("click", () => {
   if (!canSendTableAction()) return;
@@ -386,7 +386,7 @@ $("btnCall").addEventListener("click", () => {
     spawnChipFly(mySeat, "#d4a840");
     spawnChipFly(mySeat, "#cc3333");
   }
-  Net.send("game:action", { action: "call" });
+  sendGameAction("call");
 });
 $("btnAllin").addEventListener("click", () => {
   if (!canSendTableAction()) return;
@@ -396,7 +396,7 @@ $("btnAllin").addEventListener("click", () => {
   if (mySeat)
     for (let i = 0; i < 8; i++)
       setTimeout(() => spawnChipFly(mySeat), i * 80);
-  Net.send("game:action", { action: "allin" });
+  sendGameAction("allin");
 });
 $("btnRaise").addEventListener("click", () => {
   if (MechanicalTable.enabled()) return;

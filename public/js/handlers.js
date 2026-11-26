@@ -253,6 +253,11 @@ Net.on("game:actionLog", (entry) => handleActionLog(entry));
 Net.on("game:yourTurn", (d) => {
   if (isSpectator) return;
   if (d.playerId !== Net.playerId) return;
+  if (MechanicalTable.enabled()) {
+    if (d.turnDeadline !== gameState?.turn?.deadline) return;
+    MechanicalTable.acceptTurnPrompt(d.turnDeadline);
+    if (!isMyTurnState()) return;
+  }
   lastTurnActionData = d;
   showActions(d);
   SFX.yourTurn();
@@ -362,7 +367,10 @@ if ($("scoreAlertClose")) {
 Net.on("error", (d) => toast(d.message, "warning"));
 Net.on("disconnect", () => {
   $("connDot").className = "connection-dot offline";
-  if (MechanicalTable.enabled()) hideActions();
+  if (MechanicalTable.enabled()) {
+    MechanicalTable.syncTurn(null);
+    hideActions();
+  }
   if (!appInBackground) {
     toast("连接已断开，正在重连…", "warning");
   }

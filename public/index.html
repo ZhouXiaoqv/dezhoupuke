@@ -399,6 +399,14 @@
           <div class="pot-label">底池</div>
           <div class="pot-amount" id="potAmount">0</div>
         </div>
+        <div class="mechanical-only mechanical-pot-well" id="mechanicalPotWell" aria-hidden="true"></div>
+        <div class="mechanical-only mechanical-pot-meter" id="mechanicalPotMeter">
+          <span class="mechanical-pot-label" aria-hidden="true">底池</span>
+          <span id="mechanicalPotReels" role="img" aria-label="底池 0"></span>
+        </div>
+        <div class="mechanical-only mechanical-rail-details" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><span>一号精密试验桌</span>
+        </div>
         <div class="community" id="community"></div>
         <div class="mechanical-only mechanical-wager-zones" id="mechanicalWagerZones" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-base" id="mechanicalBase" data-recycler="idle">
@@ -641,6 +649,9 @@
         <button class="action-btn btn-allin" id="btnAllin">ALL IN</button>
         <div class="mechanical-action-desk" id="mechanicalActionDesk" role="group" aria-label="牌桌操作台">
           <span class="desk-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="desk-hand-strength" id="deskHandStrength" role="img" hidden>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </span>
           <div class="desk-upper">
             <span class="desk-turn-lamp" id="deskTurnLamp" role="img" aria-label="操作台已锁定"></span>
             <fieldset class="desk-sizing" id="deskSizing" disabled aria-label="调节下注金额">

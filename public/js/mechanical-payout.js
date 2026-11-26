@@ -64,11 +64,12 @@ function createMechanicalPayout(targets, sourcePiles, start, denominations) {
   }
 
   let launched = 0, arrived = 0;
-  function draw(now, { origin, targetAt, drawChip, arrive }) {
+  function draw(now, { origin, targetAt, drawChip, arrive, hit }) {
     while (launched < count && particles[launched].launch <= now) particles[launched++].pile.chips.pop();
     const impacts = new Map();
     while (arrived < launched && particles[arrived].arrival <= now) {
-      const { account, credit, final } = particles[arrived++];
+      const { account, credit, final, arrival } = particles[arrived++];
+      hit?.(account.target, arrived / count, final, now - arrival);
       const previous = impacts.get(account.target);
       impacts.set(account.target, { credit, final, hits: (previous?.hits ?? 0) + 1 });
     }
@@ -85,7 +86,7 @@ function createMechanicalPayout(targets, sourcePiles, start, denominations) {
         const burst = elapsed / scatterTime;
         const t = 1 - (1 - burst) ** 2;
         drawChip({ x: from.x + scatter.x * t, y: from.y + scatter.y * t - 11 * t - 7 * Math.sin(Math.PI * burst) },
-          chip.value, chip.angle + burst * .15);
+          chip.value, chip.angle + burst * .15, chip.scale);
         continue;
       }
       const progress = (elapsed - scatterTime) / (flight.arrival - flight.launch - scatterTime);
@@ -96,7 +97,8 @@ function createMechanicalPayout(targets, sourcePiles, start, denominations) {
         { x: lifted.x + dx * .16 + curveX, y: lifted.y + dy * .16 + curveY },
         { x: target.x - dx * .24 + curveX * .32, y: target.y - dy * .24 + curveY * .32 },
       ];
-      drawChip(interpolate(lifted, target, accelerate(progress), controls), chip.value, chip.angle + .15 + progress * Math.sign(curve) * .57);
+      drawChip(interpolate(lifted, target, accelerate(progress), controls), chip.value,
+        chip.angle + .15 + progress * Math.sign(curve) * .57, chip.scale);
     }
     for (const [target, impact] of impacts) arrive(target, impact);
     return arrived < count;

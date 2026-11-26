@@ -28,6 +28,11 @@ const MechanicalTable = (() => {
   const feedLayer = $("mechanicalBayCards");
   const recycleLayer = $("mechanicalRecycledCards");
   const printLayer = $("mechanicalPrintFeed");
+  const community = $("community");
+  const communityLabels = ["翻 1", "翻 2", "翻 3", "转", "河"];
+  const potWell = $("mechanicalPotWell");
+  const potMeter = $("mechanicalPotMeter");
+  const potReels = $("mechanicalPotReels");
   const labelLayer = $("mechanicalChipLabels");
   const wagerLayer = $("mechanicalWagerZones");
   const result = $("mechanicalResult");
@@ -53,6 +58,8 @@ const MechanicalTable = (() => {
   const seats = new Map();
   const wagerZones = new Map();
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, latestReceipt;
+  let turnClock, submittedDeadline;
+  let wellSize;
   let groups = new Map();
   let chipsDirty = true;
   const deliveries = new Map();
@@ -87,6 +94,9 @@ const MechanicalTable = (() => {
   }
 
   function clearHandEffects() {
+    clearTurnClock();
+    submittedDeadline = undefined;
+    MechanicalActionDesk.showStrength();
     sweep = state = handToDeal = finalizedHand = null;
     deliveries.clear();
     wagers.clear();
@@ -94,6 +104,8 @@ const MechanicalTable = (() => {
     groups.clear();
     labelLayer.replaceChildren();
     context.clearRect(0, 0, canvas.width, canvas.height);
+    MechanicalReels.set(potReels, 0, { instant: true, minDigits: 5, label: "底池" });
+    potMeter.removeAttribute("title");
     chipsDirty = true;
     dismissReceipt(true);
   }
@@ -121,6 +133,7 @@ const MechanicalTable = (() => {
       container.classList.toggle("mechanical-table", active);
       if (container.classList.contains("active")) hideActions();
       table.querySelectorAll(".seat").forEach(seat => seat.remove());
+      community.replaceChildren();
       delete table.dataset.mechanicalViewer;
       container.querySelector(":scope > .my-hand")?.remove();
       $("tableOutfitBtn").hidden = active || !container.classList.contains("active") || !isRegistered || isSpectator;
@@ -219,7 +232,14 @@ const MechanicalTable = (() => {
     info.innerHTML = `
       <span class="mechanical-seat-tongue" aria-hidden="true"></span>
       <div class="mechanical-seat-body">
-        <div class="mechanical-seat-avatar"><span class="seat-medallion" aria-hidden="true"></span></div>
+        <div class="mechanical-seat-avatar">
+          <span class="seat-medallion" aria-hidden="true"></span>
+          <svg class="mechanical-seat-clock" viewBox="0 0 58 58" aria-hidden="true">
+            <circle class="mechanical-clock-ticks" cx="29" cy="29" r="27" pathLength="100"/>
+            <circle class="mechanical-clock-track" cx="29" cy="29" r="25"/>
+            <circle class="mechanical-clock-needle" cx="29" cy="29" r="25" pathLength="100"/>
+          </svg>
+        </div>
         <div class="mechanical-seat-plate">
           <span class="mechanical-seat-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <span class="mechanical-seat-lamp" aria-hidden="true"></span>
@@ -243,11 +263,83 @@ const MechanicalTable = (() => {
     }
   }
 
+  function clearTurnClock() {
+    if (!turnClock) return;
+    const { seat, dial } = turnClock;
+    delete seat.dataset.turnClock;
+    delete seat.dataset.turnWarning;
+    dial.style.removeProperty("--clock-offset");
+    seat.querySelector(".mechanical-seat-lamp").removeAttribute("title");
+    turnClock = null;
+  }
+
+  function syncTurn(turn) {
+    const seat = [...seats.values()].find(node => node.dataset.playerId === turn?.playerId && node.dataset.playerId);
+    if (!turn || !seat || turn.remainingMs <= 0) {
+      clearTurnClock();
+      return;
+    }
+    const end = performance.now() + turn.remainingMs;
+    if (turnClock?.deadline === turn.deadline && turnClock.seat === seat) {
+      turnClock.end = Math.min(turnClock.end, end);
+      return;
+    }
+    clearTurnClock();
+    turnClock = { ...turn, seat, end, dial: seat.querySelector(".mechanical-seat-clock") };
+    seat.dataset.turnClock = "";
+    drawTurnClock(performance.now());
+    nextFrame();
+  }
+
+  function canAct(turn) {
+    // The standalone layout preview has no server clock.
+    return turn === undefined || (!!turnClock && turnClock.deadline === turn?.deadline &&
+      turnClock.deadline !== submittedDeadline && turnClock.playerId === Net.playerId && performance.now() < turnClock.end);
+  }
+
+  function submitTurn(deadline) {
+    submittedDeadline = deadline;
+  }
+
+  function acceptTurnPrompt(deadline) {
+    if (turnClock?.deadline === deadline && submittedDeadline === deadline) submittedDeadline = undefined;
+  }
+
+  function drawTurnClock(now) {
+    if (!turnClock) return;
+    const { seat, dial, end, durationMs, playerId, deadline } = turnClock;
+    const remaining = Math.max(0, end - now);
+    if (!remaining) {
+      clearTurnClock();
+      if (playerId === Net.playerId && !isSpectator) {
+        submittedDeadline = deadline;
+        hideActions();
+      }
+      return;
+    }
+    dial.style.setProperty("--clock-offset", (100 * (1 - Math.min(1, remaining / durationMs))).toFixed(2));
+    const second = Math.ceil(remaining / 1000);
+    if (second === turnClock.second) return;
+    turnClock.second = second;
+    seat.toggleAttribute("data-turn-warning", second <= 5);
+    seat.querySelector(".mechanical-seat-lamp").title = `剩余 ${second} 秒`;
+    if (second <= 5 && playerId === Net.playerId && deadline !== submittedDeadline && !isSpectator && !document.hidden) SFX.ratchet();
+  }
+
   function cardBack(slot = false) {
     const el = document.createElement("div");
     el.className = "card " + (slot ? "mechanical-card-slot" : "card-back mechanical-card-back");
     el.setAttribute("aria-hidden", "true");
     return el;
+  }
+
+  function communitySlot(index) {
+    if (community.children[index]) return community.children[index];
+    const slot = document.createElement("div");
+    slot.className = "mechanical-board-slot";
+    slot.dataset.engraving = communityLabels[index];
+    community.append(slot);
+    return slot;
   }
 
   function point(rect) {
@@ -274,6 +366,22 @@ const MechanicalTable = (() => {
     return { x: left + rect.width / 2, y, width: rect.width };
   }
 
+  function measurePot() {
+    const deck = printerPort.y + 3;
+    const board = community.getBoundingClientRect().top - bounds.top - 6;
+    const open = board - deck;
+    // When the table is short, arrange the two instruments along the same rail.
+    const compact = open < 61;
+    const height = compact ? Math.max(15, Math.min(44, open - 1)) : Math.min(84, open - 29);
+    const width = Math.min(148, Math.max(70, height * 1.78));
+    center = { x: bounds.width / 2, y: board - height / 2 };
+    wellSize = { width, height };
+    Object.assign(potWell.style, { left: `${center.x}px`, top: `${center.y}px`, width: `${width}px`, height: `${height}px` });
+    potMeter.toggleAttribute("data-compact", compact);
+    potMeter.style.left = `${center.x - (compact ? width / 2 + 66 : 0)}px`;
+    potMeter.style.top = `${compact ? center.y : board - height - 15}px`;
+  }
+
   function measure() {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return false;
@@ -285,7 +393,7 @@ const MechanicalTable = (() => {
     // The recycler's front lip overlays the first three pixels of the intake.
     recyclerPort = measurePort(recycleLayer, recyclerLip, -3);
     printerPort = measurePort(printLayer, printerOpening, .5);
-    center = { x: rect.width / 2, y: rect.height * .35 };
+    measurePot();
     const ratio = Math.min(2, devicePixelRatio || 1);
     const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
     if (canvas.width !== width || canvas.height !== height) {
@@ -310,7 +418,7 @@ const MechanicalTable = (() => {
   }
 
   function standardCardSize() {
-    const style = getComputedStyle($("community").firstElementChild);
+    const style = getComputedStyle(community.querySelector(".card"));
     return { width: parseFloat(style.width), height: parseFloat(style.height) };
   }
 
@@ -447,7 +555,7 @@ const MechanicalTable = (() => {
         onLand() {
           finish(false);
           if (action === "reveal" && entry.card.isConnected) {
-            entry.card.classList.add("card-flip-in");
+            entry.card.classList.add("mechanical-card-seated");
             SFX.flip();
           }
         },
@@ -518,7 +626,7 @@ const MechanicalTable = (() => {
     if (last && !sameHand) deliveries.clear();
     const hands = next.players.map((player, index) => player.folded ? [] :
       seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card })));
-    const board = [...$("community").children].map((card, slot) => ({ key: boardCardKey(slot), card }));
+    const board = [...community.querySelectorAll(".card")].map((card, slot) => ({ key: boardCardKey(slot), card }));
     for (const { key, card } of [...hands.flat(), ...board]) {
       const delivery = deliveries.get(key);
       if (!delivery || delivery.card === card) continue;
@@ -537,6 +645,8 @@ const MechanicalTable = (() => {
     const oldGroups = groups;
     placeWagerZones();
     groups = readGroups(next);
+    MechanicalReels.set(potReels, next.pot);
+    potMeter.dataset.amount = next.pot;
     if (sameHand && !reduced.matches) scheduleChips(oldGroups, groups);
     const payout = payouts.get(next.handNum);
     if (payout && payout.start === undefined) {
@@ -657,7 +767,10 @@ const MechanicalTable = (() => {
           if (seat) account.anchor = point(seat.querySelector(".seat-medallion").getBoundingClientRect());
           return account.anchor && { x: offset.x + account.anchor.x, y: offset.y + account.anchor.y };
         },
-        drawChip: (at, value, angle) => drawChip(at, { value, angle }, payoutContext),
+        drawChip: (at, value, angle, scale) => drawChip(at, { value, angle, scale }, payoutContext),
+        hit(account, progress, final, lag) {
+          if (account.winner && !document.hidden) SFX.potImpact(progress, final, lag);
+        },
         arrive: (account, impact) => absorbChips(payout, account, impact, now),
       });
       if (timeline.remaining !== remaining) {
@@ -754,6 +867,7 @@ const MechanicalTable = (() => {
 
   function syncLabels() {
     chipsDirty = true;
+    potMeter.title = groups.get("pot")?.inventory.description || "";
     for (const [id, label] of labels) {
       if (!groups.has(id)) {
         label.remove();
@@ -761,6 +875,7 @@ const MechanicalTable = (() => {
       }
     }
     for (const [id, group] of groups) {
+      if (id === "pot") continue;
       let label = labels.get(id);
       if (!label) {
         label = document.createElement("span");
@@ -769,13 +884,9 @@ const MechanicalTable = (() => {
         labelLayer.append(label);
         labels.set(id, label);
       }
-      const belowPile = group.inventory.piles.length > 3 ? 28 : 19;
-      const besidePot = id === "pot" &&
-        bounds.top + group.at.y + belowPile + 14 > $("community").getBoundingClientRect().top;
-      label.style.left = group.at.x - (besidePot ? 72 : 0) + "px";
-      const labelOffset = group.zone ? group.zone.height / 2 - 7 : besidePot ? 3 : belowPile;
-      label.style.top = group.at.y + labelOffset + "px";
-      if (group.zone) label.style.maxWidth = group.zone.width - 6 + "px";
+      label.style.left = group.at.x + "px";
+      label.style.top = group.at.y + group.zone.height / 2 - 7 + "px";
+      label.style.maxWidth = group.zone.width - 6 + "px";
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
       const amount = currency.format(group.amount);
@@ -871,16 +982,28 @@ const MechanicalTable = (() => {
       const x = row ? (index - (count - 1) / 2) * 32 : baseX * 1.14;
       const y = row ? (index % 2) * 3 : baseY;
       const lean = Math.sin(index * 2.7 + .9) * .48;
+      const rise = Math.min(5, 30 / Math.max(1, height - 1));
       const chips = Array.from({ length: height }, (_, level) => ({
         value: values[chipIndex++],
         x: x + level * lean + Math.sin(level * 1.8 + index) * 1.1,
-        y: y - level * 5.0 + Math.sin(level * 2.1 + index) * .65,
+        y: y - level * rise + Math.sin(level * 2.1 + index) * .65,
         angle: Math.sin(level * 1.4 + index * 3) * .065,
       }));
       return { x, y, chips };
     });
     piles.sort((a, b) => a.y - b.y);
-    return { piles, chips: piles.flatMap(pile => pile.chips) };
+    const chips = piles.flatMap(pile => pile.chips);
+    const minX = Math.min(...chips.map(chip => chip.x)) - 21;
+    const maxX = Math.max(...chips.map(chip => chip.x)) + 21;
+    const minY = Math.min(...chips.map(chip => chip.y)) - 14;
+    const maxY = Math.max(...chips.map(chip => chip.y)) + 19;
+    const scale = Math.min(1, (wellSize.width - 5) / ((maxX - minX) * 1.42), (wellSize.height - 4) / ((maxY - minY) * 1.42));
+    for (const part of [...piles, ...chips]) {
+      part.x = (part.x - (minX + maxX) / 2) * scale;
+      part.y = (part.y - (minY + maxY) / 2) * scale;
+      part.scale = scale;
+    }
+    return { piles, chips };
   }
 
   function scheduleChips(previous, next) {
@@ -1028,7 +1151,7 @@ const MechanicalTable = (() => {
         continue;
       }
       const source = motion.origins[index];
-      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? 82 : 13 * zone.scale);
+      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? wellSize.height * .52 : 13 * zone.scale);
       const from = source || at;
       const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
         : lerp(scattered, target, ease((progress - .52) / .48));
@@ -1067,12 +1190,13 @@ const MechanicalTable = (() => {
 
   function draw(now) {
     frame = null;
+    drawTurnClock(now);
     if (payouts.size) drawPayouts(now);
     if (chipsDirty || sweep || wagers.size || [...payouts.values()].some(payout => payout.sweep)) {
       drawChips(now);
       chipsDirty = false;
     }
-    if (arm.tick(now) || sweep || wagers.size || payouts.size) nextFrame();
+    if (arm.tick(now) || sweep || wagers.size || payouts.size || turnClock) nextFrame();
   }
 
   function printReceipt(snapshot, settlement) {
@@ -1233,6 +1357,6 @@ const MechanicalTable = (() => {
     nextFrame();
   });
 
-  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers,
-    cardBack, beforeRender, updateStack, render, showResult };
+  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
+    cardBack, communitySlot, beforeRender, updateStack, render, showResult };
 })();

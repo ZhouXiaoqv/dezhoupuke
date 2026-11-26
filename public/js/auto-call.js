@@ -45,7 +45,7 @@ function sendAutoAction(action) {
       spawnChipFly(mySeat, "#cc3333");
     }
   }
-  Net.send("game:action", { action });
+  sendGameAction(action);
 }
 
 function maybeAutoCall(data = {}) {
@@ -69,7 +69,11 @@ function maybeAutoCall(data = {}) {
   setTimeout(() => {
     if (lastAutoActionKey === key) lastAutoActionKey = "";
   }, 1800);
-  setTimeout(() => sendAutoAction(action), 80);
+  const deadline = gameState?.turn?.deadline;
+  setTimeout(() => {
+    if (MechanicalTable.enabled() && (!isMyTurnState() || deadline !== gameState?.turn?.deadline)) return;
+    sendAutoAction(action);
+  }, 80);
   return true;
 }
 

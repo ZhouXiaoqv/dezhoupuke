@@ -14,7 +14,10 @@ window.lastSeatCenters = window.lastSeatCenters || Object.create(null);
 
 function clearMyHandView(resetSignature = true) {
   myHand = [];
-  if (resetSignature) prevMyHandIds = null;
+  if (resetSignature) {
+    prevMyHandIds = null;
+    MechanicalActionDesk.showStrength();
+  }
   document
     .querySelectorAll("#table-container .my-hand")
     .forEach((el) => el.remove());
@@ -265,6 +268,10 @@ function playActionSound(action) {
 }
 
 function playBetFeedback(entry) {
+  if (MechanicalTable.enabled() && entry.amount > 0) {
+    SFX.wagerChip();
+    return;
+  }
   const allIn = ["allin", "allinCall", "allinRaise"].includes(entry.action);
   const bigRaise = entry.action === "raise" && entry.raiseBy >= 500;
   if (!MechanicalTable.enabled() && (allIn || bigRaise)) playTableLights(entry.playerId, allIn);
@@ -285,9 +292,17 @@ function handleActionLog(entry) {
   if (!MechanicalTable.enabled()) window.Pets3D?.handleAction(entry);
   addLogPhaseIfNeeded(entry.phase);
   playBetFeedback(entry);
+  const timeoutLabel = entry.timedOut ? (entry.action === "fold" ? "超时弃牌" : "超时过牌") : "";
+  if (timeoutLabel && MechanicalTable.enabled() && entry.playerId === Net.playerId) {
+    MechanicalTable.syncTurn(null);
+    hideActions();
+  }
+  if (timeoutLabel && entry.action === "fold" && MechanicalTable.enabled()) {
+    toast(entry.playerId === Net.playerId ? timeoutLabel : `${entry.playerName} ${timeoutLabel}`, "warning");
+  }
   addLogEntry(
     entry.playerName || "",
-    ACTION_LOG_LABELS[entry.action] || entry.action || "",
+    timeoutLabel || ACTION_LOG_LABELS[entry.action] || entry.action || "",
     entry.amount || 0,
     entry.pot || 0,
     entry.action === "allinCall" || entry.action === "allinRaise"
@@ -308,8 +323,15 @@ function isMyTurnState(state = gameState) {
     me.connected !== false &&
     !!current &&
     current.id === Net.playerId &&
+    (!MechanicalTable.enabled() || MechanicalTable.canAct(state.turn)) &&
     ["preflop", "flop", "turn", "river"].includes(state.phase)
   );
+}
+
+function sendGameAction(action, amount) {
+  const deadline = MechanicalTable.enabled() ? gameState?.turn?.deadline : undefined;
+  if (deadline !== undefined) MechanicalTable.submitTurn(deadline);
+  Net.send("game:action", { action, ...(amount !== undefined && { amount }), ...(deadline !== undefined && { turnDeadline: deadline }) });
 }
 
 function buildTurnActionDataFromState(state = gameState) {
@@ -445,6 +467,7 @@ function renderGame(state) {
 
   // Only remove seats/dealer/blinds if player count changed (prevents flickering)
   const mechanicalSeats = mechanical ? MechanicalTable.bindSeats(state.players, viewerIndex) : null;
+  if (mechanical) MechanicalTable.syncTurn(state.turn);
   if (!mechanical) {
     const existingSeats = [...table.querySelectorAll(".seat")];
     if (existingSeats.length !== state.players.length ||
@@ -714,7 +737,7 @@ function renderGame(state) {
         bet.textContent = p.bet;
         bet.setAttribute("aria-label", `${p.name} 本轮已下注 ${p.bet}`);
         if (!existingBet) seat.appendChild(bet);
-        if (!isLayoutTestRoom) SFX.chip();
+        if (!mechanical && !isLayoutTestRoom) SFX.chip();
       }
     } else if (existingBet) {
       existingBet.remove();
@@ -777,10 +800,11 @@ function renderGame(state) {
   // Community cards with flip animation
   const comm = $("community");
   for (let i = 0; i < 5; i++) {
+    const slot = mechanical ? MechanicalTable.communitySlot(i) : comm;
     const card = state.community[i];
     const backKey = mechanical ? "mechanical-slot" : viewerCardBack;
     const key = JSON.stringify([state.handNum, card ? [card.rank, card.suit] : backKey]);
-    const previous = comm.children[i];
+    const previous = mechanical ? slot.firstElementChild : comm.children[i];
     if (previous?.dataset.cardKey === key) continue;
     const el = card
       ? createCardEl(card)
@@ -793,7 +817,7 @@ function renderGame(state) {
       el.style.animationDelay = `${(i - previousCardCount) * 0.2}s`;
     }
     if (previous) previous.replaceWith(el);
-    else comm.appendChild(el);
+    else slot.appendChild(el);
   }
 
   // Pot
@@ -816,6 +840,7 @@ function renderGame(state) {
   if (mechanical) $("handRankLabel").classList.remove("visible");
   else updateHandLabel(state);
   if (mechanical) {
+    MechanicalActionDesk.showStrength(!isSpectator && !me?.folded ? me?.hand : undefined, state.community);
     MechanicalTable.render(state);
   } else {
     requestAnimationFrame(() => {

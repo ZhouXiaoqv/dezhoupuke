@@ -3,15 +3,27 @@ const SFX = (() => {
   let ctx = null;
   let enabled = true;
   let masterGain = null;
+  let activated = false;
+  let lastPotHit = -Infinity, lastDetent = -Infinity;
+  const samples = new Map();
+
+  function activate(event) {
+    if (!event.isTrusted) return;
+    activated = true;
+    ensureCtx();
+  }
+  for (const type of ["pointerdown", "keydown", "click"]) document.addEventListener(type, activate, { capture: true, passive: true });
 
   function ensureCtx() {
+    const Audio = window.AudioContext || window.webkitAudioContext;
+    if (!activated || !Audio) return null;
     if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      ctx = new Audio();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 0.5;
+      masterGain.gain.value = enabled ? .5 : 0;
       masterGain.connect(ctx.destination);
     }
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     return ctx;
   }
 
@@ -24,6 +36,7 @@ const SFX = (() => {
   ) {
     if (!enabled) return;
     const c = ensureCtx();
+    if (!c) return;
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = type;
@@ -49,6 +62,7 @@ const SFX = (() => {
   ) {
     if (!enabled) return;
     const c = ensureCtx();
+    if (!c) return;
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = type;
@@ -71,6 +85,7 @@ const SFX = (() => {
   function click(duration = 0.05) {
     if (!enabled) return;
     const c = ensureCtx();
+    if (!c) return;
     const buf = c.createBuffer(1, c.sampleRate * duration, c.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) {
@@ -91,6 +106,36 @@ const SFX = (() => {
     src.start();
   }
 
+  const strikeShapes = {
+    clay: { duration: .044, ring: 92, frequencies: [590, 1340, 2460], grit: .23 },
+    detent: { duration: .019, ring: 190, frequencies: [1360, 2660, 3950], grit: .38 },
+    lock: { duration: .038, ring: 112, frequencies: [430, 1040, 2460], grit: .34 },
+  };
+
+  function strike(c, kind, volume, rate = 1, start = c.currentTime) {
+    if (!samples.has(kind)) {
+      const { duration, ring, frequencies, grit } = strikeShapes[kind];
+      const buffer = c.createBuffer(1, Math.ceil(c.sampleRate * duration), c.sampleRate);
+      const channel = buffer.getChannelData(0);
+      let filtered = 0;
+      for (let i = 0; i < channel.length; i++) {
+        const t = i / c.sampleRate;
+        filtered += .54 * (Math.random() * 2 - 1 - filtered);
+        const resonance = frequencies.reduce((sum, f, index) => sum +
+          Math.sin(2 * Math.PI * f * t) * Math.exp(-(ring + index * 59) * t) * [.58, .28, .14][index], 0);
+        channel[i] = Math.min(1, t * 2800) * (resonance + filtered * grit * Math.exp(-760 * t));
+      }
+      samples.set(kind, buffer);
+    }
+    const source = c.createBufferSource();
+    const gain = c.createGain();
+    source.buffer = samples.get(kind);
+    source.playbackRate.value = rate;
+    gain.gain.value = volume;
+    source.connect(gain).connect(masterGain);
+    source.start(start);
+  }
+
   return {
     deal() {
       click(0.04);
@@ -103,6 +148,28 @@ const SFX = (() => {
     chip() {
       noise(0.05, 4000, "square", 0.06);
       noise(0.03, 6000, "sine", 0.04, 50);
+    },
+    wagerChip() {
+      const c = enabled && ensureCtx();
+      if (c?.state !== "running") return;
+      strike(c, "clay", .31, .94 + Math.random() * .09);
+      strike(c, "clay", .10, 1.10, c.currentTime + .016);
+    },
+    potImpact(progress, final, lag) {
+      if (lag > 75) return;
+      const c = enabled && ensureCtx();
+      if (c?.state !== "running") return;
+      const gap = c.currentTime - lastPotHit;
+      const start = Math.max(c.currentTime, lastPotHit + .006);
+      lastPotHit = start;
+      strike(c, "clay", gap > .027 ? .20 : .086, 1.03 + .24 * progress, start);
+      if (final) strike(c, "lock", .25, .91, start + .012);
+    },
+    ratchet() {
+      const c = enabled && ensureCtx();
+      if (c?.state !== "running" || c.currentTime - lastDetent < .019) return;
+      lastDetent = c.currentTime;
+      strike(c, "detent", .10);
     },
     check() {
       noise(0.06, 600, "sine", 0.12);

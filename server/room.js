@@ -700,6 +700,7 @@ class Room {
     if (this.autoStartTimer) clearTimeout(this.autoStartTimer);
     if (this.nextHandTimer) clearTimeout(this.nextHandTimer);
     if (this.game && this.game.actionTimeout) clearTimeout(this.game.actionTimeout);
+    this.game?.clearTurn();
     if (this.game && this.game.showHandTimeout) clearTimeout(this.game.showHandTimeout);
     this.broadcast('room:destroyed', {});
     this.players.clear();

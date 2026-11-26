@@ -9,6 +9,8 @@ const MechanicalActionDesk = (() => {
   const passLabel = $("deskPassLabel");
   const raise = $("deskRaise");
   const callAmount = $("deskCallAmount");
+  const strength = $("deskHandStrength");
+  const strengthByRank = [1, 2, 3, 4, 5, 5, 6, 7, 7, 7];
   const detent = 5;
   let sizingData;
   let selected = 0;
@@ -77,6 +79,16 @@ const MechanicalActionDesk = (() => {
     lamp.setAttribute("aria-label", "操作台已锁定");
   }
 
+  function showStrength(hand, board = []) {
+    strength.hidden = !hand?.[0] || !hand?.[1];
+    if (strength.hidden) return;
+    const result = board.length >= 3 ? evaluateHand([...hand, ...board]) : null;
+    const rank = result?.rank ?? Number(hand[0].rank === hand[1].rank);
+    const level = strengthByRank[rank];
+    strength.setAttribute("aria-label", `手牌强度 ${result?.name ?? HAND_NAMES[rank]} ${level}/7`);
+    Array.from(strength.children).forEach((lamp, index) => lamp.toggleAttribute("data-lit", index < level));
+  }
+
   const actionButtons = {
     fold: $("deskFold"), pass, raise, allin: $("deskAllin"),
   };
@@ -84,7 +96,11 @@ const MechanicalActionDesk = (() => {
   pass.addEventListener("click", () => $(pass.dataset.action === "call" ? "btnCall" : "btnCheck").click());
   actionButtons.allin.addEventListener("click", () => $("btnAllin").click());
   raise.addEventListener("click", () => sendRaise(selected));
-  range.addEventListener("input", () => setAmount(snapToDetent(range.valueAsNumber)));
+  range.addEventListener("input", () => {
+    const previous = selected;
+    setAmount(snapToDetent(range.valueAsNumber));
+    if (selected !== previous) SFX.ratchet();
+  });
   range.addEventListener("keydown", event => {
     switch (event.key) {
       case "ArrowRight": case "ArrowUp": moveDetents(1); break;
@@ -111,7 +127,7 @@ const MechanicalActionDesk = (() => {
     });
   });
 
-  return { enable, lock, press(action) { actionButtons[action].click(); } };
+  return { enable, lock, showStrength, press(action) { actionButtons[action].click(); } };
 })();
 
 // ===== ACTION PANEL =====
