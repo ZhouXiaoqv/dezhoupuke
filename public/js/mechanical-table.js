@@ -882,7 +882,8 @@ const MechanicalTable = (() => {
     [hero, bottom, lower, upper, topWager, mirror(topWager), mirror(upper), mirror(lower), mirror(bottom)]
       .forEach((at, slot) => {
         const chipScale = STATIONS[slot] === "top" ? topScale : scale;
-        wagerZones.set(slot, { at, scale: chipScale, width: 92 * chipScale, height: 74 * chipScale });
+        wagerZones.set(slot, { at, scale: chipScale, direction: slot >= 5 ? -1 : 1,
+          width: 92 * chipScale, height: 74 * chipScale });
       });
   }
 
@@ -933,7 +934,7 @@ const MechanicalTable = (() => {
         labels.set(id, label);
       }
       label.style.left = group.at.x + "px";
-      label.style.top = group.at.y + group.zone.height / 2 - 7 + "px";
+      label.style.top = group.at.y + group.inventory.labelOffset + "px";
       label.style.maxWidth = group.zone.width - 6 + "px";
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
@@ -982,33 +983,31 @@ const MechanicalTable = (() => {
       runs.push({ value, count: caps[index] });
     }
     if (amount - displayedValue > 1e-8) description.push("余 " + currency.format(amount - displayedValue));
-    const inventory = zone ? layoutWagerPiles(runs, zone.scale) : layoutPiles(runs);
+    const inventory = zone ? layoutWagerPiles(runs, zone) : layoutPiles(runs);
     return { ...inventory, description: description.join(" · ") };
   }
 
-  function layoutWagerPiles(runs, scale) {
-    const values = runs.flatMap(({ value, count }) => Array(count).fill(value));
-    if (!values.length) return { piles: [], chips: [] };
-    const packed = values.length > 24;
-    const count = packed ? Math.max(3, Math.min(6, Math.ceil(values.length / 18)))
-      : (runs.length > 1 || values.length > 6 ? 2 : 1);
-    const columns = Math.min(3, count);
-    let index = 0;
-    const piles = Array.from({ length: count }, (_, pile) => {
-      const height = Math.ceil((values.length - index) / (count - pile));
-      const x = (pile % columns - (columns - 1) / 2) * (packed ? 23 : 44) * scale;
-      const y = (packed && count > 3 && pile < 3 ? -5 : 0) * scale;
-      const spacing = Math.min(4.8, (23 + y / scale) / Math.max(1, height - 1)) * scale;
-      const chips = Array.from({ length: height }, (_, level) => ({
-        value: values[index++], x: x + Math.sin(level * .87 + pile) * .8 * scale,
-        y: y - level * spacing, angle: Math.sin(level * 1.4 + pile * 3) * .046, scale,
-      }));
-      return { x, y, chips, scale };
-    });
-    return { piles, chips: piles.flatMap(pile => pile.chips) };
+  function layoutWagerPiles(runs, { scale, height, direction }) {
+    const { piles, chips } = buildPiles(runs, 54);
+    let labelOffset = height / 2 - 7;
+    if (chips.length) {
+      const left = Math.min(...chips.map(chip => chip.x));
+      const right = Math.max(...chips.map(chip => chip.x));
+      const floor = Math.max(...piles.map(pile => pile.y));
+      const spread = Math.min(1, 58 / Math.max(1, right - left));
+      // Bring the stacks closer together at large wagers and keep the chip faces full size.
+      for (const part of [...piles, ...chips]) {
+        part.x = (part.x - (left + right) / 2) * spread * direction * scale;
+        part.y = (part.y - Math.max(0, floor - 9)) * scale;
+        part.scale = scale;
+      }
+      const bottom = Math.max(...chips.map(chip => chip.y)) + 14 * CHIP_SCALE * scale;
+      labelOffset = Math.max(labelOffset, bottom + 8);
+    }
+    return { piles, chips, labelOffset };
   }
 
-  function layoutPiles(runs) {
+  function buildPiles(runs, maxRise) {
     const values = runs.flatMap(({ value, count }) => Array(count).fill(value));
     if (!values.length) return { piles: [], chips: [] };
 
@@ -1030,7 +1029,7 @@ const MechanicalTable = (() => {
       const x = row ? (index - (count - 1) / 2) * 32 : baseX * 1.14;
       const y = row ? (index % 2) * 3 : baseY;
       const lean = Math.sin(index * 2.7 + .9) * .48;
-      const rise = Math.min(5, 30 / Math.max(1, height - 1));
+      const rise = Math.min(5, maxRise / Math.max(1, height - 1));
       const chips = Array.from({ length: height }, (_, level) => ({
         value: values[chipIndex++],
         x: x + level * lean + Math.sin(level * 1.8 + index) * 1.1,
@@ -1040,7 +1039,12 @@ const MechanicalTable = (() => {
       return { x, y, chips };
     });
     piles.sort((a, b) => a.y - b.y);
-    const chips = piles.flatMap(pile => pile.chips);
+    return { piles, chips: piles.flatMap(pile => pile.chips) };
+  }
+
+  function layoutPiles(runs) {
+    const { piles, chips } = buildPiles(runs, 30);
+    if (!chips.length) return { piles, chips };
     const minX = Math.min(...chips.map(chip => chip.x)) - 21;
     const maxX = Math.max(...chips.map(chip => chip.x)) + 21;
     const minY = Math.min(...chips.map(chip => chip.y)) - 14;
@@ -1184,12 +1188,6 @@ const MechanicalTable = (() => {
   function drawChipGroup(group, motion, now) {
     const pot = group.id === "pot";
     const { at, zone } = group;
-    if (zone) {
-      context.save();
-      context.beginPath();
-      context.rect(at.x - zone.width / 2, at.y - zone.height / 2, zone.width, zone.height);
-      context.clip();
-    }
     const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
     drawPileShadows(group, Math.max(0, (progress - .65) / .35));
     for (const [index, chip] of group.inventory.chips.entries()) {
@@ -1205,7 +1203,6 @@ const MechanicalTable = (() => {
         : lerp(scattered, target, ease((progress - .52) / .48));
       drawChip(position, chip);
     }
-    if (zone) context.restore();
     return progress === 1;
   }
 
