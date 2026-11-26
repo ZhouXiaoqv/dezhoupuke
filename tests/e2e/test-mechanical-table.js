@@ -335,7 +335,7 @@ async function run() {
           if (target === payloads) for (const node of addedNodes) {
             if (node.dataset?.armMount !== 'carried') continue;
             carried.add(node);
-            if (node.classList.contains('mechanical-fold-hand')) window.armFoldTrace.push('grip');
+            if (node.classList.contains('mechanical-fold-card')) window.armFoldTrace.push('grip');
             else window.armDealTrace.push(fed.has(node) ? 'grip' : 'unfed');
           }
           if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') {
@@ -479,8 +479,8 @@ async function run() {
     const folder = await nextActor([host, guest]);
     const folderId = await folder.evaluate(() => Net.playerId);
     await sendAction(folder, 'fold');
-    await host.waitForSelector('.mechanical-spark');
-    assert.deepEqual(await host.evaluate(() => window.armFoldTrace), ['grip', 'recycle']);
+    await host.waitForFunction(() => window.armFoldTrace.length === 4);
+    assert.deepEqual(await host.evaluate(() => window.armFoldTrace), ['grip', 'recycle', 'grip', 'recycle']);
     assert.deepEqual(await host.evaluate(() => window.dealTraceAtRecycle), dealt(6));
     await host.waitForFunction(id => gameState.players.find(player => player.id === id)?.folded, {}, folderId);
 

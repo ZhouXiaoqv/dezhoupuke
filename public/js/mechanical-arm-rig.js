@@ -36,7 +36,7 @@ const MechanicalArmMotion = (() => {
   const tubes = [160, 158, 154];
   const strokes = [tubes[1] - 18, tubes[2] - 16];
   const upperMin = tubes[0], upperMax = upperMin + strokes[0] + strokes[1];
-  const forearm = 76, tool = 28;
+  const forearm = 76, tool = 28, jawReach = 20;
   const comfortableReach = Math.sqrt(upperMax ** 2 + forearm ** 2 + 2 * upperMax * forearm * Math.cos(45 * radians));
   const railMin = -208, railMax = 90;
   const parking = { shoulder: 150, elbow: -85, upper: upperMin, angle: 0, lift: 0, park: 1 };
@@ -83,7 +83,7 @@ const MechanicalArmMotion = (() => {
    * @typedef {{x?:number,y?:number,angle?:number,lift?:number,park?:boolean}} ArmPose
    * @typedef {{duration:number,easing?:(number[]|function(number):number),
    *   controls?:ArmPose[],rebound?:number,reboundDuration?:number,
-   *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,jointPath?:boolean,aim?:boolean|"close",
+   *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,jointPath?:boolean,aligned?:boolean,aim?:boolean|"close"|"left",
    *   wristEasing?:(number[]|function(number):number),state?:"moving"|"holding"|"returning"}} ArmMove
    *
    * The driver accepts Cartesian targets or the built-in parking pose. The tip and
@@ -126,14 +126,22 @@ const MechanicalArmMotion = (() => {
       slideTo(positions[0] ?? anchor, duration, time);
     }
 
-    function sample(time) {
-      const command = motions.findLast(motion => motion.start <= time);
+    function sampleCommand(command, time) {
       if (!command) return initial;
       const { start, span, knots } = command;
       const position = clamp((time - start) / span) * (knots.length - 1);
       const index = Math.floor(position);
       if (index === knots.length - 1) return knots[index];
       return jointMix(knots[index], knots[index + 1], position - index);
+    }
+
+    function sample(time) {
+      return sampleCommand(motions.findLast(motion => motion.start <= time), time);
+    }
+
+    function servo(time, lag) {
+      const command = motions.findLast(move => move.start + (move.aligned ? followDelay : lag) <= time);
+      return sampleCommand(command, time - (command?.aligned ? followDelay : lag));
     }
 
     function resize(origin) {
@@ -161,6 +169,7 @@ const MechanicalArmMotion = (() => {
       const wristDuration = options.wristDuration ?? duration;
       const span = Math.max(1, duration, wristDuration, rebound ? reboundDuration : 0);
       if (state === "returning") slideTo(pose.park ? railMax : 0, Math.min(350, duration), time);
+      else if (options.aim === "left") slideTo(railMin, duration, time);
       else if (options.aim) aimAt(target, duration, time, options.aim === "close");
       const followsPath = pose.x !== undefined || pose.y !== undefined || bob || dip || target.angle !== start.angle;
       const jointPath = options.jointPath || from.park;
@@ -196,11 +205,11 @@ const MechanicalArmMotion = (() => {
         next.angle += rebound * damped;
         knots.push(next);
       }
-      motions.push({ start: time, span, knots, state });
+      motions.push({ start: time, span, knots, state, aligned: options.aligned });
     }
 
     function configuration(time) {
-      return forward(shoulderAt(time), sample(time), sample(time - elbowDelay), sample(time - wristDelay));
+      return forward(shoulderAt(time), servo(time, 0), servo(time, elbowDelay), servo(time, wristDelay));
     }
 
     function tick(time) {
@@ -225,7 +234,7 @@ const MechanicalArmMotion = (() => {
     return { resize, reset, move, slideTo, tick, get pose() { return output?.pose; }, followDelay };
   }
 
-  return { create, easing, interpolate, angleDelta, tubes, strokes, forearm, tool };
+  return { create, easing, interpolate, angleDelta, tubes, strokes, forearm, tool, jawReach };
 })();
 
 function createMechanicalArmRig(svg, shadow, base) {
@@ -461,7 +470,7 @@ function createMechanicalArmRig(svg, shadow, base) {
   let buttonTap, lampFlash;
   const apertures = {
     idle: [.30, 250], returning: [.30, 180], aim: [.30, 160], prepare: [.80, 68],
-    feed: [.80, 68], grasp: [.15, 50], carry: [.15, 50], release: [1, 27], recycle: [.06, 48],
+    feed: [.80, 68], grasp: [.15, 50], carry: [.15, 50], release: [1, 27], recycle: [.80, 37],
   };
 
   function jawAt(now) {
@@ -583,7 +592,9 @@ function createMechanicalArmRig(svg, shadow, base) {
   }
 
   const motion = MechanicalArmMotion.create({ draw });
-  return { motion, hardware, resize(width, height) {
+  return { motion, hardware, setRecyclerBusy(busy) {
+    base.dataset.recycler = busy ? "busy" : "idle";
+  }, resize(width, height) {
     const viewBox = "0 0 " + width + " " + height;
     svg.setAttribute("viewBox", viewBox);
     shadow.setAttribute("viewBox", viewBox);

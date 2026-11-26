@@ -45,6 +45,10 @@ const MechanicalTable = (() => {
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, payout, pendingResult;
   let groups = new Map();
   let chipsDirty = true;
+  const deliveries = new Map();
+  const { jawReach } = MechanicalArmMotion;
+  const portCenter = y => ({ x: bounds.width / 2 - 30, y });
+  const recycleMouth = () => portCenter(92);
   const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), $("mechanicalBase"));
   const arm = createMechanicalArmActions({
     rig,
@@ -52,7 +56,8 @@ const MechanicalTable = (() => {
     feedLayer,
     recycleLayer,
     presets: MechanicalArmPresets.active,
-    bay: () => ({ x: bounds.width / 2 - 30, y: 43, angle: 0, lift: 4 }),
+    bay: () => ({ ...portCenter(19), angle: -90, lift: 4 }),
+    recycleMouth,
     home: () => ({ park: true }),
   });
 
@@ -64,22 +69,29 @@ const MechanicalTable = (() => {
     return enabled() && !reduced.matches;
   }
 
-  function reset() {
-    cancelAnimationFrame(frame);
+  function clearHandEffects() {
     pendingResult = null;
     finishPayout(true);
-    frame = sweep = state = handToDeal = finalizedHand = bounds = null;
-    arm.reset();
+    sweep = state = handToDeal = finalizedHand = null;
+    deliveries.clear();
     wagers.clear();
     labels.clear();
     groups.clear();
     labelLayer.replaceChildren();
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    chipsDirty = true;
+    result.hidden = true;
+  }
+
+  function reset() {
+    cancelAnimationFrame(frame);
+    frame = bounds = null;
+    arm.reset();
+    clearHandEffects();
     moving.replaceChildren();
     feedLayer.replaceChildren();
     recycleLayer.replaceChildren();
     table.querySelectorAll(".mechanical-pending").forEach(card => card.classList.remove("mechanical-pending"));
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    result.hidden = true;
   }
 
   function setStyle(style) {
@@ -103,7 +115,7 @@ const MechanicalTable = (() => {
 
   function startHand(handNum) {
     if (!enabled()) return;
-    reset();
+    clearHandEffects();
     handToDeal = handNum;
   }
 
@@ -185,65 +197,73 @@ const MechanicalTable = (() => {
     return true;
   }
 
+  function seatCards(seat) {
+    return [...table.querySelectorAll(".seat-" + seat + " :is(.my-hand,.seat-cards) .card")];
+  }
+
+  const seatCardKey = (id, slot) => "seat:" + id + ":" + slot;
+  const boardCardKey = slot => "board:" + slot;
+
+  function cardGeometry(card) {
+    const rect = card.getBoundingClientRect();
+    return { ...point(rect), width: rect.width, height: rect.height };
+  }
+
   function beforeRender(next) {
     if (!state || state.handNum !== next.handNum || !animatesArm() || !measure()) return;
     preparePayout(next);
     for (const player of next.players) {
       const previousIndex = state.players.findIndex(previous => previous.id === player.id);
       if (!player.folded || state.players[previousIndex]?.folded !== false) continue;
-      const originals = [...table.querySelectorAll(".seat-" + previousIndex +
-        " :is(.my-hand,.seat-cards) .card:not(.mechanical-pending)")];
-      if (!originals.length) continue;
-      queueFold(originals);
+      const originals = seatCards(previousIndex);
+      for (const index of [0, 1]) {
+        const delivery = deliveries.get(seatCardKey(player.id, index));
+        const card = originals[index] ?? delivery?.card;
+        if (card) queueFold(card, delivery);
+      }
     }
   }
 
-  function queueFold(cards) {
-    const rects = cards.map(card => card.getBoundingClientRect());
-    const first = point(rects[0]);
-    const fromAbove = first.y > bounds.height * .64;
-    const fromRight = !fromAbove && first.x < bounds.width / 2;
-    const anchor = fromRight ? rects.at(-1) : rects[0];
-    const at = point(anchor);
-    const bite = (fromAbove ? anchor.height : anchor.width) / 2 + 17;
-    const angle = fromAbove ? 90 : fromRight ? 180 : 0;
+  function queueFold(card, delivery) {
+    const at = delivery ? delivery.target() : cardGeometry(card);
+    const fromAbove = at.y > bounds.height * .64;
+    const length = fromAbove ? at.height : at.width;
+    const bite = length / 2 + jawReach;
+    const angle = fromAbove ? 90 : at.x < bounds.width / 2 ? 180 : 0;
     const radians = angle * Math.PI / 180;
     const cos = Math.cos(radians), sin = Math.sin(radians);
-    const hand = document.createElement("div");
-    hand.className = "mechanical-carry mechanical-fold-hand";
-    hand.style.rotate = angle + "deg";
-    cards.forEach((card, index) => {
-      const rect = rects[index];
-      const node = card.cloneNode(true);
-      const position = point(rect);
-      node.classList.remove("seat-card-deal", "card-flip-in");
-      node.classList.add("mechanical-carry");
-      node.style.width = rect.width + "px";
-      const dx = position.x - at.x, dy = position.y - at.y;
-      node.style.left = (dx * cos + dy * sin) + "px";
-      node.style.top = (dy * cos - dx * sin) + "px";
-      node.style.rotate = -angle + "deg";
-      hand.append(node);
-    });
-    placeEffect(hand, at);
-    let spark;
+    const sheet = card.cloneNode(true);
+    sheet.classList.remove("mechanical-pending", "seat-card-deal", "card-flip-in");
+    sheet.classList.add("mechanical-carry", "mechanical-fold-card");
+    sheet.style.width = at.width + "px";
+    sheet.style.height = at.height + "px";
+    let source = at;
+    placeEffect(sheet, at);
+    if (delivery) {
+      sheet.style.visibility = "hidden";
+      delivery.onArrival = () => {
+        source = delivery.target();
+        placeEffect(sheet, source);
+        sheet.style.visibility = "";
+      };
+    }
+    let paper;
     const cleanup = () => {
-      hand.remove();
-      spark?.remove();
+      sheet.remove();
+      paper?.remove();
     };
     arm.enqueue("fold", {
-      source: { x: at.x - cos * bite, y: at.y - sin * bite, angle, lift: 2 },
-      target: () => ({ x: bounds.width / 2 - 30 - bite, y: 73, angle: 0 }),
-      payload: hand,
-      payloadOffset: { x: bite, y: 0 },
-      onRelease({ pose }) {
-        spark = document.createElement("i");
-        spark.className = "mechanical-spark";
-        placeEffect(spark, pose);
-        spark.animate([
-          { opacity: 0, scale: .25 }, { opacity: .65, scale: .55, offset: .25 }, { opacity: 0, scale: .83 },
-        ], { duration: 185, fill: "forwards" });
+      valid: () => !delivery?.cancelled,
+      ready: () => !delivery || delivery.landed,
+      source: () => ({ x: source.x - cos * bite, y: source.y - sin * bite, angle, lift: 2 }),
+      target: () => {
+        const mouth = recycleMouth();
+        return { ...mouth, y: mouth.y + length + jawReach, angle: -90 };
       },
+      payload: sheet,
+      payloadOffset: { x: bite, y: 0 },
+      payloadAngle: -angle,
+      onRelease() { paper = shredPaper(); },
       onLand: cleanup,
       onCancel: cleanup,
     });
@@ -255,28 +275,63 @@ const MechanicalTable = (() => {
     moving.append(node);
   }
 
-  function queueCards(action, cards) {
+  function shredPaper() {
+    const paper = document.createElement("span");
+    paper.className = "mechanical-spark";
+    placeEffect(paper, recycleMouth());
+    for (const [x, y, turn] of [[-13, 12, 70], [-7, 22, -115], [1, 10, 130], [9, 18, -60], [14, 9, 105]]) {
+      const bit = document.createElement("i");
+      paper.append(bit);
+      bit.animate([
+        { opacity: 0, transform: "translate(0, 0)" },
+        { opacity: .8, offset: .22 },
+        { opacity: 0, transform: `translate(${x}px, ${y}px) rotate(${turn}deg)` },
+      ], { duration: 265, delay: 65, easing: "ease-out", fill: "both" });
+    }
+    return paper;
+  }
+
+  function queueCards(action, slots) {
     if (!animatesArm()) return;
-    arm.enqueue(action, cards.map(card => {
+    arm.enqueue(action, slots.map(({ key, card }) => {
+      let last = cardGeometry(card);
+      const entry = {
+        card,
+        target() {
+          if (entry.card.isConnected) last = cardGeometry(entry.card);
+          return last;
+        },
+      };
+      const { width, height } = last;
+      deliveries.set(key, entry);
       card.classList.add("mechanical-pending");
+      function finish(cancelled) {
+        if (deliveries.get(key) === entry) deliveries.delete(key);
+        entry.card.classList.remove("mechanical-pending");
+        entry.landed = !cancelled;
+        entry.cancelled = cancelled;
+        if (!cancelled) entry.onArrival?.();
+      }
       return {
-        target: () => point(card.getBoundingClientRect()),
-        valid: () => card.isConnected,
+        target: entry.target,
+        cardLength: height,
         payload() {
           const back = cardBack();
-          back.style.width = card.getBoundingClientRect().width + "px";
+          back.style.width = width + "px";
+          back.style.height = height + "px";
           return back;
         },
-        payloadOffset: card => ({ x: 12 + parseFloat(card.style.width) * .43, y: 0 }),
+        payloadOffset: { x: height / 2 + jawReach, y: 0 },
+        payloadAngle: 90,
         onRelease: () => SFX.deal(),
         onLand() {
-          card.classList.remove("mechanical-pending");
-          if (action === "reveal") {
-            card.classList.add("card-flip-in");
+          finish(false);
+          if (action === "reveal" && entry.card.isConnected) {
+            entry.card.classList.add("card-flip-in");
             SFX.flip();
           }
         },
-        onCancel: () => card.classList.remove("mechanical-pending"),
+        onCancel: () => finish(true),
       };
     }));
   }
@@ -340,16 +395,24 @@ const MechanicalTable = (() => {
     if (!measure()) return;
     renderInstruments(next);
     const sameHand = last?.handNum === next.handNum;
+    if (last && !sameHand) deliveries.clear();
+    const hands = next.players.map((player, index) => player.folded ? [] :
+      seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card })));
+    const board = [...$("community").children].map((card, slot) => ({ key: boardCardKey(slot), card }));
+    for (const { key, card } of [...hands.flat(), ...board]) {
+      const delivery = deliveries.get(key);
+      if (!delivery || delivery.card === card) continue;
+      delivery.card = card;
+      card.classList.remove("card-flip-in");
+      card.classList.add("mechanical-pending");
+    }
     if (handToDeal === next.handNum) {
-      const hands = next.players.map((player, index) => player.folded ? [] :
-        [...table.querySelectorAll(".seat-" + index + " :is(.my-hand,.seat-cards) .card")]);
       const cards = [0, 1].flatMap(round => hands.map(hand => hand[round]).filter(Boolean));
       queueCards("deal", cards);
       handToDeal = null;
     }
     if (sameHand && next.community.length > last.community.length) {
-      const slots = [...$("community").children];
-      queueCards("reveal", slots.slice(last.community.length, next.community.length));
+      queueCards("reveal", board.slice(last.community.length, next.community.length));
     }
     const oldGroups = groups;
     groups = readGroups(next);

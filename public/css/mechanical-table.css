@@ -436,9 +436,8 @@
 #table-container.mechanical-table #table .seat :is(.seat-bet, .seat-action:empty) { display: none; }
 #table-container.mechanical-table :is(.hand-rank-label, .turn-label) { display: none; }
 
-.mechanical-base {
+.mechanical-base, .mechanical-port-rim {
   position: absolute;
-  z-index: 11;
   top: -84px;
   left: 50%;
   transform: translateX(-150px);
@@ -446,6 +445,10 @@
   height: 234px;
   pointer-events: none;
 }
+.mechanical-base { z-index: 11; }
+.mechanical-port-rim { overflow: visible; }
+.mechanical-bay-rim { z-index: 24; }
+.mechanical-recycle-rim { z-index: 22; }
 .mechanical-base > svg {
   display: block;
   width: 100%;
@@ -582,15 +585,18 @@
   font-variant-numeric: tabular-nums;
 }
 #mechanicalBlindValue[data-compact] { font-size: 8px; }
-.mechanical-bay-door { transition: transform 80ms cubic-bezier(.25,.72,.36,1); }
+.mechanical-bay-door { transition: transform 112ms cubic-bezier(.25,.72,.36,1); }
 .mechanical-base[data-hatch="open"] .mechanical-bay-door-left { transform: translateX(-43px); }
 .mechanical-base[data-hatch="open"] .mechanical-bay-door-right { transform: translateX(43px); }
 .mechanical-base[data-feeding="true"] .mechanical-roller-treads { animation: mechanicalRoller 66ms linear infinite; }
-.mechanical-base[data-arm-stage="recycle"] .mechanical-recycle-lamp {
-  fill: #ffc66d;
-  filter: drop-shadow(0 0 3px #f1b14d);
+.mechanical-base[data-recycler="busy"] .mechanical-recycle-lamp {
+  fill: #ed934b;
+  filter: drop-shadow(0 0 3px #d57945);
+  animation: mechanicalShredLamp 160ms ease-in-out infinite alternate;
 }
+.mechanical-base[data-recycler="busy"] .mechanical-recycle-teeth { animation: mechanicalRoller 71ms linear infinite; }
 @keyframes mechanicalRoller { to { stroke-dashoffset: -6; } }
+@keyframes mechanicalShredLamp { to { fill: #ba5340; opacity: .68; } }
 .mechanical-lamp-glass {
   fill: url(#baseLampGlass);
   stroke: #4e4737;
@@ -623,14 +629,15 @@
 .mechanical-bay-cards, .mechanical-recycled-cards {
   position: absolute;
   inset: 0;
-  z-index: 24;
   pointer-events: none;
 }
 .mechanical-bay-cards {
-  clip-path: inset(23px calc(50% - 67px) calc(100% - 105px) calc(50% - 72px) round 3px);
+  z-index: 23;
+  clip-path: inset(19px calc(50% - 10px) 0 calc(50% - 70px));
 }
 .mechanical-recycled-cards {
-  clip-path: inset(64px calc(50% - 5px) calc(100% - 81px) calc(50% - 65px) round 3px);
+  z-index: 21;
+  clip-path: inset(92px calc(50% - 5px) 0 calc(50% - 65px));
 }
 .mechanical-chip-amount, .mechanical-carry, .mechanical-spark {
   position: absolute;
@@ -648,14 +655,18 @@
   font: 700 11px/1.2 "JetBrains Mono", monospace;
 }
 .mechanical-carry { animation: none; }
-.mechanical-fold-hand { width: 0; height: 0; }
 .mechanical-spark {
-  width: 80px;
-  height: 80px;
-  opacity: 0;
-  border-radius: 50%;
-  background: repeating-conic-gradient(from 12deg, #b65b31 0deg 5deg, #eab965 5deg 9deg, transparent 9deg 43deg);
-  mask-image: radial-gradient(transparent 25%, black 29%, transparent 70%);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.mechanical-spark i {
+  position: absolute;
+  width: 3px;
+  height: 2px;
+  border-radius: .3px;
+  background: #e8d6ab;
+  box-shadow: 0 1px #71584569;
 }
 
 .mechanical-result {

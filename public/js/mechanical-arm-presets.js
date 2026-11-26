@@ -8,7 +8,9 @@ const MechanicalArmPresets = (() => {
     release: slide,
     home,
     phases: [
-      { kind: "pickup", duration: 220, grip: 80, dip: 4, hatch: true },
+      { kind: "stageCard", duration: 175, feedDuration: 140, exposed: .57, clearance: 27 },
+      { kind: "pickupCard", duration: 118, grip: 62 },
+      { kind: "extractCard", duration: 160 },
       { kind: "travel", duration: 260, easing: sweep, bend: 33,
         lift: 27, shortOf: 59, releaseAt: 0.93 },
     ],
@@ -19,13 +21,12 @@ const MechanicalArmPresets = (() => {
       reveal: { ...deal, lamp: "#dfa054" },
       fold: {
         lamp: "#e38b4f",
-        release: { mode: "recycle", duration: 190 },
+        release: { mode: "recycle", duration: 360 },
         home,
         phases: [
           { kind: "pickup", duration: 290, grip: 80 },
-          { kind: "travel", duration: 270, easing: [0.25, 0.85, 0.35, 1], jointPath: true, lift: 10 },
-          { kind: "release" },
-          { kind: "hold", duration: 105 },
+          { kind: "travel", duration: 270, easing: [0.25, 0.85, 0.35, 1], jointPath: true, lift: 10, standoff: 13 },
+          { kind: "recycle", duration: 94 },
         ],
       },
     },
