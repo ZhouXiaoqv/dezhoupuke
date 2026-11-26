@@ -399,8 +399,8 @@
           <div class="pot-amount" id="potAmount">0</div>
         </div>
         <div class="community" id="community"></div>
-        <div class="mechanical-only mechanical-base" id="mechanicalBase" aria-hidden="true">
-          <svg viewBox="0 0 240 104" focusable="false">
+        <div class="mechanical-only mechanical-base" id="mechanicalBase">
+          <svg viewBox="0 -44 240 148" focusable="false" aria-hidden="true">
             <defs>
               <linearGradient id="baseRim" x2="0" y2="1">
                 <stop stop-color="#faf3e5"/><stop offset=".43" stop-color="#d5c6ae"/><stop offset="1" stop-color="#796853"/>
@@ -438,20 +438,21 @@
               <use href="#baseScrew" x="11" y="37"/><use href="#baseScrew" x="11" y="70"/>
               <use href="#baseScrew" x="229" y="37"/><use href="#baseScrew" x="229" y="70"/>
             </g>
-            <rect x="15" y="14" width="210" height="84" rx="14" fill="#75634f" stroke="#645443"/>
-            <rect x="15" y="10" width="210" height="83" rx="14" fill="url(#baseRim)" stroke="#8f7b62"/>
-            <rect x="19" y="14" width="202" height="75" rx="10" fill="#a69377" stroke="#fffaeb" stroke-width="1.5"/>
-            <rect x="22" y="17" width="196" height="70" rx="8" fill="url(#baseFace)" stroke="#82715c"/>
-            <rect x="23" y="18" width="194" height="68" rx="7" fill="url(#baseBrushed)"/>
-            <path d="M30 19.5h180m-179 65.5h178" fill="none" stroke="#fcf3df" stroke-width="1.1"/>
+            <rect x="15" y="-34" width="210" height="132" rx="14" fill="#75634f" stroke="#645443"/>
+            <rect x="15" y="-38" width="210" height="131" rx="14" fill="url(#baseRim)" stroke="#8f7b62"/>
+            <rect x="19" y="-34" width="202" height="123" rx="10" fill="#a69377" stroke="#fffaeb" stroke-width="1.5"/>
+            <rect x="22" y="-31" width="196" height="118" rx="8" fill="url(#baseFace)" stroke="#82715c"/>
+            <rect x="23" y="-30" width="194" height="116" rx="7" fill="url(#baseBrushed)"/>
+            <path d="M23 14h194m-194 5h194" fill="none" stroke="#917c63" stroke-width=".7"/>
+            <path d="M23 15h194m-187 70h180" fill="none" stroke="#fcf3df" stroke-width="1.1"/>
             <rect x="85" y="51" width="70" height="13" rx="5" fill="url(#baseBayMetal)" stroke="#c9b69a"/>
             <path d="M89 55h62m-62 5h62" stroke="#827663" stroke-opacity=".75" stroke-width=".65"/>
             <g class="mechanical-shoulder-carriage">
               <path d="M95 60v-12l7-8h36l7 8v12l-6 7h-38z" fill="url(#baseRim)" stroke="#a18a6e"/>
               <path d="M100 51h40m-37 12h34" stroke="#f2dfbd" stroke-opacity=".6"/>
             </g>
-            <use href="#baseScrew" x="30" y="25"/><use href="#baseScrew" x="210" y="25"/>
-            <use href="#baseScrew" x="30" y="79"/><use href="#baseScrew" x="210" y="79"/>
+            <use href="#baseScrew" x="30" y="22"/><use href="#baseScrew" x="210" y="22"/>
+            <use href="#baseScrew" x="30" y="79"/><use href="#baseScrew" x="212" y="63"/>
             <rect x="73" y="68" width="94" height="29" rx="6" fill="url(#baseRim)" stroke="#766653"/>
             <rect x="77" y="72" width="86" height="22" rx="4" fill="#302c27" stroke="#ecdbc0"/>
             <g clip-path="url(#baseBayClip)">
@@ -484,14 +485,35 @@
               <circle cx="59" cy="77" r="3.3" fill="#bb864d" stroke="#76563a"/>
               <ellipse cx="58.3" cy="76.2" rx="1.25" ry=".65" fill="#ffe9b8"/>
             </g>
-            <rect x="187" y="70" width="15" height="13" rx="3.3" fill="#635547" stroke="#f9e9cf"/>
+            <rect x="172" y="74" width="15" height="13" rx="3.3" fill="#635547" stroke="#f9e9cf"/>
             <g class="mechanical-press-button">
-              <rect x="189" y="71.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
-              <path d="M192 74h5m-3.5 2h2" stroke="#f9e9cc" stroke-linecap="round"/>
+              <rect x="174" y="75.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
+              <path d="M177 78h5m-3.5 2h2" stroke="#f9e9cc" stroke-linecap="round"/>
+            </g>
+            <g class="mechanical-park-cradle">
+              <path d="M193 74h24l6 5v14l-4 4h-26l-4-4V78z" fill="url(#baseRim)" stroke="#77634c"/>
+              <rect x="193" y="77" width="26" height="16" rx="4" fill="url(#baseBayMetal)" stroke="#fff0d6" stroke-width=".75"/>
+              <path d="M196 80h17l3 3v4l-3 3h-17" fill="none" stroke="#aa9578" stroke-width="1.5"/>
+              <path d="M215 79v12m-19-8h13m-13 4h13" stroke="#29241e" stroke-width=".8"/>
+              <path d="M200 95h11" stroke="#e8d4b1" stroke-linecap="round"/>
             </g>
           </svg>
+          <div class="mechanical-instruments">
+            <div class="mechanical-instrument mechanical-hand-window">
+              <span id="mechanicalHandReels" role="img"></span><span aria-hidden="true">手</span>
+            </div>
+            <div class="mechanical-instrument mechanical-phase-window">
+              <span class="mechanical-phase-lamp" aria-hidden="true"></span>
+              <div class="mechanical-phase-flaps">
+                <span id="mechanicalPhasePrevious" aria-hidden="true"></span>
+                <span id="mechanicalPhaseLabel">等待开局</span>
+              </div>
+            </div>
+            <div class="mechanical-instrument mechanical-blind-window">
+              <span>盲注</span><span id="mechanicalBlindValue">—</span>
+            </div>
+          </div>
         </div>
-        <div class="mechanical-only mechanical-blinds" id="mechanicalBlinds"></div>
         <canvas class="mechanical-only mechanical-chips" id="mechanicalChips" aria-hidden="true"></canvas>
         <div class="mechanical-only mechanical-chip-labels" id="mechanicalChipLabels"></div>
         <svg class="mechanical-only mechanical-arm-shadow" id="mechanicalArmShadow" aria-hidden="true"></svg>

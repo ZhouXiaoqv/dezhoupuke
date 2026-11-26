@@ -271,7 +271,8 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     updateFlights(now);
     if (!active && !queue.length) {
       if (lastPreset && !returning) {
-        hardware({ stage: "returning" }, now);
+        const { duration } = lastPreset.home;
+        hardware({ stage: "returning", jawDeadline: now + duration + motion.followDelay }, now);
         motion.slideTo(0, 350, now);
         motion.move(home(), { ...lastPreset.home, state: "returning" }, now);
         returning = true;

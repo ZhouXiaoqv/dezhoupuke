@@ -180,6 +180,7 @@ async function run() {
       const base = document.getElementById('mechanicalBase');
       const payloads = document.getElementById('mechanicalMovingCards');
       window.armDealTrace = [];
+      window.consolePhaseTrace = [];
       const observer = new MutationObserver(records => {
         for (const { target, attributeName } of records) {
           if (attributeName === 'data-hatch' && target.dataset.hatch === 'open') window.armDealTrace.push('open');
@@ -189,8 +190,13 @@ async function run() {
       observer.observe(base, { attributeFilter: ['data-hatch'] });
       observer.observe(payloads, { subtree: true, attributeFilter: ['data-arm-flight'] });
       Net.on('game:state', state => {
+        const phase = document.getElementById('mechanicalPhaseLabel');
+        if (window.consolePhaseTrace.at(-1)?.phase !== state.phase) {
+          window.consolePhaseTrace.push({ phase: state.phase, label: phase.textContent,
+            duration: phase.getAnimations()[0]?.effect.getTiming().duration });
+        }
         if (window.openingReels || state.phase !== 'preflop') return;
-        window.openingReels = [...document.querySelectorAll('#table .mechanical-reels')].map(el => ({
+        window.openingReels = [...document.querySelectorAll('#table .seat .mechanical-reels')].map(el => ({
           direction: el.dataset.rolling,
           digits: el.querySelectorAll('.mechanical-reel').length,
           windows: [...el.querySelectorAll('.mechanical-reel')].every(slot => {
@@ -225,6 +231,41 @@ async function run() {
     assert.equal(opening.length, 3);
     assert.ok(opening.every(counter => counter.digits === 5 && counter.windows));
     assert.equal(opening.filter(counter => counter.direction === 'down').length, 2);
+    await host.waitForSelector('#mechanicalArm[data-arm-state="idle"]');
+    const consoleState = await host.evaluate(() => {
+      const arm = document.getElementById('mechanicalArm');
+      const base = document.getElementById('mechanicalBase');
+      const dashboard = base.querySelector('.mechanical-instruments').getBoundingClientRect();
+      const cradle = base.querySelector('.mechanical-park-cradle').getBoundingClientRect();
+      const gripper = arm.querySelector('.arm-gripper');
+      const [, elbow, wrist] = [...arm.querySelectorAll('.arm-hinge')].map(hub => hub.getBoundingClientRect());
+      const jaws = [...gripper.querySelectorAll('.arm-jaw')].map(jaw => jaw.getBoundingClientRect());
+      const hand = document.getElementById('mechanicalHandReels');
+      const z = id => Number(getComputedStyle(document.getElementById(id)).zIndex);
+      return {
+        statusHidden: getComputedStyle(document.getElementById('statusBar')).display === 'none',
+        hasFloatingBlinds: !!document.getElementById('mechanicalBlinds'),
+        handDigits: [...hand.querySelectorAll('.mechanical-reel')].map(reel => reel.dataset.digit).join(''),
+        handNum: gameState.handNum,
+        phase: document.getElementById('mechanicalPhaseLabel').textContent,
+        blinds: document.getElementById('mechanicalBlindValue').textContent,
+        expectedBlinds: `${gameState.sb} / ${gameState.bb}`,
+        clear: arm.getBBox().y + arm.getBoundingClientRect().top > dashboard.bottom,
+        lowFold: elbow.right < wrist.left && Math.abs(elbow.y + elbow.height / 2 - wrist.y - wrist.height / 2) < 20,
+        docked: jaws.every(jaw => jaw.right > cradle.left && jaw.right < cradle.right &&
+          jaw.top + jaw.height / 2 >= cradle.top && jaw.top + jaw.height / 2 <= cradle.bottom),
+        aperture: Number(gripper.dataset.aperture),
+        stage: base.dataset.armStage,
+        layered: z('mechanicalBase') < z('mechanicalArmShadow') && z('mechanicalArmShadow') < z('mechanicalArm'),
+      };
+    });
+    assert.ok(consoleState.statusHidden && !consoleState.hasFloatingBlinds);
+    assert.equal(consoleState.handDigits, String(consoleState.handNum).padStart(3, '0'));
+    assert.equal(consoleState.phase, '翻牌前');
+    assert.equal(consoleState.blinds, consoleState.expectedBlinds);
+    assert.ok(consoleState.clear && consoleState.lowFold && consoleState.docked && consoleState.layered);
+    assert.equal(consoleState.aperture, 30);
+    assert.equal(consoleState.stage, 'idle');
 
     let raiser = await nextActor([host, guest]);
     if (await raiser.evaluate(() => gameState.players.find(player => player.id === Net.playerId).bet === 0)) {
@@ -257,6 +298,10 @@ async function run() {
 
     await Promise.all([host, guest].map(page => page.evaluate(() => window.resumeMechanical())));
     await host.waitForFunction(() => gameState?.phase === 'showdown' && gameState.community.length === 5);
+    const phases = await host.evaluate(() => window.consolePhaseTrace);
+    for (const [phase, label] of [['flop', '翻牌圈'], ['turn', '转牌圈'], ['river', '河牌圈'], ['showdown', '摊牌']]) {
+      assert.deepEqual(phases.find(entry => entry.phase === phase), { phase, label, duration: 220 });
+    }
     const showdown = await host.evaluate(() => ({
       total: gameState.pot,
       collected: Number(document.querySelector('#mechanicalChipLabels [data-amount]')?.dataset.amount),
@@ -307,13 +352,19 @@ async function run() {
     const endedHand = await host.evaluate(() => gameState.handNum);
     await host.evaluate(() => Net.send('game:nextHand'));
     await host.waitForFunction(hand => gameState?.handNum === hand + 1 && gameState.phase === 'preflop', {}, endedHand);
+    await host.waitForSelector('#mechanicalHandReels[data-rolling="up"]');
+    await host.waitForFunction(hand => {
+      const counter = document.getElementById('mechanicalHandReels');
+      return !counter.dataset.rolling && [...counter.querySelectorAll('.mechanical-reel')]
+        .map(reel => reel.dataset.digit).join('') === String(hand).padStart(3, '0');
+    }, {}, endedHand + 1);
     assert.ok(await host.evaluate(() => document.getElementById('mechanicalResult').hidden &&
       !document.getElementById('mechanicalPayout').hasAttribute('data-chips') &&
       gameState.players.every(player => {
         const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === player.id);
         return Number(seat.querySelector('.mechanical-reels').dataset.balance) === player.stack;
       })));
-    console.log('PASS mechanical table seats, wagers, mechanical reels, payout flight and settlement');
+    console.log('PASS mechanical table seats, console, arm parking, wagers, reels, payout flight and settlement');
   } finally {
     await browser.close();
   }

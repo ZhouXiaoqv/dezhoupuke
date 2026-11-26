@@ -52,10 +52,7 @@
 .mechanical-table .mechanical-only { display: block; }
 
 #table-container.mechanical-table .status-bar {
-  top: 15px;
-  font: 700 12px/1.2 "JetBrains Mono", monospace;
-  border-radius: 6px;
-  background: #f9f2e5;
+  display: none;
 }
 #table-container.mechanical-table #table .pot-display {
   top: 22%;
@@ -196,11 +193,11 @@
 .mechanical-base {
   position: absolute;
   z-index: 11;
-  top: -40px;
+  top: -84px;
   left: 50%;
   transform: translateX(-50%);
   width: 240px;
-  height: 104px;
+  height: 148px;
   pointer-events: none;
 }
 .mechanical-base > svg {
@@ -210,6 +207,107 @@
   overflow: visible;
   filter: drop-shadow(0 5px 4px #49352250);
 }
+.mechanical-instruments {
+  position: absolute;
+  inset: 18px 29px auto;
+  display: grid;
+  grid-template-columns: 53px minmax(0, 1fr) 52px;
+  gap: 4px;
+  height: 35px;
+}
+.mechanical-instrument {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #6a5744;
+  border-radius: 5px;
+  background: linear-gradient(#332a22, #554537 48%, #3e3329);
+  box-shadow: 0 1px #fff1d9, inset 0 2px 4px #120e0bbd, inset 0 -1px 2px #1b150ed9;
+  color: #f4dfba;
+}
+.mechanical-instrument::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 3px;
+  background: linear-gradient(#fff1d526, #fff9ea07 41%, transparent 44%);
+  pointer-events: none;
+}
+.mechanical-hand-window {
+  gap: 3px;
+  font: 700 9px/1 system-ui, sans-serif;
+}
+#table-container.mechanical-table #table .mechanical-hand-window .mechanical-reels {
+  --reel-step: 17px;
+  gap: 1px;
+  width: 32px;
+  padding: 1px;
+  border-color: #8c795d;
+  border-radius: 3px;
+  box-shadow: 0 1px #ab957868, inset 0 1px 2px #291e16;
+  font-size: 11px;
+}
+.mechanical-phase-window {
+  gap: 4px;
+  padding: 0 3px;
+  background: linear-gradient(#272218 49%, #3c3020 51%, #4a3926 83%, #37291e);
+  color: #ffe1a1;
+  font: 750 12px/1.15 system-ui, sans-serif;
+  text-shadow: 0 0 3px #e3ac4d45;
+}
+.mechanical-phase-lamp {
+  flex: 0 0 8px;
+  height: 8px;
+  border: 1px solid #aa9777;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #a4a991, #52604d 56%, #2b3628);
+  box-shadow: 0 0 0 1px #221b13;
+}
+#table-container:has(#connDot.online) .mechanical-phase-lamp {
+  background: radial-gradient(circle at 35% 30%, #e2f6a9, #81bd61 39%, #347250 72%);
+  box-shadow: 0 0 0 1px #221b13, 0 0 5px #84ca679c;
+}
+.mechanical-phase-flaps {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  align-items: center;
+  height: 24px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: linear-gradient(#33291a, #382c20 49%, #493821 51%, #413221);
+  box-shadow: inset 0 1px 2px #15110cbd;
+  text-align: center;
+  perspective: 70px;
+}
+.mechanical-phase-flaps > span { grid-area: 1 / 1; white-space: nowrap; }
+#mechanicalPhasePrevious { opacity: 0; }
+.mechanical-phase-flaps::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 1px;
+  background: #21180d63;
+  box-shadow: 0 1px #e7b97025;
+}
+.mechanical-blind-window {
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 2px;
+  background: repeating-linear-gradient(0deg, #fff5dc12 0 1px, transparent 1px 3px),
+    linear-gradient(#a38c6f, #d1bf9f 32%, #b59c7a);
+  color: #31271e;
+  font: 750 9px/1 system-ui, sans-serif;
+  text-shadow: 0 1px #f9e5c0a8;
+}
+#mechanicalBlindValue {
+  white-space: nowrap;
+  font: 800 10px/1 "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+#mechanicalBlindValue[data-compact] { font-size: 8px; }
 .mechanical-bay-door { transition: transform 80ms cubic-bezier(.25,.72,.36,1); }
 .mechanical-base[data-hatch="open"] .mechanical-bay-door-left { transform: translateX(-43px); }
 .mechanical-base[data-hatch="open"] .mechanical-bay-door-right { transform: translateX(43px); }
@@ -237,19 +335,6 @@
 @media (prefers-reduced-motion: reduce) {
   .mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass { animation: none; }
 }
-.mechanical-blinds {
-  position: absolute;
-  z-index: 12;
-  left: calc(50% + 150px);
-  top: -51px;
-  transform: translateX(-50%);
-  padding: 3px 9px;
-  border: 1px solid #ad9e85;
-  border-radius: 5px;
-  background: #f8efe1;
-  color: #5c4c38;
-  font: 700 11px/1.2 "JetBrains Mono", monospace;
-}
 .mechanical-chips, .mechanical-chip-labels, .mechanical-arm, .mechanical-arm-shadow, .mechanical-moving-cards {
   position: absolute;
   inset: 0;
@@ -260,7 +345,7 @@
 .mechanical-chips { z-index: 13; }
 .mechanical-chip-labels { z-index: 16; }
 .mechanical-payout { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 32; pointer-events: none; }
-.mechanical-arm-shadow { z-index: 10; overflow: visible; }
+.mechanical-arm-shadow { z-index: 12; overflow: visible; }
 .mechanical-arm { z-index: 26; overflow: visible; }
 .mechanical-moving-cards { z-index: 25; overflow: visible; }
 .mechanical-chip-amount, .mechanical-carry, .mechanical-spark {

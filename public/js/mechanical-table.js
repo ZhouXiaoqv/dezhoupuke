@@ -25,6 +25,15 @@ const MechanicalTable = (() => {
   const table = $("table");
   const container = $("table-container");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  const handReels = $("mechanicalHandReels");
+  const phaseLabel = $("mechanicalPhaseLabel");
+  const previousPhase = $("mechanicalPhasePrevious");
+  const blindValue = $("mechanicalBlindValue");
+  const phaseNames = {
+    idle: "等待开局", preflop: "翻牌前", flop: "翻牌圈", turn: "转牌圈",
+    river: "河牌圈", showdown: "摊牌", show_choice: "亮牌选择",
+  };
+  let instrumentRoom, instrumentHand, instrumentPhase, phaseAnimations = [];
   const wagers = new Map();
   const labels = new Map();
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, payout, pendingResult;
@@ -36,7 +45,7 @@ const MechanicalTable = (() => {
     layer: moving,
     presets: MechanicalArmPresets.active,
     bay: () => ({ x: bounds.width / 2, y: 43, angle: 0, lift: 4 }),
-    home: () => ({ x: bounds.width / 2 + 72, y: 40, angle: 24, lift: 0 }),
+    home: () => ({ x: bounds.width / 2 + 72, y: 45, angle: 6, lift: 0, park: true }),
   });
 
   function enabled() {
@@ -207,10 +216,51 @@ const MechanicalTable = (() => {
     }));
   }
 
+  function renderInstruments({ handNum, phase, sb, bb }) {
+    const newSession = instrumentRoom !== roomCode || instrumentHand == null || handNum < instrumentHand;
+    if (newSession) {
+      const initial = handToDeal === handNum ? Math.max(0, handNum - 1) : handNum;
+      MechanicalReels.set(handReels, initial, { instant: true, fixedDigits: 3, label: "局数" });
+    }
+    if (newSession || handNum !== instrumentHand) MechanicalReels.set(handReels, handNum);
+    instrumentRoom = roomCode;
+    instrumentHand = handNum;
+
+    if (newSession || instrumentPhase !== phase) {
+      phaseAnimations.forEach(animation => animation.cancel());
+      phaseAnimations = [];
+      previousPhase.textContent = phaseLabel.textContent;
+      phaseLabel.textContent = phaseNames[phase] || phase;
+      if (!newSession && !reduced.matches) {
+        const options = { duration: 220 };
+        phaseAnimations = [
+          previousPhase.animate([
+            { opacity: 1, transform: "rotateX(0deg)" },
+            { opacity: 0, transform: "rotateX(86deg)", offset: .5 },
+            { opacity: 0, transform: "rotateX(86deg)" },
+          ], options),
+          phaseLabel.animate([
+            { opacity: 0, transform: "rotateX(-86deg)" },
+            { opacity: 0, transform: "rotateX(-86deg)", offset: .5 },
+            { opacity: 1, transform: "rotateX(0deg)" },
+          ], options),
+        ];
+      }
+      instrumentPhase = phase;
+    }
+
+    const blinds = sb && bb ? `${sb} / ${bb}` : "—";
+    if (blindValue.textContent !== blinds) {
+      blindValue.textContent = blinds;
+      blindValue.toggleAttribute("data-compact", blinds.length > 8);
+    }
+  }
+
   function render(next) {
     const last = state;
     state = next;
     if (!measure()) return;
+    renderInstruments(next);
     const sameHand = last?.handNum === next.handNum;
     if (handToDeal === next.handNum) {
       const hands = next.players.map((player, index) => player.folded ? [] :
@@ -223,7 +273,6 @@ const MechanicalTable = (() => {
       const slots = [...$("community").children];
       queueCards("reveal", slots.slice(last.community.length, next.community.length));
     }
-    $("mechanicalBlinds").textContent = next.sb && next.bb ? "盲注 " + next.sb + " / " + next.bb : "";
     const oldGroups = groups;
     groups = readGroups(next);
     if (sameHand && !reduced.matches) scheduleChips(oldGroups, groups);

@@ -64,7 +64,7 @@ const MechanicalReels = (() => {
   }
 
   function layout(counter, old, next) {
-    const whole = Math.max(5, counter.whole || 0, old.whole.length, next.whole.length);
+    const whole = counter.fixedDigits ?? Math.max(5, counter.whole || 0, old.whole.length, next.whole.length);
     const fraction = Math.max(counter.fraction || 0, old.fraction.length, next.fraction.length);
     if (counter.whole === whole && counter.fraction === fraction) return;
     const fragment = document.createDocumentFragment();
@@ -100,18 +100,18 @@ const MechanicalReels = (() => {
     return Number(parts.whole + parts.fraction.padEnd(-place, "0").slice(0, -place));
   }
 
-  function set(element, amount, { initial = amount, instant = false, impact = false } = {}) {
+  function set(element, amount, { initial = amount, instant = false, impact = false, fixedDigits, label = "筹码" } = {}) {
     let counter = counters.get(element);
     if (counter && counter.amount === amount && !instant && !reduced.matches) return;
     if (!counter) {
       element.classList.add("mechanical-reels");
-      counter = { element, reels: new Map(), amount: initial };
+      counter = { element, reels: new Map(), amount: initial, fixedDigits, label };
       counters.set(element, counter);
     }
     const old = split(counter.amount);
     const next = split(amount);
     layout(counter, old, next);
-    element.setAttribute("aria-label", "筹码 " + digits.format(amount));
+    element.setAttribute("aria-label", counter.label + " " + digits.format(amount));
     element.dataset.balance = amount;
     const direction = amount >= counter.amount ? 1 : -1;
     const now = performance.now();

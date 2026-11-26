@@ -88,7 +88,7 @@ dezhoupuke/
 │       ├── mechanical-arm-rig.js # 逆向运动学、连杆造型与双层软投影
 │       ├── mechanical-arm-presets.js # 动作阶段、节拍和硬件反馈
 │       ├── mechanical-arm-actions.js # 动作队列、挂载物和释放交接
-│       ├── mechanical-reels.js # 座位余额机械滚轮
+│       ├── mechanical-reels.js # 座位余额和局数机械滚轮
 │       ├── mechanical-payout.js # 派奖筹码的磁吸轨迹和节拍
 │       ├── mechanical-table.js # 牌桌事件、筹码动画、单手结算
 │       ├── actions.js          # 操作面板（加注、弃牌）
@@ -327,7 +327,7 @@ grep '"event":"player_disconnect"' data/logs/server-$(date +%F).log | jq .
 
 机械臂通过 `arm.enqueue(name, task)` 或 `arm.enqueue(name, tasks)` 调度发手牌、翻公共牌和弃牌。任务提供桌面坐标或坐标回调，可附加 DOM 道具以及抓取、携带、释放和落地回调。预设组合取物、摆出、刹停、悬停和释放，并指定底座灯色、仓门和平滑归位参数。底座仓室带滑轨和出牌滚轮，机械臂的连杆和轴承投影随伸展距离和抬升调整。`MechanicalArmPresets.giftExample` 演示悬停和轻抛落地，可注册到独立的控制器验证扩展接口。
 
-大臂液压杆连接底座和肘部凸耳，前臂两根连杆采用独立偏心销，腕部可指定独立朝向。每张手牌和公共牌都单独从仓室取出。释放时夹爪弹开，顶针短行程推出。机械臂随后回仓取下一张，队列清空后回到待机位置。
+大臂液压杆连接底座和肘部凸耳，前臂两根连杆采用独立偏心销，腕部可指定独立朝向。每张手牌和公共牌都单独从仓室取出。释放时夹爪弹开，顶针短行程推出。机械臂随后回仓取下一张，队列清空后横卧在底座下半部，夹爪收至右侧停泊托架。底座上层集成局数滚轮、阶段翻页屏和盲注铭牌。
 
 ## 3D Seat Pets
 

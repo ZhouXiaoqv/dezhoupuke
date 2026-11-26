@@ -49,7 +49,7 @@ const MechanicalArmMotion = (() => {
   }
 
   /**
-   * @typedef {{x:number,y:number,angle?:number,lift?:number}} ArmPose
+   * @typedef {{x:number,y:number,angle?:number,lift?:number,park?:boolean}} ArmPose
    * @typedef {{duration:number,easing?:(number[]|function(number):number),
    *   controls?:ArmPose[],rebound?:number,reboundDuration?:number,
    *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,
@@ -60,7 +60,7 @@ const MechanicalArmMotion = (() => {
    */
   function create({ draw = () => {}, elbowDelay = 45, wristDelay = 55 } = {}) {
     let root = { x: 0, y: 0 };
-    let home = { x: 0, y: 0, angle: 0, lift: 0 };
+    let home = { x: 0, y: 0, angle: 0, lift: 0, park: 0 };
     let output;
     const slides = [];
     const motions = [];
@@ -93,6 +93,7 @@ const MechanicalArmMotion = (() => {
         y: point.y + dip * charge - bob * Math.sin(progress * Math.PI) ** 2,
         angle: from.angle + angleDelta(from.angle, to.angle) * wristCurve(clamp(elapsed / wristDuration)) + rebound * damped,
         lift: mix(from.lift, to.lift, t),
+        park: mix(from.park, to.park, t),
       };
     }
 
@@ -111,7 +112,7 @@ const MechanicalArmMotion = (() => {
     function reset(pose, time = 0) {
       motions.length = 0;
       slides.length = 0;
-      home = { angle: 0, lift: 0, ...pose };
+      home = { angle: 0, lift: 0, ...pose, park: Number(!!pose.park) };
       return tick(time);
     }
 
@@ -119,6 +120,7 @@ const MechanicalArmMotion = (() => {
     function move(pose, options, time) {
       const from = sample(time);
       const to = { ...from, ...pose };
+      if (pose.park !== undefined || pose.x !== undefined || pose.y !== undefined) to.park = Number(!!pose.park);
       to.angle = options.wristAngle ?? to.angle;
       const { duration, controls, dip = 0, bob = 0, rebound = 0, reboundDuration = duration } = options;
       motions.push({ start: time, duration, controls, dip, bob, rebound,
@@ -129,7 +131,7 @@ const MechanicalArmMotion = (() => {
 
     function tick(time) {
       const tipTime = time - wristDelay;
-      const tip = sample(tipTime);
+      const { park, ...tip } = sample(tipTime);
       const near = sample(tipTime - 10);
       const far = sample(tipTime + 10);
       const latest = motions.at(-1);
@@ -143,9 +145,13 @@ const MechanicalArmMotion = (() => {
       const offset = slideAt(time);
       const shoulder = { x: root.x + offset, y: root.y };
       const delayedShoulder = { x: root.x + slideAt(time - elbowDelay), y: root.y };
-      const { wrist } = solve(shoulder, tip);
-      const { elbow } = solve(delayedShoulder, sample(time - elbowDelay));
-      output = { pose: tip, joints: [shoulder, elbow, wrist, tip], tangent, active, time, offset,
+      const elbowPose = sample(time - elbowDelay);
+      // The low parking position retracts the upper link and folds the forearm back across the base.
+      const elbow = interpolate(solve(delayedShoulder, elbowPose).elbow,
+        { x: delayedShoulder.x - 64, y: delayedShoulder.y + 6 }, elbowPose.park);
+      const wrist = interpolate(solve(shoulder, tip).wrist,
+        { x: tip.x - Math.cos(bearing) * 27, y: tip.y - Math.sin(bearing) * 27 }, park);
+      output = { pose: tip, joints: [shoulder, elbow, wrist, tip], tangent, active, time, offset, park,
         state: active ? latest.state : "idle" };
       draw(output);
       while (motions.length > 1 && motions[1].start < tipTime - 10) motions.shift();
@@ -406,7 +412,7 @@ function createMechanicalArmRig(svg, shadow, base) {
   let ejectAt = -Infinity;
   let buttonTap, lampFlash;
   const apertures = {
-    idle: [.30, 250], returning: [.30, 285], aim: [.30, 160], prepare: [.80, 68],
+    idle: [.30, 250], returning: [.30, 180], aim: [.30, 160], prepare: [.80, 68],
     feed: [.80, 68], grasp: [.15, 50], carry: [.15, 50], release: [1, 27],
   };
 
@@ -467,12 +473,12 @@ function createMechanicalArmRig(svg, shadow, base) {
     position(layer.clamp, projected[3], angle);
   }
 
-  function draw({ pose, joints, state, time, offset: carriageOffset }) {
+  function draw({ pose, joints, state, time, park, offset: carriageOffset }) {
     renderHardware(time);
     if (svg.dataset.armState !== state) svg.dataset.armState = state;
-    if (painted && painted.angle === pose.angle && painted.lift === pose.lift &&
+    if (painted && painted.angle === pose.angle && painted.lift === pose.lift && painted.park === park &&
         joints.every((joint, index) => joint.x === painted.joints[index].x && joint.y === painted.joints[index].y)) return;
-    painted = { angle: pose.angle, lift: pose.lift, joints };
+    painted = { angle: pose.angle, lift: pose.lift, park, joints };
     const [shoulder, elbow, socket] = joints;
     const upperAxis = axis(shoulder, elbow);
     const forearmAxis = axis(elbow, socket);
@@ -518,14 +524,16 @@ function createMechanicalArmRig(svg, shadow, base) {
     position(gripper, pose, pose.angle);
 
     const reach = Math.hypot(pose.x - joints[0].x, pose.y - joints[0].y);
-    const altitude = 4 + pose.lift * .21 + reach * .022;
+    const altitude = 4 + pose.lift * .21 + reach * .022 - 2.6 * park;
     project(ambientShadow, joints, pose.angle, altitude + 6, 5.2 + altitude * .43, .19);
     project(bodyShadow, joints, pose.angle, altitude, 1.8 + altitude * .33, Math.max(.11, .26 - altitude * .007));
   }
 
-  function hardware({ stage = "idle", lamp = "", hatch, feed = false, press = false, eject = false } = {}, now = performance.now()) {
+  function hardware({ stage = "idle", lamp = "", hatch, feed = false, press = false, eject = false, jawDeadline } = {}, now = performance.now()) {
     const [openness, duration] = apertures[stage];
-    if (jawMove.to !== openness) jawMove = { from: jawAt(now), to: openness, start: now, duration };
+    if (jawMove.to !== openness) {
+      jawMove = { from: jawAt(now), to: openness, start: Math.max(now, (jawDeadline ?? now) - duration), duration };
+    }
     if (stage === "idle" || stage === "returning") hatch = false;
     if (hatch !== undefined) {
       const hatchState = hatch ? "open" : "closed";
