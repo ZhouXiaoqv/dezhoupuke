@@ -2,7 +2,7 @@
 
 #table-container.mechanical-table,
 #table-container.mechanical-table.active ~ :is(.table-tools, .action-log-toggle, .scoreboard-toggle,
-    .action-log-panel, .scoreboard-panel, .show-hand-bar, .next-hand-bar, .spectator-badge, .toast) {
+    .action-log-panel, .scoreboard-panel, .show-hand-bar, .next-hand-bar, .spectator-badge) {
   --desk-ink: #453a2d;
   --desk-trim: #9b8569;
   --desk-enamel: linear-gradient(#fff5e4, #eddcc0 70%, #d5bea0);
@@ -427,7 +427,8 @@
   box-shadow: inset 0 1px #fff5df, 0 1px #9a8163;
 }
 
-#table-container.mechanical-table.active ~ :is(.action-log-panel, .scoreboard-panel, .show-hand-bar, .next-hand-bar, .spectator-badge, .toast) {
+#table-container.mechanical-table.active ~ .toast { display: none; }
+#table-container.mechanical-table.active ~ :is(.action-log-panel, .scoreboard-panel, .show-hand-bar, .next-hand-bar, .spectator-badge) {
   border: 1px solid var(--desk-trim);
   border-radius: 9px;
   background: var(--desk-case);

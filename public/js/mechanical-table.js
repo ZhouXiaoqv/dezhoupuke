@@ -54,6 +54,7 @@ const MechanicalTable = (() => {
   const portCenter = y => ({ x: bounds.width / 2 - 30, y });
   const recycleMouth = () => portCenter(92);
   const base = $("mechanicalBase");
+  const notice = createMechanicalNotice($("mechanicalNoticeLift"), $("mechanicalNoticeText"));
   const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), base);
   const printOutlet = {
     // The feed mask starts at the lower lip of the printer slot, in table pixels.
@@ -94,6 +95,7 @@ const MechanicalTable = (() => {
 
   function reset() {
     cancelAnimationFrame(frame);
+    notice.reset();
     clearPayouts();
     frame = bounds = null;
     latestReceipt = null;
@@ -1064,6 +1066,6 @@ const MechanicalTable = (() => {
     nextFrame();
   });
 
-  return { enabled, animatesArm, setStyle, reset, startHand, positionSeat, createSeatInfo, updateSeatMarkers,
+  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, positionSeat, createSeatInfo, updateSeatMarkers,
     cardBack, beforeRender, updateStack, render, showResult };
 })();

@@ -166,7 +166,7 @@ function startTurnTimer(timeLimit) {
     if (remaining <= 0) {
       stopTurnTimer();
       if ($("actionPanel").classList.contains("active")) {
-        toast("超时自动弃牌");
+        toast("超时自动弃牌", "warning");
         $("btnFold").click();
       }
     }

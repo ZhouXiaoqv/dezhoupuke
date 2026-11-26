@@ -257,7 +257,7 @@ document.addEventListener("visibilitychange", async () => {
         }
       } catch {}
     }
-    toast("Reconnect failed");
+    toast("Reconnect failed", "warning");
     return false;
   };
 

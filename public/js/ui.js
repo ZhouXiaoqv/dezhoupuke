@@ -471,7 +471,11 @@ function showScreen(id) {
   }
 }
 
-function toast(msg) {
+function toast(msg, tone = "info") {
+  if ($("table-container").matches(".mechanical-table.active")) {
+    MechanicalTable.notify(msg, tone);
+    return;
+  }
   const t = $("toast");
   t.textContent = msg;
   t.classList.add("show");

@@ -85,7 +85,7 @@ Net.on("room:scoreboardImbalance", (d) => {
   const overlay = $("scoreAlertOverlay");
   const text = $("scoreAlertText");
   if (!overlay || !text) {
-    toast(d.message || "计分板异常，已记录到后台");
+    toast(d.message || "计分板异常，已记录到后台", "warning");
     return;
   }
   text.textContent =
@@ -96,7 +96,7 @@ Net.on("room:scoreboardImbalance", (d) => {
 
 Net.on("room:playerJoined", () => toast("新玩家加入"));
 Net.on("room:playerLeft", (d) => toast(`${d.name} 离开了`));
-Net.on("room:playerDisconnected", (d) => toast(`${d.name} 断开连接`));
+Net.on("room:playerDisconnected", (d) => toast(`${d.name} 断开连接`, "warning"));
 Net.on("room:hostChanged", (d) => {
   isHost = d.hostId === Net.playerId;
   if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
@@ -217,7 +217,7 @@ function stopRoomListRefresh() {
 
 Net.on("room:error", (d) => {
   showError(d.message);
-  toast(d.message);
+  toast(d.message, "warning");
 });
 Net.on("room:left", () => {
   if (typeof clearMyHandView === "function") clearMyHandView();
@@ -290,7 +290,7 @@ Net.on("game:showdown", (d) => {
   const winners = d.winners
     .map((w) => `${w.name}「${w.hand}」+${w.amount}`)
     .join(", ");
-  toast(`摊牌: ${winners}`);
+  toast(`摊牌: ${winners}`, "settlement");
   showLogResult(d.winners);
   if (!MechanicalTable.enabled()) {
     window.Pets3D?.celebrateWinners(d.winners);
@@ -312,7 +312,7 @@ Net.on("game:handEnd", (d) => {
   const winners = d.winners
     .map((w) => `${w.name} +${w.amount}`)
     .join(", ");
-  toast(winners ? `本手结束: ${winners}` : "本手结束");
+  toast(winners ? `本手结束: ${winners}` : "本手结束", winners ? "settlement" : "info");
   showLogResult(d.winners);
   if (!MechanicalTable.enabled()) window.Pets3D?.celebrateWinners(d.winners);
   const myId = Net.playerId;
@@ -359,12 +359,12 @@ if ($("scoreAlertClose")) {
   });
 }
 
-Net.on("error", (d) => toast(d.message));
+Net.on("error", (d) => toast(d.message, "warning"));
 Net.on("disconnect", () => {
   $("connDot").className = "connection-dot offline";
   if (MechanicalTable.enabled()) hideActions();
   if (!appInBackground) {
-    toast("??????????????..");
+    toast("连接已断开，正在重连…", "warning");
   }
   attemptReconnect();
 });
@@ -699,9 +699,13 @@ function showDailyCheckIn(checkIn, options = {}) {
 }
 
 function showAchievementToast(ach) {
-  const toast = document.createElement("div");
-  toast.className = "achievement-toast";
-  toast.innerHTML =
+  if ($("table-container").matches(".mechanical-table.active")) {
+    toast(`成就解锁 · ${ach.name}${ach.desc ? ` · ${ach.desc}` : ""}`);
+    return;
+  }
+  const banner = document.createElement("div");
+  banner.className = "achievement-toast";
+  banner.innerHTML =
     '<div class="achieve-toast-label">🏅 成就解锁</div><div class="achieve-toast-name">' +
     (ach.icon || "") +
     " " +
@@ -709,8 +713,8 @@ function showAchievementToast(ach) {
     '</div><div class="achieve-toast-desc">' +
     ach.desc +
     "</div>";
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4500);
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 4500);
 }
 
 // ===== RECONNECT =====
