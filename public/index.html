@@ -401,7 +401,7 @@
         </div>
         <div class="community" id="community"></div>
         <div class="mechanical-only mechanical-base" id="mechanicalBase" data-recycler="idle">
-          <svg viewBox="0 -44 374 234" focusable="false" aria-hidden="true">
+          <svg viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
             <defs>
               <linearGradient id="baseRim" x2="0" y2="1">
                 <stop stop-color="#faf3e5"/><stop offset=".43" stop-color="#d5c6ae"/><stop offset="1" stop-color="#796853"/>
@@ -433,14 +433,14 @@
               </g>
             </defs>
             <g fill="url(#baseRim)" stroke="#897760" stroke-width="1">
-              <path d="M18 27H8l-5 4v12l5 4h10m0 13H8l-5 4v12l5 4h10M354 36h12l5 4v12l-5 4h-12M326 104h8l5 4v10l-5 4h-18"/>
-              <use href="#baseScrew" x="11" y="37"/><use href="#baseScrew" x="11" y="70"/>
-              <use href="#baseScrew" x="364" y="46"/><use href="#baseScrew" x="331" y="114"/>
+              <path d="M18 30H8l-5 4v12l5 4h10m0 49H8l-5 4v12l5 4h10M356 30h10l5 4v12l-5 4h-10m0 49h10l5 4v12l-5 4h-10"/>
+              <use href="#baseScrew" x="11" y="40"/><use href="#baseScrew" x="11" y="109"/>
+              <use href="#baseScrew" x="363" y="40"/><use href="#baseScrew" x="363" y="109"/>
             </g>
-            <path d="M30-34H341Q359-34 359-16V64Q359 81 348 92L297 146Q291 152 291 169Q291 188 273 188H228Q216 188 208 179L171 146Q164 140 153 140H30Q15 140 15 125V-19Q15-34 30-34Z" fill="#75634f" stroke="#645443"/>
-            <path d="M30-38H341Q359-38 359-20V60Q359 77 348 88L297 142Q291 148 291 165Q291 184 273 184H228Q216 184 208 175L171 142Q164 136 153 136H30Q15 136 15 121V-23Q15-38 30-38Z" fill="url(#baseRim)" stroke="#8f7b62"/>
-            <path d="M30-34H341Q355-34 355-20V60Q355 75 345 85L294 139Q287 146 287 165Q287 180 273 180H228Q218 180 211 172L174 139Q165 132 153 132H30Q19 132 19 121V-23Q19-34 30-34Z" fill="#a69377" stroke="#fffaeb" stroke-width="1.3"/>
-            <path id="baseFaceShape" d="M30-31H341Q352-31 352-20V60Q352 73 342 82L291 137Q284 144 284 165Q284 177 273 177H228Q219 177 213 170L176 137Q166 129 153 129H30Q22 129 22 121V-23Q22-31 30-31Z" fill="var(--base-face, url(#baseFace))" stroke="var(--base-edge, #82715c)"/>
+            <rect x="15" y="-34" width="344" height="184" rx="17" fill="#75634f" stroke="#645443"/>
+            <rect class="mechanical-base-shell" x="15" y="-38" width="344" height="184" rx="17" fill="url(#baseRim)" stroke="#8f7b62"/>
+            <rect x="19" y="-34" width="336" height="176" rx="13" fill="#a69377" stroke="#fffaeb" stroke-width="1.3"/>
+            <rect id="baseFaceShape" x="22" y="-31" width="330" height="170" rx="10" fill="var(--base-face, url(#baseFace))" stroke="var(--base-edge, #82715c)"/>
             <use href="#baseFaceShape" style="--base-face:url(#baseBrushed);--base-edge:none"/>
             <rect x="23" y="12" width="324" height="16" rx="5" fill="url(#baseBayMetal)" stroke="#c9b69a"/>
             <path d="M28 16h313m-313 8h313" stroke="#a1947d" stroke-width=".8"/>
@@ -448,8 +448,8 @@
               <path d="M222 25V15l5-5h26l5 5v10l-5 5h-26z" fill="url(#baseRim)" stroke="#a18a6e"/>
               <path d="M225 16h30m-28 10h26" stroke="#f2dfbd" stroke-opacity=".6"/>
             </g>
-            <use href="#baseScrew" x="30" y="22"/><use href="#baseScrew" x="210" y="22"/>
-            <use href="#baseScrew" x="30" y="79"/><use href="#baseScrew" x="212" y="63"/>
+            <use href="#baseScrew" x="31" y="62"/><use href="#baseScrew" x="343" y="62"/>
+            <use href="#baseScrew" x="34" y="128"/><use href="#baseScrew" x="340" y="128"/>
             <g transform="translate(0 -38)">
               <rect x="73" y="68" width="94" height="29" rx="6" fill="url(#baseRim)" stroke="#766653"/>
               <rect class="mechanical-bay-opening" x="77" y="72" width="86" height="22" rx="4" fill="#302c27" stroke="#ecdbc0"/>
@@ -490,19 +490,25 @@
               <circle cx="59" cy="77" r="3.3" fill="#bb864d" stroke="#76563a"/>
               <ellipse cx="58.3" cy="76.2" rx="1.25" ry=".65" fill="#ffe9b8"/>
             </g>
-            <g transform="translate(24 0)">
+            <g transform="translate(24 -12)">
               <rect x="151" y="48" width="15" height="13" rx="3.3" fill="#635547" stroke="#f9e9cf"/>
               <g class="mechanical-press-button">
                 <rect x="153" y="49.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
                 <path d="M156 52h5m-3.5 2h2" stroke="#f9e9cc" stroke-linecap="round"/>
               </g>
             </g>
-            <g class="mechanical-park-cradle" transform="translate(55 83)">
-              <path d="M193 74h24l6 5v14l-4 4h-26l-4-4V78z" fill="url(#baseRim)" stroke="#77634c"/>
-              <rect x="193" y="77" width="26" height="16" rx="4" fill="url(#baseBayMetal)" stroke="#fff0d6" stroke-width=".75"/>
-              <path d="M196 80h17l3 3v4l-3 3h-17" fill="none" stroke="#aa9578" stroke-width="1.5"/>
-              <path d="M215 79v12m-19-8h13m-13 4h13" stroke="#29241e" stroke-width=".8"/>
-              <path d="M200 95h11" stroke="#e8d4b1" stroke-linecap="round"/>
+            <g class="mechanical-park-cradle">
+              <path d="M240 83h18l11 11 46 6 7 7v16l-5 5-58-4h-22l-8-7V94z" fill="url(#baseRim)" stroke="#77634c"/>
+              <path d="M234 94l7-8h16l11 11 46 6 5 5" fill="none" stroke="#f8ecd2" stroke-width=".9"/>
+              <circle class="mechanical-dock-wrist" cx="251" cy="104" r="20" fill="url(#baseBayMetal)" stroke="#fff0d6" stroke-width=".8"/>
+              <path d="M262 108l18 2" stroke="#6c5b49" stroke-width="8"/>
+              <g class="mechanical-dock-slot" transform="rotate(8 296 111)">
+                <rect x="276" y="101" width="41" height="20" rx="4" fill="url(#baseBayMetal)" stroke="#fff0d6" stroke-width=".75"/>
+                <path d="M281 105h24l5 3v6l-5 3h-24" fill="none" stroke="#ad9678" stroke-width="1.5"/>
+                <path d="M310 104v14m-27-9h21m-21 4h21" stroke="#2e2821" stroke-width=".8"/>
+                <path class="mechanical-dock-contact" d="M293 124h9" stroke="#8d775b" stroke-linecap="round" stroke-width="1.5"/>
+              </g>
+              <use href="#baseScrew" x="237" y="118"/>
             </g>
           </svg>
           <div class="mechanical-instruments">
@@ -525,11 +531,11 @@
         </div>
         <div class="mechanical-only mechanical-bay-cards" id="mechanicalBayCards" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-recycled-cards" id="mechanicalRecycledCards" aria-hidden="true"></div>
-        <svg class="mechanical-only mechanical-port-rim mechanical-bay-rim" viewBox="0 -44 374 234" focusable="false" aria-hidden="true">
+        <svg class="mechanical-only mechanical-port-rim mechanical-bay-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
           <path d="M78 53h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
           <path d="M82 54h76" stroke="#fff0d6" stroke-opacity=".84"/>
         </svg>
-        <svg class="mechanical-only mechanical-port-rim mechanical-recycle-rim" viewBox="0 -44 374 234" focusable="false" aria-hidden="true">
+        <svg class="mechanical-only mechanical-port-rim mechanical-recycle-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
           <path d="M85 130h70v3l-3 2H88l-3-2z" fill="url(#baseRim)" stroke="#6f5c46" stroke-width=".7"/>
           <path d="M90 131h60" stroke="#fff0d6" stroke-opacity=".75"/>
         </svg>

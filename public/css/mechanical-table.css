@@ -52,7 +52,7 @@
   display: none;
 }
 #table-container.mechanical-table #table .pot-display {
-  top: max(22%, 105px);
+  top: max(22%, 123px);
   left: calc(50% - 103px);
   z-index: 14;
   gap: 6px;
@@ -442,7 +442,7 @@
   left: 50%;
   transform: translateX(-150px);
   width: 374px;
-  height: 234px;
+  height: 198px;
   pointer-events: none;
 }
 .mechanical-base { z-index: 11; }
@@ -609,6 +609,7 @@
 .mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass {
   animation: mechanicalLampStandby 2.8s ease-in-out infinite alternate;
 }
+.mechanical-base[data-arm-stage="idle"] .mechanical-dock-contact { stroke: #bca571; }
 @keyframes mechanicalLampStandby { from { opacity: .57; } to { opacity: .81; } }
 @media (prefers-reduced-motion: reduce) {
   .mechanical-base[data-arm-stage="idle"] .mechanical-lamp-glass { animation: none; }

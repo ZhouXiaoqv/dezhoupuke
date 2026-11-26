@@ -600,8 +600,9 @@ const MechanicalTable = (() => {
         labelLayer.append(label);
         labels.set(id, label);
       }
-      const besidePot = id === "pot" && bounds.height < 390;
       const belowPile = group.inventory.piles.length > 3 ? 28 : 19;
+      const besidePot = id === "pot" &&
+        bounds.top + group.at.y + belowPile + 14 > $("community").getBoundingClientRect().top;
       label.style.left = group.at.x - (besidePot ? 72 : 0) + "px";
       label.style.top = group.at.y + (besidePot ? 3 : belowPile) + "px";
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;

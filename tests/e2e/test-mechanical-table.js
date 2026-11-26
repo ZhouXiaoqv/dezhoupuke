@@ -402,7 +402,9 @@ async function run() {
     const consoleState = await host.evaluate(() => {
       const arm = document.getElementById('mechanicalArm');
       const base = document.getElementById('mechanicalBase');
-      const cradle = base.querySelector('.mechanical-park-cradle').getBoundingClientRect();
+      const cradle = base.querySelector('.mechanical-dock-slot').getBoundingClientRect();
+      const wristSaddle = base.querySelector('.mechanical-dock-wrist').getBoundingClientRect();
+      const shell = base.querySelector('.mechanical-base-shell').getBoundingClientRect();
       const gripper = arm.querySelector('.arm-gripper');
       const center = element => {
         const { e: x, f: y } = element.transform.baseVal.getItem(0).matrix;
@@ -412,6 +414,8 @@ async function run() {
       const angle = (a, b) => Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
       const upper = angle(shoulder, elbow);
       const bend = MechanicalArmMotion.angleDelta(upper, angle(elbow, wrist));
+      const inside = (part, boundary) => part.left >= boundary.left && part.top >= boundary.top &&
+        part.right <= boundary.right && part.bottom <= boundary.bottom;
       const exposed = target => {
         const { left, right, top, bottom } = target.getBoundingClientRect();
         for (let x = left + 1; x < right; x += 2) {
@@ -422,10 +426,11 @@ async function run() {
         return true;
       };
       arm.style.pointerEvents = 'visiblePainted';
-      const clear = ['.mechanical-instruments', '.mechanical-bay-opening', '.mechanical-lamp-glass']
+      const clear = ['.mechanical-instruments', '.mechanical-bay-opening', '.mechanical-recycle-slot', '.mechanical-lamp-glass']
         .every(selector => exposed(base.querySelector(selector)));
       arm.style.removeProperty('pointer-events');
       const jaws = [...gripper.querySelectorAll('.arm-jaw')].map(jaw => jaw.getBoundingClientRect());
+      const raisedSleeve = arm.querySelector('.arm-raised-sleeve');
       const hand = document.getElementById('mechanicalHandReels');
       const z = id => Number(getComputedStyle(document.getElementById(id)).zIndex);
       return {
@@ -437,19 +442,25 @@ async function run() {
         blinds: document.getElementById('mechanicalBlindValue').textContent,
         expectedBlinds: `${gameState.sb} / ${gameState.bb}`,
         clear,
-        halfFold: shoulder.x > elbow.x && elbow.x < wrist.x && upper >= 145 && upper <= 155 && bend >= -95 && bend <= -75,
-        docked: jaws.every(jaw => jaw.right > cradle.left && jaw.right < cradle.right &&
+        halfFold: shoulder.x > elbow.x && elbow.x < wrist.x && upper >= 155 && upper <= 160 && bend >= -150 && bend <= -135,
+        contained: [...arm.querySelectorAll('.arm-segment, .arm-hinge, .arm-gripper')]
+          .every(part => inside(part.getBoundingClientRect(), shell)),
+        docked: inside(arm.querySelectorAll('.arm-hinge')[2].getBoundingClientRect(), wristSaddle) &&
+          jaws.every(jaw => jaw.right > cradle.left && jaw.right < cradle.right &&
           jaw.top + jaw.height / 2 >= cradle.top && jaw.top + jaw.height / 2 <= cradle.bottom),
         aperture: Number(gripper.dataset.aperture),
         stage: base.dataset.armStage,
-        layered: z('mechanicalBase') < z('mechanicalArmShadow') && z('mechanicalArmShadow') < z('mechanicalArm'),
+        layered: z('mechanicalBase') < z('mechanicalArmShadow') && z('mechanicalArmShadow') < z('mechanicalArm') &&
+          raisedSleeve.previousElementSibling?.classList.contains('arm-forearm') &&
+          getComputedStyle(raisedSleeve).filter.includes('drop-shadow'),
       };
     });
     assert.ok(consoleState.statusHidden && !consoleState.hasFloatingBlinds);
     assert.equal(consoleState.handDigits, String(consoleState.handNum).padStart(3, '0'));
     assert.equal(consoleState.phase, '翻牌前');
     assert.equal(consoleState.blinds, consoleState.expectedBlinds);
-    assert.ok(consoleState.clear && consoleState.halfFold && consoleState.docked && consoleState.layered, JSON.stringify(consoleState));
+    assert.ok(consoleState.clear && consoleState.halfFold && consoleState.contained && consoleState.docked &&
+      consoleState.layered, JSON.stringify(consoleState));
     assert.equal(consoleState.aperture, 30);
     assert.equal(consoleState.stage, 'idle');
 

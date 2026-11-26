@@ -39,7 +39,8 @@ const MechanicalArmMotion = (() => {
   const forearm = 76, tool = 28, jawReach = 20;
   const comfortableReach = Math.sqrt(upperMax ** 2 + forearm ** 2 + 2 * upperMax * forearm * Math.cos(45 * radians));
   const railMin = -208, railMax = 90;
-  const parking = { shoulder: 150, elbow: -85, upper: upperMin, angle: 0, lift: 0, park: 1 };
+  const parkRail = 86;
+  const parking = { shoulder: 157.5, elbow: -140, upper: upperMin, angle: 8, lift: 0, park: 1 };
 
   function advance(point, angle, length) {
     return { x: point.x + Math.cos(angle * radians) * length, y: point.y + Math.sin(angle * radians) * length };
@@ -153,7 +154,7 @@ const MechanicalArmMotion = (() => {
     function reset(pose, time = 0) {
       motions.length = 0;
       slides.length = 0;
-      initialOffset = pose.park ? railMax : 0;
+      initialOffset = pose.park ? parkRail : 0;
       initial = pose.park ? parking : solve(shoulderAt(time), { angle: 0, lift: 0, ...pose });
       return tick(time);
     }
@@ -168,7 +169,7 @@ const MechanicalArmMotion = (() => {
       const wristCurve = easing(options.wristEasing ?? options.easing);
       const wristDuration = options.wristDuration ?? duration;
       const span = Math.max(1, duration, wristDuration, rebound ? reboundDuration : 0);
-      if (state === "returning") slideTo(pose.park ? railMax : 0, Math.min(350, duration), time);
+      if (state === "returning") slideTo(pose.park ? parkRail : 0, Math.min(350, duration), time);
       else if (options.aim === "left") slideTo(railMin, duration, time);
       else if (options.aim) aimAt(target, duration, time, options.aim === "close");
       const followsPath = pose.x !== undefined || pose.y !== undefined || bob || dip || target.angle !== start.angle;
@@ -382,11 +383,13 @@ function createMechanicalArmRig(svg, shadow, base) {
     rect(parent, 3, -3.2, tool - 8, 1.9, .9, bronze);
   }
 
-  const link = () => svgElement(svg, "g", { class: "arm-segment" });
-  const upper = link();
+  const truss = svgElement(svg, "g", { class: "arm-segment arm-forearm" });
+  const updateTruss = trussLink(truss);
+  // The wrapper stays in table space, so the local cast shadow falls across the truss before the sleeve is painted.
+  const raisedSleeve = svgElement(svg, "g", { class: "arm-raised-sleeve" });
+  const upper = svgElement(raisedSleeve, "g", { class: "arm-segment" });
   const slideSleeves = upperLink(upper);
-  const updateTruss = trussLink(link());
-  const wrist = link();
+  const wrist = svgElement(svg, "g", { class: "arm-segment" });
   wristLink(wrist);
   const radii = [24, 19, 14.5];
   const hubs = radii.map(radius => {
@@ -535,6 +538,9 @@ function createMechanicalArmRig(svg, shadow, base) {
     if (svg.dataset.armState !== state) svg.dataset.armState = state;
     if (painted && painted.angle === pose.angle && painted.lift === pose.lift && painted.park === park &&
         joints.every((joint, index) => joint.x === painted.joints[index].x && joint.y === painted.joints[index].y)) return;
+    if (painted?.park !== park) {
+      raisedSleeve.style.filter = park ? `drop-shadow(1px 5px 2.4px rgb(71 49 32 / ${(.37 * park).toFixed(3)}))` : "";
+    }
     painted = { angle: pose.angle, lift: pose.lift, park, joints };
     const [shoulder, elbow, socket] = joints;
     const upperAxis = axis(shoulder, elbow);
