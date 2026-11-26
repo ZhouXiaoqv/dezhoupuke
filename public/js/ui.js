@@ -456,19 +456,15 @@ function showScreen(id) {
   if (outfitButton.hidden && $("avatarModal").classList.contains("table-outfit")) {
     closeAvatarModal();
   }
-  const shouldKeepActionOffset =
-    id === "table" && $("actionPanel")?.classList.contains("active");
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.remove("active"));
   $("table-container").classList.remove("active", "action-active");
   if (id === "table") {
     $("table-container").classList.add("active");
-    if (shouldKeepActionOffset) {
-      $("table-container").classList.add("action-active");
-      requestAnimationFrame(syncActionPanelOffset);
-    }
+    syncActionPanelOffset();
   } else {
+    if (MechanicalTable.enabled()) hideActions();
     MechanicalTable.reset();
     window.Pets3D?.clear();
     $(id).classList.add("active");

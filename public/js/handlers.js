@@ -362,6 +362,7 @@ if ($("scoreAlertClose")) {
 Net.on("error", (d) => toast(d.message));
 Net.on("disconnect", () => {
   $("connDot").className = "connection-dot offline";
+  if (MechanicalTable.enabled()) hideActions();
   if (!appInBackground) {
     toast("??????????????..");
   }

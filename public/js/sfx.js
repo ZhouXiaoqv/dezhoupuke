@@ -180,7 +180,9 @@ const SFX = (() => {
 })();
 
 // Sound toggle
-$("soundToggle").addEventListener("click", () => {
-  const on = SFX.toggle();
-  $("soundToggle").textContent = on ? "🔊" : "🔇";
-});
+function syncSoundToggle(on) {
+  $("soundToggle").setAttribute("aria-pressed", String(on));
+  $("soundToggleGlyph").textContent = on ? "🔊" : "🔇";
+}
+syncSoundToggle(SFX.isEnabled());
+$("soundToggle").addEventListener("click", () => syncSoundToggle(SFX.toggle()));

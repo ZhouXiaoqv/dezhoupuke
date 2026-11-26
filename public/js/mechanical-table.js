@@ -87,6 +87,7 @@ const MechanicalTable = (() => {
     if (active !== enabled()) {
       reset();
       container.classList.toggle("mechanical-table", active);
+      if (container.classList.contains("active")) hideActions();
       table.querySelectorAll(".seat").forEach(seat => seat.remove());
       delete table.dataset.mechanicalViewer;
       container.querySelector(":scope > .my-hand")?.remove();

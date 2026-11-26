@@ -305,19 +305,16 @@ function isMyTurnState(state = gameState) {
     !!me &&
     !me.folded &&
     !me.allIn &&
+    me.connected !== false &&
     !!current &&
     current.id === Net.playerId &&
-    state.phase !== "showdown" &&
-    state.phase !== "idle"
+    ["preflop", "flop", "turn", "river"].includes(state.phase)
   );
 }
 
 function buildTurnActionDataFromState(state = gameState) {
   if (!isMyTurnState(state)) return null;
   const me = state.players.find((p) => p.id === Net.playerId);
-  const viewerCardBack = isSpectator
-    ? DEFAULT_CARD_BACK
-    : getEquippedCardBack(userProfile);
   const toCall = Math.max(0, (state.roundBet || 0) - (me.bet || 0));
   return {
     playerId: Net.playerId,
@@ -474,7 +471,7 @@ function renderGame(state) {
   if (!isMyTurn) {
     lastTurnActionData = null;
     if ($("actionPanel").classList.contains("active")) hideActions();
-  } else if (!$("actionPanel").classList.contains("active")) {
+  } else if (!$("actionPanel").classList.contains("active") || (mechanical && phaseChanged)) {
     restoreActionPanelIfMyTurn();
   }
 

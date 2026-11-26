@@ -18,6 +18,7 @@
 .mechanical-only { display: none; }
 
 #table-container.mechanical-table {
+  --desk-reserved-height: max(142px, var(--action-panel-height));
   color: #302d28;
   background:
     radial-gradient(circle at 1px 1px, #cdbda3 0.85px, transparent 1.15px) 0 0 / 13px 13px,
@@ -26,8 +27,8 @@
 #table-container.mechanical-table #table {
   flex-shrink: 0;
   width: clamp(690px, 78vw, 960px);
-  height: clamp(392px, 63vh, 590px);
-  margin-top: -24px;
+  height: min(63vh, 590px, calc(100vh - var(--desk-reserved-height) - 188px));
+  margin-top: calc(70px - var(--desk-reserved-height));
   border: 10px solid #ded4c2;
   border-radius: 96px;
   background:
@@ -38,10 +39,6 @@
     0 12px 23px #4c382e40, inset 0 0 0 2px #635f58, inset 0 0 0 4px #ba884d,
     inset 0 0 0 6px #fbefdb, inset 0 0 28px #77624c39;
   animation: none;
-}
-#table-container.mechanical-table.action-active #table {
-  height: min(63vh, 590px, calc(100vh - var(--action-panel-height) - 188px));
-  margin-top: calc(70px - var(--action-panel-height));
 }
 #table-container.mechanical-table #table.table-your-turn { border-color: #d6c9ab; }
 #table-container.mechanical-table #table::before {
@@ -425,7 +422,7 @@
 #table-container.mechanical-table #table .seat-cards .card { width: 36px; }
 #table-container.mechanical-table #table .my-hand .card { width: clamp(45px, 5vw, 62px); }
 @media (min-width: 769px) and (max-height: 810px) {
-  #table-container.mechanical-table.action-active #community { top: 50%; }
+  #table-container.mechanical-table #community { top: 50%; }
   #table-container.mechanical-table #community .card { width: clamp(42px, 5vw, 48px); }
   #table-container.mechanical-table #table .my-hand .card { width: clamp(42px, 5vw, 46px); }
 }

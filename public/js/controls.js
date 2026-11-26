@@ -333,41 +333,47 @@ if (window.visualViewport) {
   });
 })();
 
-// Custom raise confirm button
-if ($("customRaiseConfirm")) {
-  $("customRaiseConfirm").addEventListener("click", (e) => {
-    const inp = $("customRaiseAmount");
-    if (!inp) return;
-    const val = parseInt(inp.value, 10);
-    const minRaise = parseInt(inp.min || "0", 10);
-    const maxRaise = parseInt(inp.max || "0", 10);
-    if (isNaN(val) || val <= 0) {
-      toast("请输入有效金额");
-      inp.focus();
-      return;
-    }
-    if (val < minRaise || (maxRaise > 0 && val > maxRaise)) {
-      toast(`请输入 ${minRaise}${maxRaise > 0 ? " - " + maxRaise : ""} 之间的金额`);
-      inp.focus();
-      return;
-    }
-    hideActions();
-    SFX.btnClick();
-    Net.send("game:action", { action: "raise", amount: val });
-  });
+function canSendTableAction() {
+  return !MechanicalTable.enabled() ||
+    (Net.connected && $("actionPanel").classList.contains("active") && isMyTurnState());
 }
 
+function submitRaise(input) {
+  if (!canSendTableAction()) return;
+  const amount = MechanicalTable.enabled() ? input.valueAsNumber : parseInt(input.value, 10);
+  const min = Number(input.min);
+  const max = Number(input.max);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    toast("请输入有效金额");
+    input.focus();
+    return;
+  }
+  if (amount < min || (max > 0 && amount > max)) {
+    toast(`请输入 ${min}${max > 0 ? " - " + max : ""} 之间的金额`);
+    input.focus();
+    return;
+  }
+  hideActions();
+  SFX.btnClick();
+  Net.send("game:action", { action: "raise", amount });
+}
+
+$("customRaiseConfirm").addEventListener("click", () => submitRaise($("customRaiseAmount")));
+
 $("btnFold").addEventListener("click", () => {
+  if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
   Net.send("game:action", { action: "fold" });
 });
 $("btnCheck").addEventListener("click", () => {
+  if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
   Net.send("game:action", { action: "check" });
 });
 $("btnCall").addEventListener("click", () => {
+  if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
   const mySeat = getMySeatEl();
@@ -378,6 +384,7 @@ $("btnCall").addEventListener("click", () => {
   Net.send("game:action", { action: "call" });
 });
 $("btnAllin").addEventListener("click", () => {
+  if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
   const mySeat = getMySeatEl();
@@ -387,6 +394,7 @@ $("btnAllin").addEventListener("click", () => {
   Net.send("game:action", { action: "allin" });
 });
 $("btnRaise").addEventListener("click", () => {
+  if (MechanicalTable.enabled()) return;
   const amount = parseInt($("raiseRange").value);
   hideActions();
   SFX.btnClick();
@@ -563,6 +571,12 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!$("actionPanel").classList.contains("active")) return;
+  if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  if (MechanicalTable.enabled()) {
+    const action = { f: "fold", c: "pass", r: "raise", a: "allin" }[e.key];
+    if (action) MechanicalActionDesk.press(action);
+    return;
+  }
   if (e.key === "f") $("btnFold").click();
   if (e.key === "c") {
     if ($("btnCheck").style.display !== "none") $("btnCheck").click();
