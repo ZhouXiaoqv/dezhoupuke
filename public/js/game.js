@@ -495,6 +495,7 @@ function renderGame(state) {
   } else {
     clearMyHandView(false);
   }
+  const privateHint = mechanical ? describeOwnHand(state, me) : "";
 
   // Track which players we've seen cards for (to avoid re-animating other players)
   if (!window._prevOtherHands) window._prevOtherHands = {};
@@ -627,31 +628,23 @@ function renderGame(state) {
       winner: "🏆 WIN",
     };
     const actionClass = p.lastAction ? `act-${p.lastAction}` : "";
-    const isActive_ =
-      state.currentIdx === i &&
-      state.phase !== "showdown" &&
-      state.phase !== "idle";
-
-    let infoEl = existingInfo;
-    if (!infoEl) {
-      infoEl = document.createElement("div");
+    const infoEl = existingInfo || (mechanical ? MechanicalTable.createSeatInfo() : document.createElement("div"));
+    if (!mechanical) {
       infoEl.className = "seat-info";
-    }
-    infoEl.style.borderLeftWidth = "3px";
-    infoEl.style.borderLeftStyle = "solid";
-    infoEl.style.borderLeftColor = seatColor;
-    if (isActive_) {
-      infoEl.style.borderColor = seatColor;
+      infoEl.style.borderLeftWidth = "3px";
+      infoEl.style.borderLeftStyle = "solid";
       infoEl.style.borderLeftColor = seatColor;
-      infoEl.style.boxShadow = `0 0 20px ${seatColor}66, 0 0 40px ${seatColor}33`;
-    } else if (!mechanical && p.lastAction === "winner") {
-      infoEl.style.borderColor = "#40e080";
-      infoEl.style.boxShadow = "0 0 24px rgba(64,224,128,0.4)";
-    } else {
-      infoEl.style.boxShadow = mechanical ? "" : "none";
-      infoEl.style.borderColor = "";
-    }
-    if (!mechanical || !existingInfo) {
+      if (seat.classList.contains("active")) {
+        infoEl.style.borderColor = seatColor;
+        infoEl.style.borderLeftColor = seatColor;
+        infoEl.style.boxShadow = `0 0 20px ${seatColor}66, 0 0 40px ${seatColor}33`;
+      } else if (p.lastAction === "winner") {
+        infoEl.style.borderColor = "#40e080";
+        infoEl.style.boxShadow = "0 0 24px rgba(64,224,128,0.4)";
+      } else {
+        infoEl.style.boxShadow = "none";
+        infoEl.style.borderColor = "";
+      }
       infoEl.innerHTML = `
 <div class="seat-name"><span class="seat-medallion"></span><span class="seat-player-name"></span></div>
 <div class="seat-stack"></div>
@@ -662,12 +655,19 @@ function renderGame(state) {
     if (mechanical) MechanicalTable.updateStack(stack, p, state);
     else stack.textContent = p.stack;
     const result = state.winners?.find(w => w.id === p.id);
-    const shownRank = result?.revealedRank || (state.phase === "showdown" && result?.hand);
+    const shownRank = result?.revealedRank ||
+      (state.phase === "showdown" && (result?.hand || (mechanical && p.handRank)));
     const badge = infoEl.querySelector(".seat-action");
-    const badgeClass = shownRank ? "seat-action revealed-rank"
+    const badgeClass = shownRank ? "seat-action revealed-rank" + (mechanical && result ? " act-winner" : "")
       : `seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}`;
-    const badgeText = shownRank ? "🏆 " + shownRank
+    let badgeText = shownRank ? "🏆 " + shownRank
       : actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "");
+    if (mechanical) {
+      if (shownRank) badgeText = shownRank;
+      else if (p.folded) badgeText = "弃牌";
+      else if (p.lastAction === "winner") badgeText = "获胜";
+      else if (p.allIn || p.lastAction === "allin") badgeText = "全下";
+    }
     if (badge.className !== badgeClass || badge.textContent !== badgeText) {
       badge.className = badgeClass;
       badge.textContent = badgeText;
@@ -675,7 +675,8 @@ function renderGame(state) {
     const medallion = infoEl.querySelector(".seat-medallion");
     medallion.textContent = seatAvatar;
     medallion.style.borderColor = seatColor;
-    infoEl.querySelector(".seat-player-name").textContent = p.name + (p.id === Net.playerId ? " (你)" : "");
+    infoEl.querySelector(".seat-player-name").textContent = p.name + (!mechanical && isMySeat ? " (你)" : "");
+    if (mechanical) MechanicalTable.updateSeatMarkers(infoEl, i, state, isMySeat && !shownRank ? privateHint : "");
     infoEl.title = mechanical ? "" : "\u67e5\u770b\u73a9\u5bb6\u4fe1\u606f";
     infoEl.onclick = mechanical ? null : (e) => {
       e.stopPropagation();
@@ -753,7 +754,7 @@ function renderGame(state) {
   }
 
   // Dealer button
-  if (state.dealerIdx !== undefined && state.dealerIdx !== null) {
+  if (!mechanical && state.dealerIdx !== undefined && state.dealerIdx !== null) {
     const dealerSeat = table.querySelector(`.seat-${state.dealerIdx}`);
     if (dealerSeat) {
       const dBtn = document.createElement("div");
@@ -767,7 +768,7 @@ function renderGame(state) {
   }
 
   // Small blind button — attach to seat
-  if (state.sbIdx !== undefined && state.sbIdx !== null) {
+  if (!mechanical && state.sbIdx !== undefined && state.sbIdx !== null) {
     const sbSeat = table.querySelector(`.seat-${state.sbIdx}`);
     if (sbSeat) {
       const sbBtn = document.createElement("div");
@@ -781,7 +782,7 @@ function renderGame(state) {
   }
 
   // Big blind button — attach to seat
-  if (state.bbIdx !== undefined && state.bbIdx !== null) {
+  if (!mechanical && state.bbIdx !== undefined && state.bbIdx !== null) {
     const bbSeat = table.querySelector(`.seat-${state.bbIdx}`);
     if (bbSeat) {
       const bbBtn = document.createElement("div");
@@ -833,7 +834,8 @@ function renderGame(state) {
   $("handStatus").textContent = `第 ${state.handNum} 手 · ${phaseNames[state.phase] || state.phase}`;
 
   // Hand rank label
-  updateHandLabel(state);
+  if (mechanical) $("handRankLabel").classList.remove("visible");
+  else updateHandLabel(state);
   if (mechanical) {
     MechanicalTable.render(state);
   } else {
@@ -844,30 +846,26 @@ function renderGame(state) {
   }
 }
 
-function updateHandLabel(state) {
-  const label = $("handRankLabel");
-  const me = state.players.find((p) => p.id === Net.playerId);
-  if (!me || me.folded || !myHand || myHand.length < 2) {
-    label.classList.remove("visible");
-    return;
-  }
+function describeOwnHand(state, me) {
+  if (!me || me.folded || !myHand || myHand.length < 2) return "";
 
   if (state.community.length >= 3) {
     const validCards = [...myHand, ...state.community].filter((c) => c);
-    if (validCards.length >= 5) {
-      const ev = evaluateHand(validCards);
-      label.textContent = ev.name;
-      label.classList.add("visible");
-    }
+    if (validCards.length >= 5) return evaluateHand(validCards).name;
   } else if (state.community.length === 0) {
     const r1 = myHand[0]?.rankStr,
       r2 = myHand[1]?.rankStr;
     if (r1 && r2) {
       const suited = myHand[0].suit === myHand[1].suit;
-      label.textContent = `${r1}${r2}${suited ? " 同花" : ""}`;
-      label.classList.add("visible");
+      return `${r1}${r2}${suited ? " 同花" : ""}`;
     }
-  } else {
-    label.classList.remove("visible");
   }
+  return "";
+}
+
+function updateHandLabel(state) {
+  const label = $("handRankLabel");
+  const hint = describeOwnHand(state, state.players.find((p) => p.id === Net.playerId));
+  if (hint) label.textContent = hint;
+  label.classList.toggle("visible", !!hint);
 }

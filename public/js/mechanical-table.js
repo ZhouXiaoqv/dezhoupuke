@@ -5,6 +5,10 @@ const MechanicalTable = (() => {
     6: [0, 1, 3, 4, 5, 7], 7: [0, 1, 3, 4, 5, 6, 8],
     8: [0, 1, 2, 4, 5, 6, 7, 8],
   };
+  const SEAT_EDGES = ["bottom", "bottom", "left", "left", "top", "top", "right", "right", "bottom"];
+  const SEAT_ROLES = [
+    ["dealerIdx", "D", "庄家"], ["sbIdx", "SB", "小盲"], ["bbIdx", "BB", "大盲"],
+  ];
   const DENOMINATIONS = [
     [100, "#694d81"], [50, "#b84043"], [20, "#428568"],
     [10, "#397baa"], [5, "#c48732"], [1, "#77746d"],
@@ -103,7 +107,40 @@ const MechanicalTable = (() => {
   }
 
   function positionSeat(seat, index, count) {
-    seat.dataset.mechanicalSlot = (SLOTS[count] || SLOTS[8])[index] ?? 0;
+    const slot = (SLOTS[count] || SLOTS[8])[index] ?? 0;
+    seat.dataset.mechanicalSlot = slot;
+    seat.dataset.mechanicalEdge = SEAT_EDGES[slot];
+  }
+
+  function createSeatInfo() {
+    const info = document.createElement("div");
+    info.className = "seat-info";
+    info.innerHTML = `
+      <span class="mechanical-seat-tongue" aria-hidden="true"></span>
+      <div class="mechanical-seat-body">
+        <div class="mechanical-seat-avatar"><span class="seat-medallion" aria-hidden="true"></span></div>
+        <div class="mechanical-seat-plate">
+          <span class="mechanical-seat-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="mechanical-seat-lamp" aria-hidden="true"></span>
+          <span class="mechanical-seat-roles">${SEAT_ROLES.map(([key, symbol, label]) =>
+            `<span class="mechanical-seat-role" data-seat-role="${key}" role="img" aria-label="${label}" title="${label}" hidden>${symbol}</span>`
+          ).join("")}</span>
+          <div class="seat-name"><span class="seat-player-name"></span></div>
+          <div class="seat-stack"></div>
+          <div class="mechanical-seat-status"><span class="seat-action"></span><span class="mechanical-seat-hint"></span></div>
+        </div>
+      </div>`;
+    return info;
+  }
+
+  function updateSeatMarkers(info, index, snapshot, hint) {
+    for (const role of info.querySelectorAll("[data-seat-role]")) {
+      role.hidden = snapshot[role.dataset.seatRole] !== index;
+    }
+    const label = info.querySelector(".mechanical-seat-hint");
+    label.textContent = hint;
+    const name = info.querySelector(".seat-player-name");
+    name.title = name.textContent;
   }
 
   function cardBack(slot = false) {
@@ -381,7 +418,7 @@ const MechanicalTable = (() => {
     if (!element?.isConnected) return;
     if (!account.hit && account.winner) {
       account.hit = true;
-      element.closest(".seat-info").animate([
+      element.closest(".mechanical-seat-body").animate([
         { transform: "scale(1)", filter: "drop-shadow(0 0 0 #e5a64100)" },
         { transform: "scale(1.05)", filter: "drop-shadow(0 0 11px #e5a641ba)", offset: .35 },
         { transform: "scale(.995)", filter: "drop-shadow(0 0 3px #e5a64155)", offset: .75 },
@@ -437,6 +474,24 @@ const MechanicalTable = (() => {
     }
   }
 
+  function wagerPosition(seat, origin) {
+    const { mechanicalSlot: slot, mechanicalEdge: edge } = seat.dataset;
+    if (slot === "0") return { x: origin.x - 145, y: origin.y - 78 };
+    const dx = bounds.width / 2 - origin.x;
+    const side = dx > 0 ? 1 : -1;
+    if (edge === "top") return { x: origin.x - side * 69, y: origin.y + 113 };
+    if (edge === "left" || edge === "right") {
+      const lower = slot === "2" || slot === "7";
+      return { x: origin.x + side * (lower ? 164 : 181), y: origin.y + (lower ? -24 : 23) };
+    }
+    const dy = bounds.height / 2 - origin.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    return {
+      x: origin.x + (dx * 106 - dy * 45 * side) / distance,
+      y: origin.y + (dy * 106 + dx * 45 * side) / distance,
+    };
+  }
+
   function readGroups(snapshot) {
     const next = new Map();
     if (snapshot.handNum === finalizedHand) return next;
@@ -455,15 +510,7 @@ const MechanicalTable = (() => {
       const seat = table.querySelector(".seat-" + index);
       if (!seat) return;
       const origin = point(seat.querySelector(".seat-info").getBoundingClientRect());
-      const dx = bounds.width / 2 - origin.x, dy = bounds.height / 2 - origin.y;
-      const distance = Math.max(1, Math.hypot(dx, dy));
-      const radius = 106;
-      const x = origin.x + dx / distance * radius;
-      const y = origin.y + dy / distance * radius;
-      const side = dx > 0 ? 1 : -1;
-      const at = seat.dataset.mechanicalSlot === "0"
-        ? { x: origin.x - 145, y: origin.y - 78 }
-        : { x: x - dy / distance * 45 * side, y: y + dx / distance * 45 * side };
+      const at = wagerPosition(seat, origin);
       next.set(player.id, { id: player.id, at, origin, amount: player.bet, name: player.name, counts });
     });
     const collected = Math.max(0, snapshot.pot - live);
@@ -489,8 +536,10 @@ const MechanicalTable = (() => {
         labelLayer.append(label);
         labels.set(id, label);
       }
-      label.style.left = group.at.x + "px";
-      label.style.top = group.at.y + (group.inventory.piles.length > 3 ? 28 : 19) + "px";
+      const besidePot = id === "pot" && bounds.height < 390;
+      const belowPile = group.inventory.piles.length > 3 ? 28 : 19;
+      label.style.left = group.at.x - (besidePot ? 72 : 0) + "px";
+      label.style.top = group.at.y + (besidePot ? 3 : belowPile) + "px";
       if (label.dataset.amount === String(group.amount) && label.title === group.inventory.description) continue;
       label.dataset.amount = group.amount;
       const amount = currency.format(group.amount);
@@ -796,5 +845,6 @@ const MechanicalTable = (() => {
     nextFrame();
   });
 
-  return { enabled, animatesArm, setStyle, reset, startHand, positionSeat, cardBack, beforeRender, updateStack, render, showResult };
+  return { enabled, animatesArm, setStyle, reset, startHand, positionSeat, createSeatInfo, updateSeatMarkers,
+    cardBack, beforeRender, updateStack, render, showResult };
 })();

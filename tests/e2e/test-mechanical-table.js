@@ -202,6 +202,92 @@ async function verifyMovingRig(page) {
   assert.deepEqual([result.stroke, result.retracted], [3, 0]);
 }
 
+async function verifySeatClamps(browser) {
+  const context = await browser.createBrowserContext();
+  try {
+    const page = await context.newPage();
+    await page.goto(process.env.POKER_TEST_URL);
+    await page.evaluate(() => {
+      const state = buildLayoutTestState();
+      Object.assign(state, { tableStyle: 'mechanical', currentIdx: 0, dealerIdx: 0, sbIdx: 0, bbIdx: 5 });
+      Net.playerId = state.players[0].id;
+      isLayoutTestRoom = true;
+      state.players[0].hand = [makeLayoutTestCard('A', 1), makeLayoutTestCard('8', 2)];
+      state.players[1].lastAction = 'check';
+      Object.assign(state.players[3], { allIn: true, lastAction: 'allin' });
+      Object.assign(state.players[6], { folded: true, lastAction: 'fold' });
+      showScreen('table');
+      renderGame(state);
+      restoreActionPanelIfMyTurn();
+    });
+    for (const [width, height] of [[1280, 900], [1024, 768]]) {
+      await page.setViewport({ width, height });
+      const layout = await page.evaluate(() => {
+        const rect = node => node.getBoundingClientRect();
+        const overlaps = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 &&
+          a.top < b.bottom - 1 && a.bottom > b.top + 1;
+        const seats = [...document.querySelectorAll('#table .seat')];
+        const board = rect(document.getElementById('community'));
+        const boxes = [];
+        const measurements = seats.map(seat => {
+          const find = selector => seat.querySelector(selector);
+          const card = find(':is(.my-hand,.seat-cards):has(.card)');
+          const body = rect(find('.mechanical-seat-body'));
+          const tongue = rect(find('.mechanical-seat-tongue'));
+          const avatar = rect(find('.mechanical-seat-avatar'));
+          const plate = rect(find('.mechanical-seat-plate'));
+          const edge = seat.dataset.mechanicalEdge;
+          const hand = card && rect(card);
+          const distance = !hand ? 0 : {
+            top: hand.top - tongue.bottom, bottom: tongue.top - hand.bottom,
+            left: hand.left - tongue.right, right: tongue.left - hand.right,
+          }[edge];
+          boxes.push([body, hand].filter(Boolean));
+          const badge = find('.seat-action');
+          const status = rect(badge.parentElement);
+          return {
+            edge,
+            connected: !hand || (Math.abs(distance) <= 3 && !overlaps(hand, body)),
+            inView: body.left >= 0 && body.right <= innerWidth && body.top >= 0 && body.bottom <= innerHeight,
+            touchesBoard: hand && overlaps(hand, board),
+            stacked: avatar.width < plate.width && avatar.top < plate.top && avatar.bottom > plate.top,
+            fasteners: seat.querySelectorAll('.mechanical-seat-fasteners i').length,
+            reels: seat.querySelectorAll('.mechanical-seat-plate .mechanical-reel').length,
+            roles: [...seat.querySelectorAll('.mechanical-seat-role:not([hidden])')].map(role => role.textContent),
+            label: badge.textContent,
+            badgeFits: !badge.textContent || (rect(badge).left >= status.left && rect(badge).right <= status.right),
+            lamp: getComputedStyle(find('.mechanical-seat-lamp')).animationName,
+            finish: getComputedStyle(find('.seat-info')).filter,
+          };
+        });
+        const collision = boxes.some((rects, index) => boxes.slice(index + 1)
+          .some(other => rects.some(a => other.some(b => overlaps(a, b)))));
+        const cardBoxes = [board, ...boxes.map(([, hand]) => hand).filter(Boolean)];
+        const labelsClear = [...document.querySelectorAll('#mechanicalChipLabels [data-amount]')]
+          .every(label => !cardBoxes.some(card => overlaps(card, rect(label))));
+        return { measurements, collision, labelsClear };
+      });
+      const { measurements, collision, labelsClear } = layout;
+      const details = JSON.stringify({ width, ...layout });
+      assert.deepEqual([...new Set(measurements.map(seat => seat.edge))].sort(), ['bottom', 'left', 'right', 'top']);
+      assert.equal(collision, false, details);
+      assert.ok(labelsClear, details);
+      assert.ok(measurements.every(seat => seat.connected && seat.inView && !seat.touchesBoard &&
+        seat.stacked && seat.fasteners === 4 && seat.reels === 5 && seat.badgeFits), details);
+      assert.deepEqual(measurements[0].roles, ['D', 'SB']);
+      assert.deepEqual(measurements[5].roles, ['BB']);
+      assert.equal(measurements[0].lamp, 'mechanicalSeatBreathing');
+      assert.equal(measurements[1].label, '过牌');
+      assert.equal(measurements[3].label, '全下');
+      assert.equal(measurements[6].label, '弃牌');
+      assert.equal(measurements[6].lamp, 'none');
+      assert.match(measurements[6].finish, /saturate/);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function run() {
   const browser = await launchBrowser();
   try {
@@ -257,6 +343,7 @@ async function run() {
           }
           if (target === recycler) for (const node of addedNodes) {
             window.armFoldTrace.push(carried.has(node) ? 'recycle' : 'ungripped');
+            window.dealTraceAtRecycle = window.armDealTrace.slice();
           }
         }
       });
@@ -394,7 +481,7 @@ async function run() {
     await sendAction(folder, 'fold');
     await host.waitForSelector('.mechanical-spark');
     assert.deepEqual(await host.evaluate(() => window.armFoldTrace), ['grip', 'recycle']);
-    assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(6));
+    assert.deepEqual(await host.evaluate(() => window.dealTraceAtRecycle), dealt(6));
     await host.waitForFunction(id => gameState.players.find(player => player.id === id)?.folded, {}, folderId);
 
     await Promise.all([host, guest].map(page => page.evaluate(() => window.resumeMechanical())));
@@ -429,6 +516,9 @@ async function run() {
     const chips = await host.$eval('#mechanicalPayout', el => Number(el.dataset.chips));
     assert.ok(chips >= 12 && chips <= 24);
     await host.waitForSelector('#table .seat.winner .mechanical-reels[data-rolling="up"]');
+    await host.waitForFunction(() => [...document.querySelectorAll('.seat.winner .mechanical-seat-body')]
+      .some(body => body.getAnimations().some(animation =>
+        animation.effect.getKeyframes().some(frame => frame.transform === 'scale(1.05)'))));
     await host.waitForFunction(() => !document.getElementById('mechanicalPayout').hasAttribute('data-chips') &&
       gameState.winners.every(winner => {
         const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === winner.id);
@@ -468,6 +558,7 @@ async function run() {
         const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === player.id);
         return Number(seat.querySelector('.mechanical-reels').dataset.balance) === player.stack;
       })));
+    await verifySeatClamps(browser);
     console.log('PASS mechanical table seats, console, arm parking, wagers, reels, payout flight and settlement');
   } finally {
     await browser.close();
