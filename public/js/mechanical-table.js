@@ -20,6 +20,8 @@ const MechanicalTable = (() => {
   const payoutCanvas = $("mechanicalPayout");
   const payoutContext = payoutCanvas.getContext("2d");
   const moving = $("mechanicalMovingCards");
+  const feedLayer = $("mechanicalBayCards");
+  const recycleLayer = $("mechanicalRecycledCards");
   const labelLayer = $("mechanicalChipLabels");
   const result = $("mechanicalResult");
   const table = $("table");
@@ -43,8 +45,10 @@ const MechanicalTable = (() => {
   const arm = createMechanicalArmActions({
     rig,
     layer: moving,
+    feedLayer,
+    recycleLayer,
     presets: MechanicalArmPresets.active,
-    bay: () => ({ x: bounds.width / 2, y: 43, angle: 0, lift: 4 }),
+    bay: () => ({ x: bounds.width / 2 - 30, y: 43, angle: 0, lift: 4 }),
     home: () => ({ park: true }),
   });
 
@@ -67,6 +71,8 @@ const MechanicalTable = (() => {
     groups.clear();
     labelLayer.replaceChildren();
     moving.replaceChildren();
+    feedLayer.replaceChildren();
+    recycleLayer.replaceChildren();
     table.querySelectorAll(".mechanical-pending").forEach(card => card.classList.remove("mechanical-pending"));
     context.clearRect(0, 0, canvas.width, canvas.height);
     result.hidden = true;
@@ -147,41 +153,62 @@ const MechanicalTable = (() => {
     for (const player of next.players) {
       const previousIndex = state.players.findIndex(previous => previous.id === player.id);
       if (!player.folded || state.players[previousIndex]?.folded !== false) continue;
-      const originals = [...table.querySelectorAll(".seat-" + previousIndex + " :is(.my-hand,.seat-cards) .card")];
+      const originals = [...table.querySelectorAll(".seat-" + previousIndex +
+        " :is(.my-hand,.seat-cards) .card:not(.mechanical-pending)")];
       if (!originals.length) continue;
-      const ghosts = originals.map(original => {
-        const rect = original.getBoundingClientRect();
-        const node = original.cloneNode(true);
-        const at = point(rect);
-        node.classList.remove("mechanical-pending", "seat-card-deal", "card-flip-in");
-        node.classList.add("mechanical-carry");
-        node.style.width = rect.width + "px";
-        placeEffect(node, at);
-        return { node, at };
-      });
-      let spark;
-      const cleanup = () => {
-        for (const { node } of ghosts) node.remove();
-        spark?.remove();
-      };
-      arm.enqueue("fold", {
-        target: ghosts[0].at,
-        onRelease({ target }) {
-          spark = document.createElement("i");
-          spark.className = "mechanical-spark";
-          placeEffect(spark, target);
-          spark.animate([
-            { opacity: 0, scale: .4 }, { opacity: 1, scale: .9, offset: .34 }, { opacity: 0, scale: 1.5 },
-          ], { duration: 340, fill: "forwards" });
-          for (const { node } of ghosts) {
-            node.animate([{ opacity: 1, scale: 1 }, { opacity: 0, scale: .15 }],
-              { duration: 340, easing: "ease-in", fill: "forwards" });
-          }
-        },
-        onComplete: cleanup,
-        onCancel: cleanup,
-      });
+      queueFold(originals);
     }
+  }
+
+  function queueFold(cards) {
+    const rects = cards.map(card => card.getBoundingClientRect());
+    const first = point(rects[0]);
+    const fromAbove = first.y > bounds.height * .64;
+    const fromRight = !fromAbove && first.x < bounds.width / 2;
+    const anchor = fromRight ? rects.at(-1) : rects[0];
+    const at = point(anchor);
+    const bite = (fromAbove ? anchor.height : anchor.width) / 2 + 17;
+    const angle = fromAbove ? 90 : fromRight ? 180 : 0;
+    const radians = angle * Math.PI / 180;
+    const cos = Math.cos(radians), sin = Math.sin(radians);
+    const hand = document.createElement("div");
+    hand.className = "mechanical-carry mechanical-fold-hand";
+    hand.style.rotate = angle + "deg";
+    cards.forEach((card, index) => {
+      const rect = rects[index];
+      const node = card.cloneNode(true);
+      const position = point(rect);
+      node.classList.remove("seat-card-deal", "card-flip-in");
+      node.classList.add("mechanical-carry");
+      node.style.width = rect.width + "px";
+      const dx = position.x - at.x, dy = position.y - at.y;
+      node.style.left = (dx * cos + dy * sin) + "px";
+      node.style.top = (dy * cos - dx * sin) + "px";
+      node.style.rotate = -angle + "deg";
+      hand.append(node);
+    });
+    placeEffect(hand, at);
+    let spark;
+    const cleanup = () => {
+      hand.remove();
+      spark?.remove();
+    };
+    arm.enqueue("fold", {
+      source: { x: at.x - cos * bite, y: at.y - sin * bite, angle, lift: 2 },
+      target: () => ({ x: bounds.width / 2 - 30 - bite, y: 73, angle: 0 }),
+      payload: hand,
+      payloadOffset: { x: bite, y: 0 },
+      onRelease({ pose }) {
+        spark = document.createElement("i");
+        spark.className = "mechanical-spark";
+        placeEffect(spark, pose);
+        spark.animate([
+          { opacity: 0, scale: .25 }, { opacity: .65, scale: .55, offset: .25 }, { opacity: 0, scale: .83 },
+        ], { duration: 185, fill: "forwards" });
+      },
+      onLand: cleanup,
+      onCancel: cleanup,
+    });
   }
 
   function placeEffect(node, { x, y }) {

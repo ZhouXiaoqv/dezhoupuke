@@ -140,7 +140,14 @@ async function verifyMovingRig(page) {
     rig.resize(900, 540);
     const motion = rig.motion;
     const gather = () => {
-      const cylinder = svg.querySelector('#testMovingArmHydraulic');
+      const sleeves = [...svg.querySelectorAll('[data-arm-sleeve]')].sort((a, b) =>
+        Number(a.dataset.armSleeve) - Number(b.dataset.armSleeve)
+      ).map(node => {
+        const transform = node.transform.baseVal;
+        return transform.numberOfItems ? transform.getItem(0).matrix.e : 0;
+      });
+      const geometry = [...svg.querySelectorAll('.arm-segment :is(rect,path)')].map(part =>
+        ['x', 'y', 'width', 'height', 'd'].map(attribute => part.getAttribute(attribute)));
       const rails = [...svg.querySelectorAll('.arm-parallel-link')].map(rail => {
         const transform = rail.transform.baseVal;
         const { e: x, f: y } = transform.getItem(0).matrix;
@@ -148,16 +155,14 @@ async function verifyMovingRig(page) {
       });
       const angle = selector => svg.querySelector(selector).transform.baseVal.getItem(0).angle;
       return {
-        piston: Number(cylinder.children[0].getAttribute('width')),
-        barrel: Number(cylinder.children[1].getAttribute('width')),
-        rails,
+        sleeves, geometry, rails,
         ratio: angle('.arm-bearing-rotor') - angle('.arm-bearing-dial'),
       };
     };
-    motion.reset({ x: 522, y: 40, angle: 24, lift: 0 });
+    motion.reset({ park: true });
     const folded = gather();
-    motion.move({ x: 645, y: 410, angle: 65 }, { duration: 300, wristAngle: 0 }, 0);
     motion.slideTo(100, 125, 0);
+    motion.move({ x: 1680, y: 410, angle: 65 }, { duration: 300, wristAngle: 0 }, 0);
     const reached = motion.tick(400);
     const extended = gather();
     const gripper = svg.querySelector('.arm-gripper');
@@ -175,18 +180,23 @@ async function verifyMovingRig(page) {
     const released = Number(gripper.dataset.aperture);
     rig.hardware({ stage: 'returning' }, 650);
     motion.tick(950);
+    const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
     return { folded, extended, reached: reached.pose.angle, slide: reached.offset, feeding,
+      lengths: [distance(reached.joints[0], reached.joints[1]), distance(reached.joints[1], reached.joints[2]),
+        distance(reached.joints[2], reached.joints[3])],
       grasped, stroke, released, parked: Number(gripper.dataset.aperture), retracted: Number(pin.dataset.stroke) };
   });
-  assert.ok(Math.abs(result.extended.piston - result.folded.piston) > 15);
-  assert.equal(result.extended.barrel, result.folded.barrel);
+  assert.deepEqual(result.folded.sleeves, [0, 2, 6]);
+  assert.deepEqual(result.extended.sleeves.map(Math.round), [0, 142, 284]);
+  assert.deepEqual(result.extended.geometry, result.folded.geometry);
+  assert.deepEqual(result.lengths.map(Math.round), [438, 76, 28]);
   for (const { rails } of [result.folded, result.extended]) {
     assert.ok(Math.abs(rails[0].angle - rails[1].angle) < .001);
     assert.ok(Math.abs(Math.hypot(rails[0].x - rails[1].x, rails[0].y - rails[1].y) - 26) < .001);
   }
   assert.notEqual(result.folded.ratio, result.extended.ratio);
   assert.equal(result.reached, 0);
-  assert.equal(result.slide, 12);
+  assert.equal(result.slide, 90);
   assert.deepEqual(result.feeding, ['open', 'true', 80]);
   assert.deepEqual([result.grasped, result.released, result.parked], [15, 100, 30]);
   assert.deepEqual([result.stroke, result.retracted], [3, 0]);
@@ -221,16 +231,39 @@ async function run() {
     await host.evaluate(() => {
       const base = document.getElementById('mechanicalBase');
       const payloads = document.getElementById('mechanicalMovingCards');
+      const feed = document.getElementById('mechanicalBayCards');
+      const recycler = document.getElementById('mechanicalRecycledCards');
+      const fed = new WeakSet(), carried = new WeakSet();
       window.armDealTrace = [];
+      window.armFoldTrace = [];
       window.consolePhaseTrace = [];
       const observer = new MutationObserver(records => {
-        for (const { target, attributeName } of records) {
+        for (const { target, attributeName, addedNodes } of records) {
           if (attributeName === 'data-hatch' && target.dataset.hatch === 'open') window.armDealTrace.push('open');
-          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') window.armDealTrace.push('slide');
+          if (target === feed) for (const node of addedNodes) {
+            if (node.dataset?.armMount === 'staged') {
+              fed.add(node);
+              window.armDealTrace.push('feed');
+            }
+          }
+          if (target === payloads) for (const node of addedNodes) {
+            if (node.dataset?.armMount !== 'carried') continue;
+            carried.add(node);
+            if (node.classList.contains('mechanical-fold-hand')) window.armFoldTrace.push('grip');
+            else window.armDealTrace.push(fed.has(node) ? 'grip' : 'unfed');
+          }
+          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') {
+            window.armDealTrace.push(carried.has(target) ? 'slide' : 'ungripped');
+          }
+          if (target === recycler) for (const node of addedNodes) {
+            window.armFoldTrace.push(carried.has(node) ? 'recycle' : 'ungripped');
+          }
         }
       });
       observer.observe(base, { attributeFilter: ['data-hatch'] });
-      observer.observe(payloads, { subtree: true, attributeFilter: ['data-arm-flight'] });
+      observer.observe(feed, { childList: true });
+      observer.observe(recycler, { childList: true });
+      observer.observe(payloads, { subtree: true, childList: true, attributeFilter: ['data-arm-flight'] });
       Net.on('game:state', state => {
         const phase = document.getElementById('mechanicalPhaseLabel');
         if (window.consolePhaseTrace.at(-1)?.phase !== state.phase) {
@@ -272,7 +305,8 @@ async function run() {
       assert.ok(table.backs >= 4);
       await page.waitForFunction(() => !document.querySelector('.mechanical-pending'));
     }
-    assert.deepEqual(await host.evaluate(() => window.armDealTrace), Array.from({ length: 6 }, () => ['open', 'slide']).flat());
+    const dealt = count => Array.from({ length: count }, () => ['open', 'feed', 'grip', 'slide']).flat();
+    assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(6));
     const opening = await host.evaluate(() => window.openingReels);
     assert.equal(opening.length, 3);
     assert.ok(opening.every(counter => counter.digits === 5 && counter.windows));
@@ -359,6 +393,8 @@ async function run() {
     const folderId = await folder.evaluate(() => Net.playerId);
     await sendAction(folder, 'fold');
     await host.waitForSelector('.mechanical-spark');
+    assert.deepEqual(await host.evaluate(() => window.armFoldTrace), ['grip', 'recycle']);
+    assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(6));
     await host.waitForFunction(id => gameState.players.find(player => player.id === id)?.folded, {}, folderId);
 
     await Promise.all([host, guest].map(page => page.evaluate(() => window.resumeMechanical())));
@@ -416,7 +452,7 @@ async function run() {
     assert.equal(receipt.exposedHands, 4);
     assert.ok(receipt.winner?.includes('+'));
     await host.waitForFunction(() => !document.querySelector('#community .mechanical-pending'));
-    assert.deepEqual(await host.evaluate(() => window.armDealTrace), Array.from({ length: 11 }, () => ['open', 'slide']).flat());
+    assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(11));
     const endedHand = await host.evaluate(() => gameState.handNum);
     await host.evaluate(() => Net.send('game:nextHand'));
     await host.waitForFunction(hand => gameState?.handNum === hand + 1 && gameState.phase === 'preflop', {}, endedHand);

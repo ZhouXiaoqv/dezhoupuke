@@ -8,10 +8,9 @@ const MechanicalArmPresets = (() => {
     release: slide,
     home,
     phases: [
-      { kind: "pickup", duration: 120, dip: 4, hatch: true, feed: "card" },
-      { kind: "travel", duration: 300, easing: sweep, bend: 33,
-        lift: 27, shortOf: 59, releaseAt: 0.88 },
-      { kind: "brake", duration: 86, rebound: 1.5 },
+      { kind: "pickup", duration: 220, grip: 80, dip: 4, hatch: true },
+      { kind: "travel", duration: 260, easing: sweep, bend: 33,
+        lift: 27, shortOf: 59, releaseAt: 0.93 },
     ],
   };
   return {
@@ -20,13 +19,13 @@ const MechanicalArmPresets = (() => {
       reveal: { ...deal, lamp: "#dfa054" },
       fold: {
         lamp: "#e38b4f",
-        release: { mode: "none" },
+        release: { mode: "recycle", duration: 190 },
         home,
         phases: [
-          { kind: "travel", duration: 370, easing: [0.25, 0.85, 0.35, 1], bend: 38, lift: 16 },
-          { kind: "brake", duration: 90, rebound: 1.3 },
+          { kind: "pickup", duration: 290, grip: 80 },
+          { kind: "travel", duration: 270, easing: [0.25, 0.85, 0.35, 1], jointPath: true, lift: 10 },
           { kind: "release" },
-          { kind: "hold", duration: 340 },
+          { kind: "hold", duration: 105 },
         ],
       },
     },

@@ -266,7 +266,7 @@ Net.on("game:handStart", (d) => {
   hideShowHandBar();
   if (typeof hideNextHandBar === "function") hideNextHandBar();
   MechanicalTable.startHand(d.handNum);
-  toast(`第 ${d.handNum} 手开始`);
+  if (!MechanicalTable.enabled()) toast(`第 ${d.handNum} 手开始`);
   if (!MechanicalTable.animatesArm()) {
     for (let i = 0; i < 4; i++) setTimeout(() => SFX.deal(), i * 120);
   }

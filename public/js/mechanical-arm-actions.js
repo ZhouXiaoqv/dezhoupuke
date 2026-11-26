@@ -1,7 +1,7 @@
 /**
  * @typedef {{x:number,y:number,angle?:number,lift?:number}} ArmTarget
  * @typedef {{pose:ArmTarget,socket:ArmTarget,tangent:{x:number,y:number},element:HTMLElement|null,
- *   target:ArmTarget,mode:"slide"|"drop"|"none"}} ArmRelease
+ *   target:ArmTarget,mode:"slide"|"drop"|"recycle"|"none"}} ArmRelease
  * @typedef {{target:ArmTarget|function():ArmTarget,source?:ArmTarget|function():ArmTarget,valid?:function():boolean,
  *   payload?:HTMLElement|function():HTMLElement,
  *   payloadOffset?:{x:number,y:number}|function(HTMLElement):{x:number,y:number},
@@ -15,7 +15,7 @@
  * The optional release hook can return true to take ownership of the payload.
  * onComplete marks the end of arm motion for the task. onLand marks payload arrival.
  */
-function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
+function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, presets, bay, home }) {
   const { motion, hardware } = rig;
   const { easing, interpolate, angleDelta } = MechanicalArmMotion;
   const queue = [];
@@ -64,19 +64,34 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       y: frame.pose.y + offset.x * sin + offset.y * cos };
   }
 
-  function aimCarriage(now) {
-    const target = resolve(active.task.target);
-    motion.slideTo((target.x - bay().x) * .12, 125, now);
-    active.slid = true;
+  function feed(source) {
+    const element = resolve(active.task.payload);
+    active.staged = element;
+    if (!element || !feedLayer) return;
+    element.classList.add("mechanical-carry");
+    element.dataset.armMount = "staged";
+    place(element, payloadPose({ pose: source }, element));
+    feedLayer.append(element);
+    active.feedMotion = element.animate([
+      { translate: "0 -23px", clipPath: "inset(100% 0 0)", opacity: 0 },
+      { translate: "0 0", clipPath: "inset(40% 0 0)", opacity: 1 },
+    ], { duration: 80, easing: "cubic-bezier(.22,.63,.30,1)", fill: "forwards" });
   }
 
-  function grab(frame) {
-    const element = resolve(active.task.payload);
+  function grab(frame, source, fromBay) {
+    const element = fromBay ? active.staged : resolve(active.task.payload);
     if (!element) return;
+    if (direction(frame.pose, source).distance > 6) return;
+    active.feedMotion?.cancel();
+    active.staged = null;
     active.payload = element;
     element.classList.add("mechanical-carry");
+    element.dataset.armMount = "carried";
     place(element, payloadPose(frame, element));
     layer.append(element);
+    if (fromBay && feedLayer) {
+      element.animate([{ clipPath: "inset(40% 0 0)" }, { clipPath: "inset(0)" }], { duration: 75 });
+    }
     active.task.onGrab?.(element);
   }
 
@@ -92,14 +107,24 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     const { task, preset, payload } = active;
     const event = feedback(frame, resolve(task.target));
     active.payload = null;
-    cue("release", now, { hatch: false, eject: !!payload && event.mode !== "none" });
+    const recycling = event.mode === "recycle";
+    cue(recycling ? "recycle" : "release", now, { hatch: false, eject: !!payload && !recycling && event.mode !== "none" });
     if (task.onRelease?.(event) === true) return;
     if (!payload || event.mode === "none") {
       payload?.remove();
       task.onLand?.();
       return;
     }
+    delete payload.dataset.armMount;
     payload.dataset.armFlight = event.mode;
+    if (recycling) {
+      recycleLayer?.append(payload);
+      payload.animate([
+        { scale: 1, opacity: 1 },
+        { scale: .62, opacity: .9, offset: .34 },
+        { scale: .08, opacity: 0 },
+      ], { duration: preset.release.duration, easing: "ease-in", fill: "forwards" });
+    }
     flights.push({ task, payload, event, start: now, settings: preset.release, curve: easing(preset.release.easing) });
   }
 
@@ -113,6 +138,14 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
         continue;
       }
       const progress = Math.min(1, (now - start) / settings.duration);
+      if (event.mode === "recycle") {
+        if (progress === 1) {
+          payload.remove();
+          task.onLand?.();
+          flights.splice(index, 1);
+        }
+        continue;
+      }
       const t = curve(progress);
       const target = resolve(task.target);
       const vector = direction(event.pose, target);
@@ -137,33 +170,38 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
 
   const primitives = {
     pickup(phase, now) {
-      const fromBay = !active.chained && !active.task.source && phase.hatch;
-      let contact = now + (active.chained ? phase.chainedDuration ?? 25 : phase.duration + motion.followDelay);
-      if (!active.chained) {
-        motion.move(resolve(active.task.source) ?? bay(), { ...phase, easing: [0.4, 0, 0.2, 1] }, now);
-      }
+      const fromBay = !active.task.source && phase.hatch;
+      const sourceAt = () => ({ angle: 0, ...(resolve(active.task.source) ?? bay()) });
+      const grip = phase.grip ?? 80;
+      const duration = Math.max(1, phase.duration - motion.followDelay);
+      motion.move(sourceAt(), { ...phase, duration, aim: fromBay ? "close" : true, jointPath: true,
+        easing: [0.4, 0, 0.2, 1] }, now);
+      let contact = now + duration + motion.followDelay;
       let feeding = false, touched = false;
       return {
-        duration: contact - now + 50,
-        advance(time, frame, step) {
+        duration: contact - now + grip,
+        advance(time, _frame, step) {
           if (fromBay && !feeding && time >= contact - 80) {
             feeding = true;
-            cue("feed", time, { hatch: true, feed: phase.feed === "card" });
+            cue("feed", time, { hatch: true, feed: true });
+            feed(sourceAt());
             contact = Math.max(contact, time + 80);
-            step.until = contact + 50;
+            step.until = contact + grip;
           }
           if (!touched && time >= contact) {
             touched = true;
-            step.until = time + 50;
-            cue("grasp", time);
-            grab(frame);
+            step.until = time + grip;
+            cue("grasp", time, { feed: fromBay });
           }
         },
-        arrive(time) { cue("carry", time, { hatch: false }); },
+        arrive(time, frame) {
+          grab(frame, sourceAt(), fromBay);
+          active.failed = !active.payload;
+          cue("carry", time, { hatch: false });
+        },
       };
     },
     travel(phase, now) {
-      if (!active.slid) aimCarriage(now);
       const from = motion.pose;
       const target = resolve(active.task.target);
       const vector = direction(from, target);
@@ -173,10 +211,11 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       };
       const wristAngle = resolve(active.task.wristAngle) ?? phase.wristAngle ?? phase.angle ?? target.angle ??
         Math.atan2(vector.y, vector.x) * 180 / Math.PI;
-      const bend = active.chained ? phase.chainedBend ?? phase.bend : phase.bend;
       const controls = typeof phase.controls === "function" ? phase.controls(from, end) : phase.controls;
-      motion.move(end, { ...phase, wristAngle, controls: controls ?? pathControls(from, end, bend) }, now);
-      const releaseTime = phase.releaseAt === undefined ? null : now + phase.duration * phase.releaseAt + motion.followDelay;
+      const duration = Math.max(1, phase.duration - motion.followDelay);
+      const aim = active.preset.release.mode === "recycle" ? "close" : true;
+      motion.move(end, { ...phase, duration, aim, wristAngle, controls: controls ?? pathControls(from, end, phase.bend) }, now);
+      const releaseTime = phase.releaseAt === undefined ? null : now + duration * phase.releaseAt + motion.followDelay;
       return { duration: Math.max(phase.duration, releaseTime ? releaseTime - now : 0), releaseTime };
     },
     brake(phase, now) {
@@ -194,15 +233,17 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
   };
 
   function nextPhase(now, frame) {
-    while (active.phaseIndex < active.preset.phases.length) {
+    while (!active.failed && active.phaseIndex < active.preset.phases.length) {
       const phase = active.preset.phases[active.phaseIndex++];
       const step = primitives[phase.kind](phase, now, frame);
       if (!step.duration) continue;
       active.step = { ...step, until: now + step.duration };
       return;
     }
+    active.staged?.remove();
     active.payload?.remove();
-    active.task.onComplete?.();
+    if (active.failed) active.task.onCancel?.();
+    else active.task.onComplete?.();
     lastPreset = active.preset;
     active = null;
   }
@@ -214,8 +255,7 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
         task.onCancel?.();
         continue;
       }
-      active = { task, preset, phaseIndex: 0,
-        chained: !!preset.chain && lastPreset?.chain === preset.chain && !returning };
+      active = { task, preset, phaseIndex: 0 };
       returning = false;
       cue(preset.phases[0]?.kind === "pickup" ? "prepare" : "aim", now, { hatch: false, press: true });
       nextPhase(now, frame);
@@ -237,6 +277,7 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
     }
     let frame = motion.tick(now);
     if (active?.task.valid?.() === false) {
+      active.staged?.remove();
       active.payload?.remove();
       const flightIndex = flights.findIndex(flight => flight.task === active.task);
       if (flightIndex >= 0) {
@@ -290,6 +331,7 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       tasks.add(flight.task);
     }
     if (active) {
+      active.staged?.remove();
       active.payload?.remove();
       tasks.add(active.task);
     }
