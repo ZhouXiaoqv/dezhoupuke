@@ -347,12 +347,12 @@
 .mechanical-seat-plate {
   position: relative;
   display: grid;
-  grid-template-rows: 15px 14px auto;
+  grid-template-rows: 15px 13px auto;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  row-gap: 2px;
+  row-gap: 1px;
   width: 100%;
-  padding: 7px 10px 5px;
+  padding: 12px 10px 3px;
   border: 1px solid #9c896f;
   border-radius: 8px;
   background:
@@ -395,33 +395,36 @@
 .mechanical-seat-roles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 0 3px;
+  justify-self: center;
+  width: calc(100% - 10px);
+  height: 15px;
+  overflow: hidden;
+  border: 1px solid #b3a48e;
+  border-radius: 3px;
+  background: linear-gradient(#d5ccbd, #e9e1d3 76%);
+  box-shadow: inset 0 1px 2px #776b5633, 0 1px #fff5e2;
 }
 .mechanical-seat-role {
   display: grid;
   place-items: center;
-  height: 15px;
-  border: 1px solid #625b51;
-  border-radius: 3px;
-  background: linear-gradient(#3e3a34, #514c44 62%, #3e3830);
-  box-shadow: inset 0 2px 2px #29241f99, 0 1px #fff2dc;
-  color: #a79d8b;
-  font: 850 10px/1 "JetBrains Mono", monospace;
-  transition: color 120ms, border-color 120ms, box-shadow 120ms;
+  color: #7b7164;
+  text-shadow: 0 1px #f8f1e1;
+  font: 750 9px/1 "JetBrains Mono", monospace;
+  transition: color 120ms;
 }
-.mechanical-seat-role[data-seat-role="dealerIdx"] { --role-light: #fbedd2; --role-edge: #ae955e; --role-glow: #ffe5a9; }
-.mechanical-seat-role[data-seat-role="sbIdx"] { --role-light: #b6d7e6; --role-edge: #5e849d; --role-glow: #9ac9e7; }
-.mechanical-seat-role[data-seat-role="bbIdx"] { --role-light: #ffcf7e; --role-edge: #ab7541; --role-glow: #f5bc67; }
+.mechanical-seat-role + .mechanical-seat-role { border-inline-start: 1px solid #a89b8559; }
+.mechanical-seat-role[data-seat-role="dealerIdx"] { --role-light: #e7d3a1; }
+.mechanical-seat-role[data-seat-role="sbIdx"] { --role-light: #b6cdd8; }
+.mechanical-seat-role[data-seat-role="bbIdx"] { --role-light: #e9be87; }
 .mechanical-seat-role[data-lit] {
-  background: linear-gradient(#fff8df99, transparent 48%), var(--role-light);
-  border-color: var(--role-edge);
-  box-shadow: inset 0 -2px 3px #84634155, 0 0 4px var(--role-glow), 0 1px #fff2dc;
-  color: #352b22;
+  background: linear-gradient(#fffdf085, transparent 60%, #6656421a), var(--role-light);
+  box-shadow: inset 0 -1px 2px #68553e36;
+  color: #332a23;
+  text-shadow: none;
   animation: mechanicalRoleLatch 155ms ease-out;
 }
 @keyframes mechanicalRoleLatch {
-  42% { transform: translateY(1px); }
+  from { filter: brightness(.9) saturate(.75); }
 }
 #table-container.mechanical-table #table .seat-player-name {
   max-width: 100%;
