@@ -233,15 +233,17 @@ const MechanicalTable = (() => {
   function createSeatInfo() {
     const info = document.createElement("div");
     info.className = "seat-info";
+    // Start halfway along the top edge and follow the avatar's inward bevel clockwise.
+    const clockOutline = "M22.5 1.5 H36 A7.5 7.5 0 0 1 43.5 9 V36 A7.5 7.5 0 0 1 36 43.5 " +
+      "H9 A7.5 7.5 0 0 1 1.5 36 V9 A7.5 7.5 0 0 1 9 1.5 Z";
     info.innerHTML = `
       <span class="mechanical-seat-tongue" aria-hidden="true"></span>
       <div class="mechanical-seat-body">
         <div class="mechanical-seat-avatar">
           <span class="seat-medallion" aria-hidden="true"></span>
-          <svg class="mechanical-seat-clock" viewBox="0 0 58 58" aria-hidden="true">
-            <circle class="mechanical-clock-ticks" cx="29" cy="29" r="27" pathLength="100"/>
-            <circle class="mechanical-clock-track" cx="29" cy="29" r="25"/>
-            <circle class="mechanical-clock-needle" cx="29" cy="29" r="25" pathLength="100"/>
+          <svg class="mechanical-seat-clock" viewBox="0 0 45 45" aria-hidden="true">
+            <path class="mechanical-clock-track" d="${clockOutline}"/>
+            <path class="mechanical-clock-needle" d="${clockOutline}" pathLength="100"/>
           </svg>
         </div>
         <div class="mechanical-seat-plate">
@@ -321,7 +323,8 @@ const MechanicalTable = (() => {
       }
       return;
     }
-    dial.style.setProperty("--clock-offset", (100 * (1 - Math.min(1, remaining / durationMs))).toFixed(2));
+    const elapsed = 1 - Math.min(1, remaining / durationMs);
+    dial.style.setProperty("--clock-offset", (-100 * elapsed).toFixed(2));
     const second = Math.ceil(remaining / 1000);
     if (second === turnClock.second) return;
     turnClock.second = second;
