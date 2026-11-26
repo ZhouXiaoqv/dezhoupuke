@@ -28,14 +28,12 @@ function register(ws, ctx = {}) {
     ws._currentRoom.handleShowHandChoice(ws._playerId, !!data?.show);
   });
 
-  ws._on('game:nextHand', () => {
-    if (!isPlayer()) return;
-    if (!ws._currentRoom || ws._currentRoom.hostId !== ws._playerId) return;
-    if (ws._currentRoom.nextHandTimer) {
-      clearTimeout(ws._currentRoom.nextHandTimer);
-      ws._currentRoom.nextHandTimer = null;
-      if (ws._currentRoom.canStartHand()) ws._currentRoom.startGame(ws._playerId);
-    }
+  ws._on('game:receiptReady', (data) => {
+    if (isPlayer()) ws._currentRoom?.handleReceiptReady(ws._playerId, data?.receiptId);
+  });
+
+  ws._on('game:nextHand', (data) => {
+    if (isPlayer()) ws._currentRoom?.handleNextHand(ws._playerId, data?.receiptId);
   });
 }
 

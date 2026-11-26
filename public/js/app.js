@@ -196,7 +196,7 @@ document.addEventListener("visibilitychange", async () => {
       MechanicalTable.setStyle(d.resume.tableStyle);
       $("roomCodeDisplay").textContent = roomCode;
       $("spectatorBadge").classList.toggle("visible", isSpectator);
-      showScreen(d.resume.gameRunning ? "table" : "roomScreen");
+      showScreen(d.resume.gameRunning || d.resume.receiptPending ? "table" : "roomScreen");
     }
   });
 

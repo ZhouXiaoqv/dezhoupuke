@@ -556,7 +556,8 @@ async function run() {
     await host.waitForFunction(() => !document.querySelector('#community .mechanical-pending'));
     assert.deepEqual(await host.evaluate(() => window.armDealTrace), dealt(11));
     const endedHand = await host.evaluate(() => gameState.handNum);
-    await host.evaluate(() => Net.send('game:nextHand'));
+    await host.waitForSelector('#mechanicalResult .mechanical-receipt-next:not(:disabled)');
+    await host.click('#mechanicalResult .mechanical-receipt-next');
     await host.waitForFunction(hand => gameState?.handNum === hand + 1 && gameState.phase === 'preflop', {}, endedHand);
     await host.waitForSelector('#mechanicalHandReels[data-rolling="up"]');
     await host.waitForFunction(hand => {

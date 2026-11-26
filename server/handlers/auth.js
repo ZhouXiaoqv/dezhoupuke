@@ -29,6 +29,7 @@ function register(ws, ctx) {
       code: room.code,
       isSpectator: !!isSpectator,
       gameRunning: !!room.gameRunning,
+      receiptPending: !!room.nextReceipt,
       tableStyle: room.tableStyle,
     };
   }
@@ -88,6 +89,7 @@ function register(ws, ctx) {
           : null,
       },
     }));
+    ws._currentRoom?.sendPendingReceipt(ws);
   }
 
   // Expose helpers for other handlers

@@ -92,6 +92,7 @@ function register(ws, ctx) {
     ws.send(JSON.stringify({
       type: 'room:joined', data: { code, tableStyle: result.room.tableStyle },
     }));
+    result.room.sendPendingReceipt(ws);
   });
 
   ws._on('room:spectate', (data) => {
@@ -118,6 +119,7 @@ function register(ws, ctx) {
     ws.send(JSON.stringify({
       type: 'room:joined', data: { code, isSpectator: true, tableStyle: result.room.tableStyle },
     }));
+    result.room.sendPendingReceipt(ws);
   });
 
   ws._on('room:leave', () => {
@@ -139,7 +141,7 @@ function register(ws, ctx) {
 
   ws._on('room:start', () => {
     if (!ws._currentUser || !userStore.isPlayer(ws._currentUser.username)) return;
-    if (!ws._currentRoom) return;
+    if (!ws._currentRoom || ws._currentRoom.nextReceipt) return;
     ws._currentRoom.startGame(ws._playerId);
   });
 

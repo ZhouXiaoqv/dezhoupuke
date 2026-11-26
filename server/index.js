@@ -157,6 +157,7 @@ wsManager.wss.on('connection', (ws) => {
     if (!ws._playerId) return;
     wsManager.playerSockets.delete(ws._playerId);
     if (!ws._currentRoom) return;
+    if (!ws.isSpectator) ws._currentRoom.skipReceiptView(ws._playerId, ws);
 
     if (ws.isSpectator) {
       wsManager.schedulePendingDisconnect(ws._playerId, ws._currentRoom, true, ws);

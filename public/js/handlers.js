@@ -355,7 +355,17 @@ Net.on("game:waitingForNext", (d) => {
   if (typeof clearMyHandView === "function") clearMyHandView();
   hideShowHandBar();
   $("settlementOverlay").classList.remove("active");
-  showNextHandBar(d.nextHandDelay || 15);
+  if (MechanicalTable.enabled()) {
+    hideNextHandBar();
+    MechanicalTable.syncNextHand(d);
+  } else showNextHandBar(d.nextHandDelay || 15);
+});
+
+Net.on("game:receipt", ({ snapshot, settlement, hostId, ...timing }) => {
+  isHost = hostId === Net.playerId;
+  if (!$("table-container").classList.contains("active")) showScreen("table");
+  MechanicalTable.restoreReceipt(snapshot, { ...settlement, receiptId: timing.receiptId });
+  MechanicalTable.syncNextHand(timing);
 });
 
 if ($("scoreAlertClose")) {
@@ -369,6 +379,7 @@ Net.on("disconnect", () => {
   $("connDot").className = "connection-dot offline";
   if (MechanicalTable.enabled()) {
     MechanicalTable.syncTurn(null);
+    MechanicalTable.refreshNextHand();
     hideActions();
   }
   if (!appInBackground) {

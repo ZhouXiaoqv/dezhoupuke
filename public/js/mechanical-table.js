@@ -58,6 +58,7 @@ const MechanicalTable = (() => {
   const seats = new Map();
   const wagerZones = new Map();
   let sweep, frame, state, handToDeal, finalizedHand, bounds, center, latestReceipt;
+  let receiptCountdown;
   let cardBatch;
   let turnClock, submittedDeadline;
   let wellSize;
@@ -110,7 +111,7 @@ const MechanicalTable = (() => {
     MechanicalReels.set(potReels, 0, { instant: true, minDigits: 5, label: "底池" });
     potMeter.removeAttribute("title");
     chipsDirty = true;
-    dismissReceipt(true);
+    clearReceipt();
   }
 
   function reset() {
@@ -1313,46 +1314,104 @@ const MechanicalTable = (() => {
   }
 
   function presentReceipt(ticket, carrier) {
+    if (ticket !== latestReceipt || ticket.presented) {
+      carrier?.remove();
+      return;
+    }
     const { paper } = ticket;
     const from = carrier?.getBoundingClientRect();
-    dismissReceipt(true);
     ticket.presented = true;
     paper.style.transform = "";
-    paper.querySelector("button").addEventListener("click", () => dismissReceipt());
     result.replaceChildren(paper);
     carrier?.remove();
     result.hidden = false;
-    if (!from?.width || reduced.matches) return;
+    if (!from?.width || reduced.matches) {
+      finishReceiptPresentation(ticket);
+      return;
+    }
     const to = paper.getBoundingClientRect();
     const dx = from.left + (from.width - to.width) / 2 - to.left;
     const dy = from.top + (from.height - to.height) / 2 - to.top;
-    paper.animate([
+    ticket.animation = paper.animate([
       { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width})` },
       { transform: "translate(0, 0) scale(1)" },
     ], { duration: 280, easing: "cubic-bezier(.22,.76,.29,1)" });
+    ticket.animation.onfinish = () => finishReceiptPresentation(ticket);
   }
 
-  function dismissReceipt(instant = false) {
-    const paper = result.firstElementChild;
-    if (!paper) return;
-    const remove = () => {
-      paper.remove();
-      result.hidden = !result.firstElementChild;
-    };
-    if (instant || reduced.matches) {
-      remove();
+  function reportReceiptReady(ticket) {
+    if (ticket.ready && ticket.id && !isSpectator && Net.connected) Net.send("game:receiptReady", { receiptId: ticket.id });
+  }
+
+  function finishReceiptPresentation(ticket) {
+    if (ticket !== latestReceipt || ticket.ready) return;
+    ticket.ready = true;
+    ticket.animation = null;
+    reportReceiptReady(ticket);
+    refreshNextHand();
+  }
+
+  function showReceiptInstantly(ticket) {
+    const payout = payouts.get(ticket.handNum);
+    if (payout) {
+      finishPayout(payout, true);
+      drawPayouts(performance.now());
+    }
+    if (ticket.presented) {
+      ticket.animation?.finish();
+      finishReceiptPresentation(ticket);
+    } else presentReceipt(ticket);
+  }
+
+  function clearReceipt() {
+    if (receiptCountdown) clearInterval(receiptCountdown);
+    receiptCountdown = null;
+    latestReceipt = null;
+    result.replaceChildren();
+    result.hidden = true;
+  }
+
+  function refreshNextHand() {
+    const ticket = latestReceipt;
+    if (!ticket?.ready) return;
+    const remaining = ticket.endsAt === undefined ? null : Math.max(0, Math.ceil((ticket.endsAt - performance.now()) / 1000));
+    const host = isHost && !isSpectator;
+    const starting = remaining === 0 && ticket.canStart !== false;
+    ticket.button.disabled = !host || starting || !Net.connected;
+    if (starting) ticket.button.textContent = "正在开局…";
+    else if (remaining === 0 && !host) ticket.button.textContent = "等待玩家入座";
+    else {
+      const label = host ? "开始下一手" : "等待房主开始";
+      ticket.button.textContent = remaining > 0 ? `${label} · ${remaining}s` : label;
+    }
+    if (remaining === 0 && receiptCountdown) {
+      clearInterval(receiptCountdown);
+      receiptCountdown = null;
+    }
+  }
+
+  function syncNextHand({ receiptId, remainingMs, nextHandDelay, canStart }) {
+    const ticket = latestReceipt;
+    if (!ticket || ticket.id !== receiptId) return;
+    ticket.canStart = canStart;
+    const delay = receiptId ? remainingMs : nextHandDelay * 1000;
+    if (Number.isFinite(delay)) {
+      ticket.endsAt = Math.min(ticket.endsAt ?? Infinity, performance.now() + delay);
+      if (!receiptCountdown) receiptCountdown = setInterval(refreshNextHand, 200);
+    }
+    refreshNextHand();
+  }
+
+  function restoreReceipt(snapshot, settlement) {
+    if (latestReceipt?.id === settlement.receiptId) {
+      reportReceiptReady(latestReceipt);
       return;
     }
-    const pose = getComputedStyle(paper).transform;
-    paper.inert = true;
-    paper.getAnimations().forEach(animation => animation.cancel());
-    paper.animate([
-      { transform: pose, opacity: 1 },
-      { transform: "translateY(30px) rotate(3deg) scale(.95)", opacity: 0 },
-    ], { duration: 180, fill: "forwards", easing: "ease-in" }).onfinish = remove;
+    if (state?.handNum !== snapshot.handNum) renderGame(snapshot);
+    showResult(snapshot, settlement, true);
   }
 
-  function showResult(snapshot, settlement = {}) {
+  function showResult(snapshot, settlement = {}, instant = false) {
     if (!snapshot || !container.classList.contains("active") || latestReceipt?.handNum === snapshot.handNum) return;
     if (!payouts.has(snapshot.handNum)) {
       finalizedHand = snapshot.handNum;
@@ -1361,10 +1420,16 @@ const MechanicalTable = (() => {
       groups.clear();
       syncLabels();
     }
-    const ticket = latestReceipt = { handNum: snapshot.handNum, paper: printReceipt(snapshot, settlement) };
-    if (animatesArm() && (bounds || measure())) {
+    const paper = printReceipt(snapshot, settlement);
+    const button = paper.querySelector(".mechanical-receipt-next");
+    const ticket = latestReceipt = { handNum: snapshot.handNum, id: settlement.receiptId, paper, button };
+    button.addEventListener("click", () => {
+      if (ticket === latestReceipt && ticket.ready && isHost && !isSpectator) Net.send("game:nextHand", { receiptId: ticket.id });
+    });
+    if (!instant && !document.hidden && animatesArm() && (bounds || measure())) {
       let length;
       arm.enqueue("receipt", {
+        valid: () => latestReceipt === ticket && !ticket.presented,
         target: printOutlet.pose,
         ready: () => !payouts.has(ticket.handNum),
         outlet: printOutlet,
@@ -1380,7 +1445,7 @@ const MechanicalTable = (() => {
           if (latestReceipt === ticket && !ticket.presented) presentReceipt(ticket);
         },
       });
-    } else presentReceipt(ticket);
+    } else showReceiptInstantly(ticket);
     nextFrame();
   }
   const geometryObserver = new ResizeObserver(() => {
@@ -1395,7 +1460,10 @@ const MechanicalTable = (() => {
   geometryObserver.observe(container);
 
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) finishCardBatch(cardBatch);
+    if (document.hidden) {
+      finishCardBatch(cardBatch);
+      if (latestReceipt && !latestReceipt.ready) showReceiptInstantly(latestReceipt);
+    } else refreshNextHand();
   });
 
   reduced.addEventListener("change", () => {
@@ -1408,5 +1476,5 @@ const MechanicalTable = (() => {
   });
 
   return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
-    cardBack, communitySlot, beforeRender, updateStack, render, showResult };
+    cardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand };
 })();

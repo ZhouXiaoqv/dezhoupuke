@@ -10,6 +10,8 @@ const logger = require('./logger');
 const ROOM_RESUME_TTL = 30 * 60 * 1000;
 const MAX_PLAYERS = 8;
 const MECHANICAL_MAX_PLAYERS = 9;
+const MECHANICAL_NEXT_HAND_MS = 20_000;
+const RECEIPT_READY_TIMEOUT_MS = 20_000;
 
 class Room {
   constructor(code, hostId, hostName, hostWs, options = {}) {
@@ -39,6 +41,7 @@ class Room {
     this.scoreboardImbalanceReports = [];
     this.autoStartTimer = null;
     this.nextHandTimer = null;
+    this.nextReceipt = null;
     this.lastVacantAt = null;
 
     this.addPlayer(hostId, hostName, hostWs);
@@ -177,6 +180,7 @@ class Room {
     if (!player) return false;
 
     player.connected = false;
+    this.skipReceiptView(id);
 
     if (this.game && this.gameRunning) {
       this.game.handleDisconnect(id);
@@ -205,6 +209,7 @@ class Room {
     if (!player) return false;
 
     this.players.delete(id);
+    this.skipReceiptView(id);
 
     if (this.game && this.gameRunning) {
       this.game.handleDisconnect(id);
@@ -335,6 +340,7 @@ class Room {
       return;
     }
 
+    this.clearNextHand();
     this.checkScoreboardBalanceBeforeHand();
 
     this.gameRunning = true;
@@ -377,6 +383,13 @@ class Room {
 
     game.onBroadcast = (type, data) => {
       if (type === 'game:state') return;
+      if (type === 'game:handEnd' && this.tableStyle === 'mechanical') {
+        const id = crypto.randomUUID();
+        const waiting = new Set([...this.players.values()]
+          .filter(p => p.connected && !p.isBot && p.ws?.readyState === 1).map(p => p.id));
+        this.nextReceipt = { id, waiting, ready: new Set(), snapshot: game.getStateForSpectator(), settlement: data };
+        data = { ...data, receiptId: id };
+      }
       this.broadcast(type, data);
     };
 
@@ -407,10 +420,9 @@ class Room {
 
       this.settleFinishedHand();
 
-      this.broadcast('game:waitingForNext', { nextHandDelay: 15 });
-      this.nextHandTimer = setTimeout(() => {
-        if (this.canStartHand()) this.startGame(this.hostId);
-      }, 15000);
+      const receipt = this.nextReceipt;
+      if (!receipt || !receipt.waiting.size) this.startNextHandCountdown(receipt);
+      else receipt.timer = setTimeout(() => this.startNextHandCountdown(receipt), RECEIPT_READY_TIMEOUT_MS);
     };
 
     for (const gp of game.players) {
@@ -422,6 +434,67 @@ class Room {
     this.broadcast('room:gameStarted', {});
     this.broadcastScoreboard();
     game.startHand();
+  }
+
+  clearNextHand() {
+    clearTimeout(this.nextHandTimer);
+    clearTimeout(this.nextReceipt?.timer);
+    this.nextHandTimer = this.nextReceipt = null;
+  }
+
+  receiptClock(receipt) {
+    return {
+      receiptId: receipt.id,
+      nextHandDelay: MECHANICAL_NEXT_HAND_MS / 1000,
+      deadline: receipt.deadline ?? null,
+      remainingMs: receipt.deadline ? Math.max(0, receipt.deadline - Date.now()) : null,
+      canStart: this.canStartHand(),
+    };
+  }
+
+  startNextHandCountdown(receipt) {
+    if (receipt !== this.nextReceipt || this.nextHandTimer || receipt?.deadline) return;
+    const duration = receipt ? MECHANICAL_NEXT_HAND_MS : 15_000;
+    if (receipt) {
+      clearTimeout(receipt.timer);
+      receipt.deadline = Date.now() + duration;
+    }
+    this.nextHandTimer = setTimeout(() => {
+      this.nextHandTimer = null;
+      if (this.canStartHand()) this.startGame(this.hostId);
+      else if (receipt) this.broadcast('game:waitingForNext', this.receiptClock(receipt));
+    }, duration);
+    this.broadcast('game:waitingForNext', receipt ? this.receiptClock(receipt) : { nextHandDelay: duration / 1000 });
+  }
+
+  sendPendingReceipt(ws) {
+    const receipt = this.nextReceipt;
+    if (!receipt) return;
+    ws.send(JSON.stringify({ type: 'game:receipt', data: {
+      ...this.receiptClock(receipt), hostId: this.hostId, snapshot: receipt.snapshot, settlement: receipt.settlement,
+    }}));
+  }
+
+  skipReceiptView(playerId, ws) {
+    if (ws && this.players.get(playerId)?.ws !== ws) return;
+    const receipt = this.nextReceipt;
+    if (receipt?.waiting.delete(playerId) && !receipt.waiting.size && !this.gameRunning) this.startNextHandCountdown(receipt);
+  }
+
+  handleReceiptReady(playerId, receiptId) {
+    const receipt = this.nextReceipt;
+    const player = this.players.get(playerId);
+    if (!receipt || receipt.id !== receiptId || !player?.connected || player.isBot) return;
+    receipt.ready.add(playerId);
+    this.skipReceiptView(playerId);
+  }
+
+  handleNextHand(playerId, receiptId) {
+    if (playerId !== this.hostId || this.gameRunning) return;
+    const receipt = this.nextReceipt;
+    if (receipt ? receipt.id !== receiptId || !receipt.ready.has(playerId) : !this.nextHandTimer) return;
+    if (this.canStartHand()) this.startGame(playerId);
+    else this.sendTo(playerId, 'room:error', { message: '至少需要 2 名玩家' });
   }
 
   settleFinishedHand() {
@@ -704,7 +777,7 @@ class Room {
 
   destroy() {
     if (this.autoStartTimer) clearTimeout(this.autoStartTimer);
-    if (this.nextHandTimer) clearTimeout(this.nextHandTimer);
+    this.clearNextHand();
     if (this.game && this.game.actionTimeout) clearTimeout(this.game.actionTimeout);
     this.game?.clearTurn();
     this.game?.clearCardGate();

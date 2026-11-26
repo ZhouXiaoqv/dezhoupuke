@@ -238,6 +238,7 @@ $("showHandNo").addEventListener("click", () => {
 // ===== NEXT HAND BAR =====
 let nextHandCountdown = null;
 function syncNextHandSkipButton() {
+  MechanicalTable.refreshNextHand();
   const skip = $("nextHandSkip");
   if (!skip) return;
   skip.hidden = !isHost;
