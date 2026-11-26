@@ -52,7 +52,10 @@ const MechanicalReels = (() => {
         for (const reel of counter.reels.values()) changing = sample(reel, now) || changing;
       }
       if (changing) continue;
-      if (!counter.flow || !counter.element.isConnected) delete counter.element.dataset.rolling;
+      if (!counter.flow || !counter.element.isConnected) {
+        delete counter.element.dataset.rolling;
+        fitToAmount(counter);
+      }
       running.delete(counter);
     }
     if (running.size && !frame) frame = requestAnimationFrame(tick);
@@ -63,13 +66,16 @@ const MechanicalReels = (() => {
     return { whole, fraction };
   }
 
-  function layout(counter, old, next) {
-    const whole = counter.fixedDigits ?? Math.max(5, counter.whole || 0, old.whole.length, next.whole.length);
-    const fraction = Math.max(counter.fraction || 0, old.fraction.length, next.fraction.length);
+  function layout(counter, old, next, compact = false) {
+    const whole = counter.fixedDigits ?? Math.max(counter.minDigits ?? 5, compact ? 0 : counter.whole || 0, old.whole.length, next.whole.length);
+    const fraction = Math.max(compact ? 0 : counter.fraction || 0, old.fraction.length, next.fraction.length);
     if (counter.whole === whole && counter.fraction === fraction) return;
     const fragment = document.createDocumentFragment();
     counter.whole = whole;
     counter.fraction = fraction;
+    for (const place of counter.reels.keys()) {
+      if (place >= whole || place < -fraction) counter.reels.delete(place);
+    }
     for (let place = whole - 1; place >= -fraction; place--) {
       if (place === -1) {
         const dot = document.createElement("span");
@@ -91,6 +97,12 @@ const MechanicalReels = (() => {
     counter.element.replaceChildren(fragment);
   }
 
+  function fitToAmount(counter) {
+    if (counter.minDigits === undefined) return;
+    const parts = split(counter.amount);
+    layout(counter, parts, parts, true);
+  }
+
   function digitAt(parts, place) {
     return Number((place >= 0 ? parts.whole.at(-1 - place) : parts.fraction[-1 - place]) || 0);
   }
@@ -100,13 +112,13 @@ const MechanicalReels = (() => {
     return Number(parts.whole + parts.fraction.padEnd(-place, "0").slice(0, -place));
   }
 
-  function set(element, amount, { initial = amount, instant = false, payout, fixedDigits, label = "筹码" } = {}) {
+  function set(element, amount, { initial = amount, instant = false, payout, fixedDigits, minDigits, quick = false, label = "筹码" } = {}) {
     let counter = counters.get(element);
     instant ||= reduced.matches;
     if (counter && counter.amount === amount && !instant && !payout && !counter.flow) return;
     if (!counter) {
       element.classList.add("mechanical-reels");
-      counter = { element, reels: new Map(), amount: initial, fixedDigits, label };
+      counter = { element, reels: new Map(), amount: initial, fixedDigits, minDigits, quick, label };
       counters.set(element, counter);
     }
     const old = split(counter.amount);
@@ -116,6 +128,7 @@ const MechanicalReels = (() => {
     element.setAttribute("aria-label", counter.label + " " + digits.format(amount));
     element.dataset.balance = amount;
     const direction = (payout || amount >= counter.amount) ? 1 : -1;
+    const brisk = payout || counter.quick;
     const now = performance.now();
     let changing = false;
     for (const [place, reel] of counter.reels) {
@@ -135,14 +148,24 @@ const MechanicalReels = (() => {
       }
       sample(reel, now);
       reel.target = target;
-      const turns = Math.min(Math.floor(steps / 10), place <= 0 ? (payout ? 1 : 2) : place === 1 ? 1 : 0);
+      const turns = Math.min(Math.floor(steps / 10), place <= 0 ? (brisk ? 1 : 2) : place === 1 ? 1 : 0);
       const distance = modulo((target - reel.position) * direction) + 10 * turns;
       const higher = Math.max(0, place);
+      let duration = 185 + Math.min(higher * 22, 110), lock = 80;
+      if (payout === "lock") {
+        duration = 54;
+        lock = 26;
+      } else if (counter.flow) {
+        duration = 77 + Math.min(higher * 12, 60);
+        lock = 0;
+      } else if (counter.quick) {
+        duration = 112 + Math.min(higher * 9, 36);
+        lock = 54;
+      }
       reel.motion = {
         from: reel.position, direction, distance: distance * direction,
-        start: now + (payout === "lock" ? 0 : Math.min(higher * (payout ? 5 : 19), payout ? 25 : 96)),
-        duration: payout === "lock" ? 54 : counter.flow ? 77 + Math.min(higher * 12, 60) : 185 + Math.min(higher * 22, 110),
-        lock: payout === "lock" ? 26 : counter.flow ? 0 : 80,
+        start: now + (payout === "lock" ? 0 : Math.min(higher * (brisk ? 5 : 19), brisk ? 25 : 96)),
+        duration, lock,
       };
       changing = true;
     }
@@ -156,7 +179,10 @@ const MechanicalReels = (() => {
       if (!frame) frame = requestAnimationFrame(tick);
     } else {
       running.delete(counter);
-      if (!counter.flow) delete element.dataset.rolling;
+      if (!counter.flow) {
+        delete element.dataset.rolling;
+        fitToAmount(counter);
+      }
     }
   }
 

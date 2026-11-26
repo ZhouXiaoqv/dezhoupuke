@@ -339,8 +339,8 @@ function canSendTableAction() {
 }
 
 function submitRaise(input) {
-  if (!canSendTableAction()) return;
-  const amount = MechanicalTable.enabled() ? input.valueAsNumber : parseInt(input.value, 10);
+  if (MechanicalTable.enabled()) return;
+  const amount = parseInt(input.value, 10);
   const min = Number(input.min);
   const max = Number(input.max);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -353,6 +353,11 @@ function submitRaise(input) {
     input.focus();
     return;
   }
+  sendRaise(amount);
+}
+
+function sendRaise(amount) {
+  if (!canSendTableAction()) return;
   hideActions();
   SFX.btnClick();
   Net.send("game:action", { action: "raise", amount });

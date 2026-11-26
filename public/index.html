@@ -622,12 +622,12 @@
           <div class="desk-upper">
             <span class="desk-turn-lamp" id="deskTurnLamp" role="img" aria-label="操作台已锁定"></span>
             <fieldset class="desk-sizing" id="deskSizing" disabled aria-label="调节下注金额">
-              <label class="desk-amount-window">
+              <div class="desk-amount-window">
                 <span class="desk-amount-mark" aria-hidden="true"></span>
-                <input type="number" id="deskRaiseAmount" inputmode="decimal" step="any" placeholder="—" aria-label="下注或加注总额" />
-              </label>
+                <span class="desk-raise-reels" id="deskRaiseAmount" role="img" aria-label="下注或加注总额 0"></span>
+              </div>
               <div class="desk-scale">
-                <input type="range" id="deskRaiseRange" min="0" max="1" value="0" aria-label="下注或加注刻度" />
+                <input type="range" id="deskRaiseRange" min="0" max="1" step="any" value="0" aria-label="下注或加注总额" />
               </div>
               <div class="desk-presets">
                 <button type="button" class="desk-metal-key" data-raise-size="min">最小</button>
@@ -641,7 +641,10 @@
               <button type="button" class="desk-action-key desk-fold" id="deskFold">弃牌</button>
             </div>
             <div class="desk-key-well">
-              <button type="button" class="desk-action-key desk-pass" id="deskPass"><span id="deskPassLabel">过牌</span><span id="deskCallAmount" hidden></span></button>
+              <button type="button" class="desk-action-key desk-pass" id="deskPass" aria-label="过牌">
+                <span id="deskPassLabel">过牌</span>
+                <span class="desk-call-reels" id="deskCallAmount" aria-hidden="true"></span>
+              </button>
             </div>
             <div class="desk-key-well">
               <button type="button" class="desk-action-key desk-carbon" id="deskRaise">加注</button>

@@ -365,7 +365,7 @@
   .seat.active:not(.folded, .disconnected) .mechanical-seat-lamp { animation: none; }
 }
 
-#table-container.mechanical-table #table .mechanical-reels {
+#table-container.mechanical-table :is(#table, #mechanicalActionDesk) .mechanical-reels {
   --reel-step: 17px;
   display: flex;
   justify-content: flex-end;
@@ -406,7 +406,7 @@
 .mechanical-reel-strip > span { display: block; height: var(--reel-step); }
 .mechanical-reel-leading .mechanical-reel-strip { opacity: .38; }
 .mechanical-reel-dot { color: #fff7e4; }
-#table-container.mechanical-table #table .mechanical-reels:has(.mechanical-reel-dot) { gap: 1px; }
+#table-container.mechanical-table :is(#table, #mechanicalActionDesk) .mechanical-reels:has(.mechanical-reel-dot) { gap: 1px; }
 #table-container.mechanical-table #table .seat :is(.seat-cards, .my-hand) {
   position: absolute;
   z-index: 1;

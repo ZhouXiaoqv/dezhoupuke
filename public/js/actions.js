@@ -6,14 +6,38 @@ const MechanicalActionDesk = (() => {
   const amount = $("deskRaiseAmount");
   const range = $("deskRaiseRange");
   const pass = $("deskPass");
+  const passLabel = $("deskPassLabel");
   const raise = $("deskRaise");
   const callAmount = $("deskCallAmount");
+  const detent = 5;
   let sizingData;
+  let selected = 0;
+
+  MechanicalReels.set(amount, 0, { minDigits: 5, quick: true, label: "下注或加注总额" });
+  MechanicalReels.set(callAmount, 0, { minDigits: 4, quick: true });
 
   function setAmount(value) {
-    const selected = Math.min(Number(range.max), Math.max(Number(range.min), value));
-    range.value = selected;
-    amount.value = range.value;
+    const { min, max } = sizingData;
+    const next = Math.min(max, Math.max(min, value));
+    if (range.valueAsNumber !== next) range.value = next;
+    if (next === selected) return;
+    selected = next;
+    range.setAttribute("aria-valuetext", `${selected} 筹码`);
+    MechanicalReels.set(amount, selected);
+  }
+
+  function snapToDetent(value) {
+    const { min, max } = sizingData;
+    if (value >= max) return max;
+    // Keep the precise server maximum on the end stop, including a short final interval.
+    const lastNotch = Math.ceil((max - min) / detent) - 1;
+    return min + Math.min(lastNotch, Math.round((value - min) / detent)) * detent;
+  }
+
+  function moveDetents(direction, count = 1) {
+    const offset = (selected - sizingData.min) / detent;
+    const notch = direction > 0 ? Math.floor(offset + 1e-10) : Math.ceil(offset - 1e-10);
+    setAmount(sizingData.min + (notch + direction * count) * detent);
   }
 
   function enable(data, resetAmount) {
@@ -22,7 +46,7 @@ const MechanicalActionDesk = (() => {
     const roundBet = Number(gameState?.roundBet || 0);
     const stack = gameState?.players.find(player => player.id === Net.playerId)?.stack ?? max;
     const call = Math.max(0, Math.min(Number(data.toCall) || 0, stack));
-    const canRaise = !data.allInOrFold && min > 0 && max >= min;
+    const canRaise = !data.allInOrFold && Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min;
     const street = `${gameState?.handNum}:${gameState?.phase}`;
     const newStreet = sizingData?.street !== street;
     keys.disabled = false;
@@ -30,23 +54,22 @@ const MechanicalActionDesk = (() => {
     raise.disabled = !canRaise;
     pass.disabled = data.allInOrFold && call > 0;
     pass.dataset.action = call > 0 ? "call" : "check";
-    $("deskPassLabel").textContent = call > 0 ? "跟注" : "过牌";
-    callAmount.hidden = call === 0;
-    callAmount.textContent = call > 0 ? call : "";
+    passLabel.textContent = call > 0 ? "跟注" : "过牌";
+    pass.setAttribute("aria-label", call > 0 ? `跟注 ${call}` : "过牌");
+    MechanicalReels.set(callAmount, call);
     raise.textContent = roundBet > 0 ? "加注" : "下注";
     lamp.setAttribute("aria-label", "轮到你行动");
-    sizingData = { street, roundBet, call, pot: Number(data.pot) || 0 };
+    sizingData = { street, min, max, roundBet, call, pot: Number(data.pot) || 0 };
     if (!canRaise) {
-      amount.value = "";
+      selected = 0;
+      MechanicalReels.set(amount, 0);
       return;
     }
 
-    const rangeChanged = Number(range.min) !== min || Number(range.max) !== max;
-    range.min = amount.min = min;
-    range.max = amount.max = max;
-    range.step = amount.step = Number.isInteger(min) && Number.isInteger(max) ? "1" : "any";
+    range.min = min;
+    range.max = max;
     if (resetAmount || newStreet) setAmount(min);
-    else if (rangeChanged) setAmount(amount.valueAsNumber || min);
+    else setAmount(selected);
   }
 
   function lock() {
@@ -60,10 +83,20 @@ const MechanicalActionDesk = (() => {
   actionButtons.fold.addEventListener("click", () => $("btnFold").click());
   pass.addEventListener("click", () => $(pass.dataset.action === "call" ? "btnCall" : "btnCheck").click());
   actionButtons.allin.addEventListener("click", () => $("btnAllin").click());
-  raise.addEventListener("click", () => submitRaise(amount));
-  range.addEventListener("input", () => { amount.value = range.value; });
-  amount.addEventListener("input", () => { if (amount.value !== "") range.value = amount.value; });
-  amount.addEventListener("change", () => { if (amount.value !== "") setAmount(Number(amount.value)); });
+  raise.addEventListener("click", () => sendRaise(selected));
+  range.addEventListener("input", () => setAmount(snapToDetent(range.valueAsNumber)));
+  range.addEventListener("keydown", event => {
+    switch (event.key) {
+      case "ArrowRight": case "ArrowUp": moveDetents(1); break;
+      case "ArrowLeft": case "ArrowDown": moveDetents(-1); break;
+      case "PageUp": moveDetents(1, 10); break;
+      case "PageDown": moveDetents(-1, 10); break;
+      case "Home": setAmount(sizingData.min); break;
+      case "End": setAmount(sizingData.max); break;
+      default: return;
+    }
+    event.preventDefault();
+  });
   desk.querySelectorAll("[data-raise-size]").forEach(button => {
     button.addEventListener("click", () => {
       const ratio = button.dataset.raiseSize;
@@ -71,10 +104,10 @@ const MechanicalActionDesk = (() => {
         setAmount(Number(range.min));
         return;
       }
-      const { roundBet, call, pot } = sizingData;
+      const { min, max, roundBet, call, pot } = sizingData;
       // A pot-sized raise includes the call before adding the chosen fraction.
       const total = roundBet + (pot + call) * Number(ratio);
-      setAmount(range.step === "1" ? Math.round(total) : total);
+      setAmount(Number.isInteger(min) && Number.isInteger(max) ? Math.round(total) : total);
     });
   });
 
