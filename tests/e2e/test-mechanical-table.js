@@ -85,7 +85,7 @@ async function verifyArmController(page) {
   assert.deepEqual(result.lifecycle, ['open', 'grab', 'carry', 'drop', 'land']);
   assert.ok(result.flew && result.empty);
   assert.deepEqual(result.states.sort(), ['holding', 'idle', 'moving', 'returning']);
-  assert.deepEqual(result.registered, ['deal', 'reveal', 'fold']);
+  assert.deepEqual(result.registered, ['deal', 'reveal', 'receipt', 'fold']);
 }
 
 async function verifyJointLimits(page) {
@@ -333,7 +333,7 @@ async function run() {
             }
           }
           if (target === payloads) for (const node of addedNodes) {
-            if (node.dataset?.armMount !== 'carried') continue;
+            if (node.dataset?.armMount !== 'carried' || !node.classList.contains('card')) continue;
             carried.add(node);
             if (node.classList.contains('mechanical-fold-card')) window.armFoldTrace.push('grip');
             else window.armDealTrace.push(fed.has(node) ? 'grip' : 'unfed');
@@ -541,13 +541,13 @@ async function run() {
 
     await host.waitForSelector('#mechanicalResult', { visible: true });
     const receipt = await host.evaluate(() => ({
-      total: document.getElementById('mechanicalResultPot').textContent,
-      rows: document.querySelectorAll('#mechanicalResultPlayers li').length,
-      cards: document.querySelectorAll('#mechanicalResultBoard .card').length,
-      exposedHands: document.querySelectorAll('#mechanicalResultPlayers .card-front').length,
+      total: document.querySelector('#mechanicalResult .mechanical-receipt-pot').textContent,
+      rows: document.querySelectorAll('#mechanicalResult .mechanical-result-players li').length,
+      cards: document.querySelectorAll('#mechanicalResult .mechanical-result-board .card').length,
+      exposedHands: document.querySelectorAll('#mechanicalResult .mechanical-result-players .card-front').length,
       winner: document.querySelector('.mechanical-result-winner')?.textContent,
     }));
-    assert.equal(receipt.total, '底池 ' + showdown.total);
+    assert.equal(receipt.total, '总底池 ' + showdown.total);
     assert.equal(receipt.rows, 3);
     assert.equal(receipt.cards, 5);
     assert.equal(receipt.exposedHands, 4);

@@ -19,6 +19,7 @@ const MechanicalTable = (() => {
     [5, -24, .94], [-39, 10, .61], [39, 8, .65], [-25, -22, .59], [29, -22, .63],
   ];
   const currency = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12 });
+  const signedCurrency = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12, signDisplay: "exceptZero" });
   const canvas = $("mechanicalChips");
   const context = canvas.getContext("2d");
   const payoutCanvas = $("mechanicalPayout");
@@ -26,8 +27,10 @@ const MechanicalTable = (() => {
   const moving = $("mechanicalMovingCards");
   const feedLayer = $("mechanicalBayCards");
   const recycleLayer = $("mechanicalRecycledCards");
+  const printLayer = $("mechanicalPrintFeed");
   const labelLayer = $("mechanicalChipLabels");
   const result = $("mechanicalResult");
+  const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
   const container = $("table-container");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
@@ -42,14 +45,21 @@ const MechanicalTable = (() => {
   let instrumentRoom, instrumentHand, instrumentPhase, phaseAnimations = [];
   const wagers = new Map();
   const labels = new Map();
-  let sweep, frame, state, handToDeal, finalizedHand, bounds, center, payout, pendingResult;
+  let sweep, frame, state, handToDeal, finalizedHand, bounds, center, payout, latestReceipt;
   let groups = new Map();
   let chipsDirty = true;
   const deliveries = new Map();
   const { jawReach } = MechanicalArmMotion;
   const portCenter = y => ({ x: bounds.width / 2 - 30, y });
   const recycleMouth = () => portCenter(92);
-  const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), $("mechanicalBase"));
+  const base = $("mechanicalBase");
+  const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), base);
+  const printOutlet = {
+    // The feed mask starts at the lower lip of the printer slot, in table pixels.
+    pose: () => ({ x: bounds.width / 2 + 37, y: 109, angle: -90, lift: 4 }),
+    layer: printLayer,
+    setFeeding(active) { base.toggleAttribute("data-printing", active); },
+  };
   const arm = createMechanicalArmActions({
     rig,
     layer: moving,
@@ -70,7 +80,6 @@ const MechanicalTable = (() => {
   }
 
   function clearHandEffects() {
-    pendingResult = null;
     finishPayout(true);
     sweep = state = handToDeal = finalizedHand = null;
     deliveries.clear();
@@ -80,17 +89,19 @@ const MechanicalTable = (() => {
     labelLayer.replaceChildren();
     context.clearRect(0, 0, canvas.width, canvas.height);
     chipsDirty = true;
-    result.hidden = true;
+    dismissReceipt(true);
   }
 
   function reset() {
     cancelAnimationFrame(frame);
     frame = bounds = null;
+    latestReceipt = null;
     arm.reset();
     clearHandEffects();
     moving.replaceChildren();
     feedLayer.replaceChildren();
     recycleLayer.replaceChildren();
+    printLayer.replaceChildren();
     table.querySelectorAll(".mechanical-pending").forEach(card => card.classList.remove("mechanical-pending"));
   }
 
@@ -314,7 +325,7 @@ const MechanicalTable = (() => {
       }
       return {
         target: entry.target,
-        cardLength: height,
+        feedLength: height,
         payload() {
           const back = cardBack();
           back.style.width = width + "px";
@@ -531,11 +542,6 @@ const MechanicalTable = (() => {
     payout = null;
     payoutContext.clearRect(0, 0, payoutCanvas.width, payoutCanvas.height);
     delete payoutCanvas.dataset.chips;
-    if (pendingResult) {
-      const { snapshot, settlement } = pendingResult;
-      pendingResult = null;
-      showResult(snapshot, settlement);
-    }
   }
 
   function wagerPosition(seat, origin) {
@@ -851,48 +857,144 @@ const MechanicalTable = (() => {
     if (arm.tick(now) || sweep || wagers.size || payout) nextFrame();
   }
 
-  function showResult(snapshot, settlement = {}) {
-    if (!snapshot || !container.classList.contains("active")) return;
-    if (payout?.handNum === snapshot.handNum) {
-      pendingResult = { snapshot, settlement };
-      return;
-    }
+  function printReceipt(snapshot, settlement) {
     const { winners = [], refunds = [], showedPlayerId } = settlement;
-    finalizedHand = snapshot.handNum;
-    sweep = null;
-    wagers.clear();
-    groups.clear();
-    syncLabels();
-    nextFrame();
-    $("mechanicalResultTitle").textContent = "第 " + snapshot.handNum + " 手 · 结算";
-    $("mechanicalResultPot").textContent = "底池 " + currency.format(snapshot.pot);
-    $("mechanicalResultBoard").replaceChildren(...snapshot.community.map(createCardEl));
+    const paper = receiptTemplate.content.firstElementChild.cloneNode(true);
+    paper.querySelector("h2").textContent = `第 ${String(snapshot.handNum).padStart(3, "0")} 手 · 结算单`;
+    paper.querySelector(".mechanical-receipt-pot").textContent = "总底池 " + currency.format(snapshot.pot);
+    const board = paper.querySelector(".mechanical-result-board");
+    board.replaceChildren(...snapshot.community.map(createCardEl));
+    if (!snapshot.community.length) board.textContent = "本手未发公共牌";
     const rows = snapshot.players.map((player, index) => {
       const row = document.createElement("li");
       const award = winners.find(winner => winner.id === player.id);
       const refund = refunds.find(entry => entry.id === player.id);
       if (award) row.classList.add("mechanical-result-winner");
+      const identity = document.createElement("span");
+      identity.className = "mechanical-receipt-identity";
       const name = document.createElement("span");
-      name.textContent = player.name;
-      const position = document.createElement("span");
-      position.className = "mechanical-result-position";
-      position.textContent = index === snapshot.dealerIdx ? "D" : index === snapshot.sbIdx ? "SB" : index === snapshot.bbIdx ? "BB" : "";
-      const outcome = document.createElement("span");
-      const rank = award?.revealedRank || award?.hand || player.handRank || (player.folded ? "弃牌" : "");
-      outcome.textContent = [rank, award && "+" + currency.format(award.amount), refund && "退回 " + currency.format(refund.amount)].filter(Boolean).join(" · ");
+      const position = SEAT_ROLES.find(([key]) => snapshot[key] === index)?.[1];
+      name.textContent = position ? `${player.name} · ${position}` : player.name;
+      const rank = document.createElement("small");
+      rank.textContent = award?.revealedRank || award?.hand || player.handRank || (player.folded ? "弃牌" : "—");
+      identity.append(name, rank);
+      const balance = document.createElement("span");
+      balance.className = "mechanical-receipt-balance";
+      const net = (award?.amount ?? 0) + (refund?.amount ?? 0) - player.totalBet;
+      balance.textContent = signedCurrency.format(net);
+      if (refund) {
+        const returned = document.createElement("small");
+        returned.textContent = "退回 " + currency.format(refund.amount);
+        balance.append(returned);
+      }
       const cards = document.createElement("span");
       cards.className = "mechanical-result-hand";
       if ((!player.folded && snapshot.phase === "showdown") || showedPlayerId === player.id) {
         cards.append(...player.hand.filter(Boolean).map(createCardEl));
       }
-      row.append(name, position, outcome, cards);
+      if (award) {
+        const stamp = document.createElement("span");
+        stamp.className = "mechanical-receipt-stamp";
+        stamp.textContent = "获胜";
+        row.append(stamp);
+      }
+      row.append(identity, cards, balance);
       return row;
     });
-    $("mechanicalResultPlayers").replaceChildren(...rows);
-    result.hidden = false;
+    paper.querySelector("ul").replaceChildren(...rows);
+    const time = paper.querySelector("time");
+    const printedAt = new Date();
+    time.dateTime = printedAt.toISOString();
+    time.textContent = printedAt.toLocaleTimeString("zh-CN", { hour12: false });
+    return paper;
   }
 
-  $("mechanicalResultClose").addEventListener("click", () => { result.hidden = true; });
+  function mountReceipt(paper) {
+    const carrier = document.createElement("div");
+    carrier.className = "mechanical-receipt-payload";
+    carrier.inert = true;
+    carrier.append(paper);
+    moving.append(carrier);
+    const width = paper.offsetWidth, height = paper.offsetHeight;
+    carrier.remove();
+    const scale = Math.min(112 / width, 94 / height);
+    carrier.style.width = width * scale + "px";
+    carrier.style.height = height * scale + "px";
+    paper.style.transform = `scale(${scale})`;
+    return carrier;
+  }
+
+  function presentReceipt(ticket, carrier) {
+    const { paper } = ticket;
+    const from = carrier?.getBoundingClientRect();
+    dismissReceipt(true);
+    ticket.presented = true;
+    paper.style.transform = "";
+    paper.querySelector("button").addEventListener("click", () => dismissReceipt());
+    result.replaceChildren(paper);
+    carrier?.remove();
+    result.hidden = false;
+    if (!from?.width || reduced.matches) return;
+    const to = paper.getBoundingClientRect();
+    const dx = from.left + (from.width - to.width) / 2 - to.left;
+    const dy = from.top + (from.height - to.height) / 2 - to.top;
+    paper.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width})` },
+      { transform: "translate(0, 0) scale(1)" },
+    ], { duration: 280, easing: "cubic-bezier(.22,.76,.29,1)" });
+  }
+
+  function dismissReceipt(instant = false) {
+    const paper = result.firstElementChild;
+    if (!paper) return;
+    const remove = () => {
+      paper.remove();
+      result.hidden = !result.firstElementChild;
+    };
+    if (instant || reduced.matches) {
+      remove();
+      return;
+    }
+    const pose = getComputedStyle(paper).transform;
+    paper.inert = true;
+    paper.getAnimations().forEach(animation => animation.cancel());
+    paper.animate([
+      { transform: pose, opacity: 1 },
+      { transform: "translateY(30px) rotate(3deg) scale(.95)", opacity: 0 },
+    ], { duration: 180, fill: "forwards", easing: "ease-in" }).onfinish = remove;
+  }
+
+  function showResult(snapshot, settlement = {}) {
+    if (!snapshot || !container.classList.contains("active") || latestReceipt?.handNum === snapshot.handNum) return;
+    if (payout?.handNum !== snapshot.handNum) {
+      finalizedHand = snapshot.handNum;
+      sweep = null;
+      wagers.clear();
+      groups.clear();
+      syncLabels();
+    }
+    const ticket = latestReceipt = { handNum: snapshot.handNum, paper: printReceipt(snapshot, settlement) };
+    if (animatesArm() && (bounds || measure())) {
+      let length;
+      arm.enqueue("receipt", {
+        target: printOutlet.pose,
+        ready: () => payout?.handNum !== ticket.handNum,
+        outlet: printOutlet,
+        payload: () => mountReceipt(ticket.paper),
+        feedLength(carrier) { return length = parseFloat(carrier.style.height); },
+        payloadOffset: () => ({ x: length / 2 + jawReach, y: 0 }),
+        payloadAngle: 90,
+        onRelease({ element }) {
+          presentReceipt(ticket, element);
+          return true;
+        },
+        onCancel() {
+          if (latestReceipt === ticket && !ticket.presented) presentReceipt(ticket);
+        },
+      });
+    } else presentReceipt(ticket);
+    nextFrame();
+  }
   new ResizeObserver(() => {
     if (!enabled() || !state || !measure()) return;
     groups = readGroups(state);

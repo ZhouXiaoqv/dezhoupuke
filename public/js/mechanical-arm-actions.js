@@ -1,12 +1,13 @@
 /**
  * @typedef {{x:number,y:number,angle?:number,lift?:number}} ArmTarget
+ * @typedef {{pose:function():ArmTarget,layer:HTMLElement,setFeeding:function(boolean):void}} ArmOutlet
  * @typedef {{pose:ArmTarget,socket:ArmTarget,tangent:{x:number,y:number},element:HTMLElement|null,
  *   target:ArmTarget,mode:"slide"|"drop"|"recycle"|"none"}} ArmRelease
  * @typedef {{target:ArmTarget|function():ArmTarget,source?:ArmTarget|function():ArmTarget,
  *   valid?:function():boolean,ready?:function():boolean,
  *   payload?:HTMLElement|function():HTMLElement,
  *   payloadOffset?:{x:number,y:number}|function(HTMLElement):{x:number,y:number},
- *   payloadAngle?:number,cardLength?:number,
+ *   payloadAngle?:number,outlet?:ArmOutlet,feedLength?:number|function(HTMLElement):number,
  *   wristAngle?:number|function():number,
  *   onGrab?:function(HTMLElement):void,onCarry?:function(ArmRelease):void,
  *   onRelease?:function(ArmRelease):boolean|void,onLand?:function():void,
@@ -16,12 +17,13 @@
  * slot supply fresh coordinates at phase boundaries and during payload landing.
  * The optional release hook can return true to take ownership of the payload.
  * onComplete marks the end of arm motion for the task. onLand marks payload arrival.
- * Outlet jobs supply cardLength in CSS pixels along the feed direction. A queued
- * pickup can wait on ready() when an earlier delivery is still in flight.
+ * Outlet jobs supply feedLength in CSS pixels along the feed direction. By
+ * default they use the card bay. ready() can hold a job at the head of the FIFO.
  */
 function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, presets, bay, recycleMouth, home }) {
   const { motion, hardware } = rig;
   const { easing, interpolate, angleDelta, jawReach } = MechanicalArmMotion;
+  const cardOutlet = { pose: bay, layer: feedLayer };
   const queue = [];
   const flights = [];
   let active, shred, lastPreset, returning, initialized;
@@ -175,9 +177,9 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     }
   }
 
-  function cardGrip() {
-    const mouth = bay();
-    return { ...mouth, y: mouth.y + active.cardLength * active.exposed + jawReach };
+  function outletGrip() {
+    const mouth = active.outlet.pose();
+    return { ...mouth, y: mouth.y + active.feedLength * active.exposed + jawReach };
   }
 
   function dockMove(target, duration, now, aligned = true) {
@@ -188,16 +190,19 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
   }
 
   const primitives = {
-    stageCard(phase, now) {
-      const card = active.staged = resolve(active.task.payload);
-      const length = active.task.cardLength;
-      if (!card || !(length > 0)) {
+    stageOutlet(phase, now) {
+      const payload = active.staged = resolve(active.task.payload);
+      const measure = active.task.feedLength;
+      const length = typeof measure === "function" && payload ? measure(payload) : measure;
+      if (!payload || !(length > 0)) {
         active.failed = true;
         return {};
       }
-      active.cardLength = length;
+      const outlet = active.outlet = active.task.outlet ?? cardOutlet;
+      const usesHatch = outlet === cardOutlet;
+      active.feedLength = length;
       active.exposed = phase.exposed;
-      const at = cardGrip();
+      const at = outletGrip();
       dockMove({ ...at, y: at.y + phase.clearance }, phase.duration, now, false);
       const stagedAt = now + phase.duration;
       const curve = easing([.23, .66, .38, 1]);
@@ -209,20 +214,23 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
           if (feedStart === undefined) {
             feedStart = time;
             step.until = time + phase.feedDuration;
-            cue("feed", time, { hatch: true, feed: true });
-            card.classList.add("mechanical-carry");
-            card.dataset.armMount = "staged";
-            feedLayer?.append(card);
+            cue("feed", time, { hatch: usesHatch, feed: usesHatch });
+            outlet.setFeeding?.(true);
+            payload.classList.add("mechanical-carry");
+            payload.dataset.armMount = "staged";
+            outlet.layer?.append(payload);
           }
           const fraction = Math.min(1, (time - feedStart) / phase.feedDuration);
-          const mouth = bay();
-          place(card, { x: mouth.x, y: mouth.y + length * (curve(fraction) * phase.exposed - .5) });
+          const eased = phase.feedSteps ? Math.floor(fraction * phase.feedSteps) / phase.feedSteps : curve(fraction);
+          const mouth = outlet.pose();
+          place(payload, { x: mouth.x, y: mouth.y + length * (eased * phase.exposed - .5) });
         },
-        arrive(time) { cue("prepare", time, { hatch: true }); },
+        arrive(time) { cue("prepare", time, { hatch: usesHatch }); },
       };
     },
-    pickupCard(phase, now) {
-      dockMove(cardGrip(), phase.duration, now);
+    gripOutlet(phase, now) {
+      const { outlet } = active;
+      dockMove(outletGrip(), phase.duration, now);
       const contact = now + phase.duration;
       let touched = false;
       return {
@@ -234,15 +242,15 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
           cue("grasp", time);
         },
         arrive(time, frame) {
-          grab(frame, cardGrip(), true, feedLayer ?? layer);
+          grab(frame, outletGrip(), true, outlet.layer ?? layer);
           active.failed = !active.payload;
-          cue("carry", time, { hatch: !active.failed });
+          cue("carry", time, { hatch: outlet === cardOutlet && !active.failed });
         },
       };
     },
-    extractCard(phase, now) {
-      const mouth = bay();
-      dockMove({ ...mouth, y: mouth.y + active.cardLength + jawReach + 3 }, phase.duration, now);
+    extractOutlet(phase, now) {
+      const mouth = active.outlet.pose();
+      dockMove({ ...mouth, y: mouth.y + active.feedLength + jawReach + 3 }, phase.duration, now);
       return {
         duration: phase.duration,
         arrive(time) {
@@ -311,7 +319,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     },
     release(phase, now, frame) {
       release(now, frame);
-      return { duration: 0 };
+      return { duration: phase.duration ?? 0 };
     },
     recycle(phase) {
       let inserting = false;
@@ -339,6 +347,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     }
     active.staged?.remove();
     active.payload?.remove();
+    active.outlet?.setFeeding?.(false);
     if (active.failed) active.task.onCancel?.();
     else active.task.onComplete?.();
     lastPreset = active.preset;
@@ -358,7 +367,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
       active = { task, preset, phaseIndex: 0 };
       returning = false;
       const kind = preset.phases[0]?.kind;
-      cue(kind === "pickup" || kind === "stageCard" ? "prepare" : "aim", now, { hatch: false, press: true });
+      cue(kind === "pickup" || kind === "stageOutlet" ? "prepare" : "aim", now, { hatch: false, press: true });
       nextPhase(now, frame);
       return;
     }
@@ -382,6 +391,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     if (active?.task.valid?.() === false) {
       active.staged?.remove();
       active.payload?.remove();
+      active.outlet?.setFeeding?.(false);
       const flightIndex = flights.findIndex(flight => flight.task === active.task);
       if (flightIndex >= 0) {
         flights[flightIndex].payload.remove();
@@ -441,6 +451,7 @@ function createMechanicalArmActions({ rig, layer, feedLayer, recycleLayer, prese
     if (active) {
       active.staged?.remove();
       active.payload?.remove();
+      active.outlet?.setFeeding?.(false);
       tasks.add(active.task);
     }
     for (const task of tasks) task.onCancel?.();

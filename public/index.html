@@ -510,6 +510,15 @@
               </g>
               <use href="#baseScrew" x="237" y="118"/>
             </g>
+            <g class="mechanical-printer-slot">
+              <rect x="36" y="139" width="302" height="11" rx="3" fill="url(#baseRim)" stroke="#75634f" stroke-width=".8"/>
+              <rect x="40" y="142" width="294" height="6.5" rx="1.6" fill="#2a2622" stroke="#8b7964" stroke-width=".8"/>
+              <path d="M43 141h288m-288 8h288" fill="none" stroke="#efe0c7" stroke-opacity=".7" stroke-width=".65"/>
+              <path class="mechanical-printer-teeth" d="M45 143.5h284" stroke="#c4b199" stroke-width="1.4" stroke-dasharray=".8 2.2"/>
+              <path d="M44 146.5h286" stroke="#1e1b19" stroke-width="1.1"/>
+              <circle cx="344" cy="144" r="3.3" fill="url(#baseRim)" stroke="#78664f" stroke-width=".7"/>
+              <circle class="mechanical-printer-lamp" cx="344" cy="144" r="1.9"/>
+            </g>
           </svg>
           <div class="mechanical-instruments">
             <div class="mechanical-instrument mechanical-hand-window">
@@ -531,6 +540,7 @@
         </div>
         <div class="mechanical-only mechanical-bay-cards" id="mechanicalBayCards" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-recycled-cards" id="mechanicalRecycledCards" aria-hidden="true"></div>
+        <div class="mechanical-only mechanical-print-feed" id="mechanicalPrintFeed" aria-hidden="true"></div>
         <svg class="mechanical-only mechanical-port-rim mechanical-bay-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
           <path d="M78 53h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
           <path d="M82 54h76" stroke="#fff0d6" stroke-opacity=".84"/>
@@ -696,15 +706,27 @@
       </div>
     </div>
 
-    <section class="mechanical-result" id="mechanicalResult" aria-labelledby="mechanicalResultTitle" hidden>
-      <header>
-        <h2 id="mechanicalResultTitle">本手结算</h2>
-        <strong id="mechanicalResultPot"></strong>
-        <button id="mechanicalResultClose" type="button" aria-label="关闭结算">关闭</button>
-      </header>
-      <div class="mechanical-result-board" id="mechanicalResultBoard" aria-label="公共牌"></div>
-      <ul id="mechanicalResultPlayers"></ul>
-    </section>
+    <section class="mechanical-result" id="mechanicalResult" aria-label="牌局结算单" hidden></section>
+    <template id="mechanicalReceiptTemplate">
+      <article class="mechanical-receipt">
+        <div class="mechanical-receipt-stock">
+          <header class="mechanical-receipt-heading">
+            <span class="mechanical-receipt-serial">热敏机编号 PR-01</span>
+            <h2></h2>
+            <strong class="mechanical-receipt-pot"></strong>
+          </header>
+          <div class="mechanical-result-board" aria-label="公共牌"></div>
+          <ul class="mechanical-result-players" aria-label="玩家结算明细"></ul>
+          <footer class="mechanical-receipt-footer">
+            <div class="mechanical-receipt-imprint">
+              <span class="mechanical-receipt-barcode" aria-hidden="true"></span>
+              <time></time>
+            </div>
+            <button class="mechanical-receipt-close" type="button" aria-label="关闭结算单">关闭</button>
+          </footer>
+        </div>
+      </article>
+    </template>
 
     <div class="score-alert-overlay" id="scoreAlertOverlay">
       <div class="score-alert-card">
