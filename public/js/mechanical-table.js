@@ -45,7 +45,8 @@ const MechanicalTable = (() => {
   let instrumentRoom, instrumentHand, instrumentPhase, phaseAnimations = [];
   const wagers = new Map();
   const labels = new Map();
-  let sweep, frame, state, handToDeal, finalizedHand, bounds, center, payout, latestReceipt;
+  const payouts = new Map();
+  let sweep, frame, state, handToDeal, finalizedHand, bounds, center, latestReceipt;
   let groups = new Map();
   let chipsDirty = true;
   const deliveries = new Map();
@@ -80,7 +81,6 @@ const MechanicalTable = (() => {
   }
 
   function clearHandEffects() {
-    finishPayout(true);
     sweep = state = handToDeal = finalizedHand = null;
     deliveries.clear();
     wagers.clear();
@@ -94,6 +94,7 @@ const MechanicalTable = (() => {
 
   function reset() {
     cancelAnimationFrame(frame);
+    clearPayouts();
     frame = bounds = null;
     latestReceipt = null;
     arm.reset();
@@ -221,8 +222,9 @@ const MechanicalTable = (() => {
   }
 
   function beforeRender(next) {
-    if (!state || state.handNum !== next.handNum || !animatesArm() || !measure()) return;
-    preparePayout(next);
+    if (!animatesArm() || !measure()) return;
+    if (["showdown", "show_choice"].includes(next.phase)) preparePayout(next);
+    if (!state || state.handNum !== next.handNum) return;
     for (const player of next.players) {
       const previousIndex = state.players.findIndex(previous => previous.id === player.id);
       if (!player.folded || state.players[previousIndex]?.folded !== false) continue;
@@ -428,14 +430,19 @@ const MechanicalTable = (() => {
     const oldGroups = groups;
     groups = readGroups(next);
     if (sameHand && !reduced.matches) scheduleChips(oldGroups, groups);
-    if (payout && !payout.start) payout.start = Math.max(performance.now() + 280, sweep ? sweep.start + 700 : 0);
+    const payout = payouts.get(next.handNum);
+    if (payout && payout.start === undefined) {
+      payout.pot = groups.get("pot");
+      payout.sweep = sweep;
+      payout.start = Math.max(performance.now() + 280, sweep ? sweep.start + 700 : 0);
+      sweep = null;
+    }
     syncLabels();
     nextFrame();
   }
 
   function preparePayout(next) {
-    if (payout || finalizedHand === next.handNum || !next.pot ||
-        !["showdown", "show_choice"].includes(next.phase) || ["showdown", "show_choice"].includes(state.phase)) return;
+    if (payouts.has(next.handNum) || finalizedHand === next.handNum || !next.pot) return;
     const accounts = new Map();
     for (const transfer of [...(next.winners || []), ...(next.refunds || [])]) {
       const player = next.players.find(player => player.id === transfer.id);
@@ -451,20 +458,24 @@ const MechanicalTable = (() => {
       counts.forEach((count, index) => { account.counts[index] += count; });
     }
     if (!accounts.size) return;
-    for (const [id, account] of accounts) {
-      account.shown = state.players.find(player => player.id === id)?.stack ?? account.final - account.amount;
-      account.balanceBeforePayout = account.shown;
-      account.credited = 0;
+    for (const account of accounts.values()) {
+      account.balanceBeforePayout = account.shown = account.final - account.amount;
     }
-    payout = { handNum: next.handNum, accounts };
+    payouts.set(next.handNum, { handNum: next.handNum, accounts });
   }
 
   function updateStack(element, player, snapshot) {
-    const account = payout?.accounts.get(player.id);
+    const account = payouts.get(snapshot.handNum)?.accounts.get(player.id);
+    for (const payout of payouts.values()) {
+      const earlier = payout.accounts.get(player.id);
+      if (earlier && earlier !== account) earlier.element = element;
+    }
     if (account) {
-      account.element = element;
       account.final = player.stack;
-      MechanicalReels.set(element, account.shown);
+      if (account.element !== element) {
+        account.element = element;
+        MechanicalReels.set(element, account.shown, { payout: account.delivered === false ? "flow" : undefined });
+      }
       return;
     }
     const initial = handToDeal === snapshot.handNum && snapshot.phase === "preflop"
@@ -472,42 +483,38 @@ const MechanicalTable = (() => {
     MechanicalReels.set(element, player.stack, { initial });
   }
 
-  function startPayout(now) {
-    payout.source = groups.get("pot")?.inventory.chips || [];
-    payout.timeline = createMechanicalPayout([...payout.accounts.values()], payout.source, now,
-      DENOMINATIONS.map(([value]) => value));
-    payout.startedAt = now;
-    payoutCanvas.dataset.chips = payout.timeline.count;
-    finalizedHand = payout.handNum;
-    sweep = null;
-    wagers.clear();
-    groups.clear();
-    syncLabels();
+  function finalizePot(handNum) {
+    if (state?.handNum !== handNum) return;
+    finalizedHand = handNum;
+    if (groups.delete("pot")) syncLabels();
   }
 
-  function absorbChip(account, value) {
-    account.credited += value;
-    account.shown = account.credited + 1e-9 >= account.amount ? account.final
-      : account.balanceBeforePayout + account.credited;
-    const element = account.element;
+  function pulseWinner(account, now, hits) {
+    const body = account.element.closest(".mechanical-seat-body");
+    const rapid = hits > 1 || now - account.lastImpact < 42;
+    account.lastImpact = now;
+    if (account.pulse?.effect.target === body && account.pulse.playState === "running") {
+      account.pulse.updatePlaybackRate(rapid ? .85 : .95);
+      return;
+    }
+    account.pulse = body.animate([
+      { transform: "scale(1)", filter: "drop-shadow(0 0 0 #e5a64100)" },
+      { transform: rapid ? "scale(1.022)" : "scale(1.05)",
+        filter: rapid ? "drop-shadow(0 0 5px #e5a64179)" : "drop-shadow(0 0 9px #e5a641b0)", offset: .27 },
+      { transform: "scale(1)", filter: "drop-shadow(0 0 0 #e5a64100)" },
+    ], { duration: 144, easing: "cubic-bezier(.22,.75,.36,1)" });
+  }
+
+  function absorbChips(payout, account, { credit, final, hits }, now) {
+    account.delivered = final;
+    account.shown = final ? account.final : account.balanceBeforePayout + credit;
+    const { element } = account;
     if (!element?.isConnected) return;
-    if (!account.hit && account.winner) {
-      account.hit = true;
-      element.closest(".mechanical-seat-body").animate([
-        { transform: "scale(1)", filter: "drop-shadow(0 0 0 #e5a64100)" },
-        { transform: "scale(1.05)", filter: "drop-shadow(0 0 11px #e5a641ba)", offset: .35 },
-        { transform: "scale(.995)", filter: "drop-shadow(0 0 3px #e5a64155)", offset: .75 },
-        { transform: "scale(1)", filter: "drop-shadow(0 0 0 #e5a64100)" },
-      ], { duration: 330, easing: "cubic-bezier(.22,.75,.36,1)" });
-    }
-    MechanicalReels.set(element, account.shown, { impact: true });
+    if (account.winner) pulseWinner(account, now, hits);
+    if (state?.handNum === payout.handNum) MechanicalReels.set(element, account.shown, { payout: final ? "lock" : "flow" });
   }
 
-  function drawPayout(now) {
-    if (!payout.timeline) {
-      if (now < payout.start) return;
-      startPayout(now);
-    }
+  function drawPayouts(now) {
     const rect = payoutCanvas.getBoundingClientRect();
     const ratio = Math.min(2, devicePixelRatio || 1);
     const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
@@ -517,29 +524,53 @@ const MechanicalTable = (() => {
       payoutContext.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
     payoutContext.clearRect(0, 0, rect.width, rect.height);
-    const origin = { x: bounds.left - rect.left + center.x, y: bounds.top - rect.top + center.y };
-    const fade = Math.max(0, 1 - (now - payout.startedAt) / 160);
-    if (fade) {
-      for (const chip of payout.source) drawChip({ x: origin.x + chip.x, y: origin.y + chip.y }, chip, payoutContext, fade);
+    const offset = { x: bounds.left - rect.left, y: bounds.top - rect.top };
+    const origin = { x: offset.x + center.x, y: offset.y + center.y };
+    let animatedChips = 0;
+    for (const payout of payouts.values()) {
+      if (payout.start === undefined || now < payout.start) continue;
+      if (!payout.timeline) {
+        payout.timeline = createMechanicalPayout([...payout.accounts.values()], payout.pot?.inventory.piles ?? [], now,
+          DENOMINATIONS.map(([value]) => value));
+        payout.sweep = null;
+      }
+      const { timeline } = payout;
+      const remaining = timeline.remaining;
+      const active = timeline.draw(now, {
+        origin,
+        targetAt(account) {
+          if (account.element?.isConnected) {
+            account.anchor = point(account.element.closest(".seat-info").querySelector(".seat-medallion").getBoundingClientRect());
+          }
+          return account.anchor && { x: offset.x + account.anchor.x, y: offset.y + account.anchor.y };
+        },
+        drawChip: (at, value, angle) => drawChip(at, { value, angle }, payoutContext),
+        arrive: (account, impact) => absorbChips(payout, account, impact, now),
+      });
+      if (timeline.remaining !== remaining) {
+        chipsDirty = true;
+        if (!timeline.remaining) finalizePot(payout.handNum);
+      }
+      if (active) animatedChips += timeline.count;
+      else finishPayout(payout, timeline.count === 0);
     }
-    const active = payout.timeline.draw(now, {
-      origin,
-      targetAt(account) {
-        const target = account.element?.closest(".seat-info")?.querySelector(".seat-medallion")?.getBoundingClientRect();
-        return target && { x: target.x - rect.left + target.width / 2, y: target.y - rect.top + target.height / 2 };
-      },
-      drawChip: (point, value, angle, opacity) => drawChip(point, { value, angle }, payoutContext, opacity),
-      arrive: absorbChip,
-    });
-    if (!active) finishPayout();
+    if (animatedChips) payoutCanvas.dataset.chips = animatedChips;
+    else delete payoutCanvas.dataset.chips;
   }
 
-  function finishPayout(instant = false) {
-    if (!payout) return;
-    for (const { element, final } of payout.accounts.values()) {
-      if (element?.isConnected) MechanicalReels.set(element, final, { impact: true, instant });
+  function finishPayout(payout, instant = false) {
+    if (state?.handNum === payout.handNum) {
+      for (const { element, final, delivered } of payout.accounts.values()) {
+        if (element?.isConnected && (instant || !delivered)) MechanicalReels.set(element, final, { payout: "lock", instant });
+      }
     }
-    payout = null;
+    finalizePot(payout.handNum);
+    payouts.delete(payout.handNum);
+    chipsDirty = true;
+  }
+
+  function clearPayouts() {
+    for (const payout of payouts.values()) finishPayout(payout, true);
     payoutContext.clearRect(0, 0, payoutCanvas.width, payoutCanvas.height);
     delete payoutCanvas.dataset.chips;
   }
@@ -799,11 +830,12 @@ const MechanicalTable = (() => {
     target.restore();
   }
 
-  function drawPileShadows(group, opacity) {
+  function drawPileShadows(group, opacity, piles = group.inventory.piles) {
     if (!opacity) return;
     context.save();
     context.globalAlpha = opacity;
-    for (const pile of group.inventory.piles) {
+    for (const pile of piles) {
+      if (!pile.chips.length) continue;
       const { x, y } = chipPoint(group, pile);
       const radius = 20 + Math.min(8, pile.chips.length * .45);
       context.save();
@@ -820,27 +852,47 @@ const MechanicalTable = (() => {
     context.restore();
   }
 
+  function drawChipGroup(group, motion, now) {
+    const pot = group.id === "pot";
+    const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
+    drawPileShadows(group, Math.max(0, (progress - .65) / .35));
+    for (const [index, chip] of group.inventory.chips.entries()) {
+      const target = chipPoint(group, chip);
+      if (progress === 1) {
+        drawChip(target, chip);
+        continue;
+      }
+      const source = motion.origins[index];
+      const scattered = !pot && source ? source : scatterPoint(group.at, index, pot ? 82 : 54);
+      const from = source || group.origin || group.at;
+      const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
+        : lerp(scattered, target, ease((progress - .52) / .48));
+      drawChip(position, chip);
+    }
+    return progress === 1;
+  }
+
   function drawChips(now) {
     context.clearRect(0, 0, bounds.width, bounds.height);
+    // A settling hand owns its pot even if a new hand is already gathering bets.
+    for (const payout of payouts.values()) {
+      if (!payout.pot) continue;
+      const group = { ...payout.pot, at: center };
+      if (!payout.timeline) {
+        if (drawChipGroup(group, payout.sweep, now)) payout.sweep = null;
+        continue;
+      }
+      const { piles } = payout.timeline;
+      drawPileShadows(group, 1, piles);
+      for (const pile of piles) {
+        for (const chip of pile.chips) drawChip(chipPoint(group, chip), chip);
+      }
+    }
     for (const group of groups.values()) {
       const pot = group.id === "pot";
+      if (pot && payouts.has(state?.handNum)) continue;
       const motion = pot ? sweep : wagers.get(group.id);
-      const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
-      drawPileShadows(group, Math.max(0, (progress - .65) / .35));
-      for (const [index, chip] of group.inventory.chips.entries()) {
-        const target = chipPoint(group, chip);
-        if (progress === 1) {
-          drawChip(target, chip);
-          continue;
-        }
-        const source = motion.origins[index];
-        const scattered = !pot && source ? source : scatterPoint(group.at, index, pot ? 82 : 54);
-        const from = source || group.origin || group.at;
-        const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
-          : lerp(scattered, target, ease((progress - .52) / .48));
-        drawChip(position, chip);
-      }
-      if (motion && progress === 1) {
+      if (drawChipGroup(group, motion, now) && motion) {
         if (pot) sweep = null;
         else wagers.delete(group.id);
       }
@@ -849,12 +901,12 @@ const MechanicalTable = (() => {
 
   function draw(now) {
     frame = null;
-    if (payout) drawPayout(now);
-    if (chipsDirty || sweep || wagers.size) {
+    if (payouts.size) drawPayouts(now);
+    if (chipsDirty || sweep || wagers.size || [...payouts.values()].some(payout => payout.sweep)) {
       drawChips(now);
       chipsDirty = false;
     }
-    if (arm.tick(now) || sweep || wagers.size || payout) nextFrame();
+    if (arm.tick(now) || sweep || wagers.size || payouts.size) nextFrame();
   }
 
   function printReceipt(snapshot, settlement) {
@@ -966,7 +1018,7 @@ const MechanicalTable = (() => {
 
   function showResult(snapshot, settlement = {}) {
     if (!snapshot || !container.classList.contains("active") || latestReceipt?.handNum === snapshot.handNum) return;
-    if (payout?.handNum !== snapshot.handNum) {
+    if (!payouts.has(snapshot.handNum)) {
       finalizedHand = snapshot.handNum;
       sweep = null;
       wagers.clear();
@@ -978,7 +1030,7 @@ const MechanicalTable = (() => {
       let length;
       arm.enqueue("receipt", {
         target: printOutlet.pose,
-        ready: () => payout?.handNum !== ticket.handNum,
+        ready: () => !payouts.has(ticket.handNum),
         outlet: printOutlet,
         payload: () => mountReceipt(ticket.paper),
         feedLength(carrier) { return length = parseFloat(carrier.style.height); },
@@ -1007,7 +1059,7 @@ const MechanicalTable = (() => {
     arm.reset();
     if (reduced.matches) {
       flipPhase(phaseLabel.getAttribute("aria-label"), false);
-      finishPayout(true);
+      clearPayouts();
     }
     nextFrame();
   });

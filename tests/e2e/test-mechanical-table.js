@@ -525,7 +525,9 @@ async function run() {
     assert.ok(showdown.waitingForImpact);
     await host.waitForSelector('#mechanicalPayout[data-chips]');
     const chips = await host.$eval('#mechanicalPayout', el => Number(el.dataset.chips));
-    assert.ok(chips >= 12 && chips <= 24);
+    const potCount = [...showdown.inventory.matchAll(/× ([\d,]+)/g)]
+      .reduce((total, [, count]) => total + Number(count.replaceAll(',', '')), 0);
+    assert.equal(chips, Math.min(108, potCount));
     await host.waitForSelector('#table .seat.winner .mechanical-reels[data-rolling="up"]');
     await host.waitForFunction(() => [...document.querySelectorAll('.seat.winner .mechanical-seat-body')]
       .some(body => body.getAnimations().some(animation =>

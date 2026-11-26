@@ -36,7 +36,7 @@ const MechanicalReels = (() => {
       paint(reel, motion.from + motion.distance * (1 - (1 - travel) ** 2.6));
       return true;
     }
-    const lock = Math.min(1, (elapsed - motion.duration) / 80);
+    const lock = motion.lock ? Math.min(1, (elapsed - motion.duration) / motion.lock) : 1;
     paint(reel, reel.target + motion.direction * Math.sin(lock * Math.PI * 2) * (1 - lock) ** 2 * .21);
     if (lock < 1) return true;
     reel.motion = null;
@@ -52,7 +52,7 @@ const MechanicalReels = (() => {
         for (const reel of counter.reels.values()) changing = sample(reel, now) || changing;
       }
       if (changing) continue;
-      delete counter.element.dataset.rolling;
+      if (!counter.flow || !counter.element.isConnected) delete counter.element.dataset.rolling;
       running.delete(counter);
     }
     if (running.size && !frame) frame = requestAnimationFrame(tick);
@@ -100,9 +100,10 @@ const MechanicalReels = (() => {
     return Number(parts.whole + parts.fraction.padEnd(-place, "0").slice(0, -place));
   }
 
-  function set(element, amount, { initial = amount, instant = false, impact = false, fixedDigits, label = "筹码" } = {}) {
+  function set(element, amount, { initial = amount, instant = false, payout, fixedDigits, label = "筹码" } = {}) {
     let counter = counters.get(element);
-    if (counter && counter.amount === amount && !instant && !reduced.matches) return;
+    instant ||= reduced.matches;
+    if (counter && counter.amount === amount && !instant && !payout && !counter.flow) return;
     if (!counter) {
       element.classList.add("mechanical-reels");
       counter = { element, reels: new Map(), amount: initial, fixedDigits, label };
@@ -110,16 +111,17 @@ const MechanicalReels = (() => {
     }
     const old = split(counter.amount);
     const next = split(amount);
+    counter.flow = payout === "flow" && !instant;
     layout(counter, old, next);
     element.setAttribute("aria-label", counter.label + " " + digits.format(amount));
     element.dataset.balance = amount;
-    const direction = amount >= counter.amount ? 1 : -1;
+    const direction = (payout || amount >= counter.amount) ? 1 : -1;
     const now = performance.now();
     let changing = false;
     for (const [place, reel] of counter.reels) {
       const target = digitAt(next, place);
       reel.slot.classList.toggle("mechanical-reel-leading", place > 0 && place >= next.whole.length);
-      if (instant || reduced.matches) {
+      if (instant) {
         reel.motion = null;
         reel.target = target;
         reel.slot.dataset.digit = target;
@@ -127,22 +129,25 @@ const MechanicalReels = (() => {
         continue;
       }
       const steps = Math.abs(countAt(next, place) - countAt(old, place));
-      if (!steps) {
+      if (!steps && !(payout === "lock" && reel.motion)) {
         changing ||= !!reel.motion;
         continue;
       }
       sample(reel, now);
       reel.target = target;
-      const turns = Math.min(Math.floor(steps / 10), place <= 0 ? (impact ? 1 : 2) : place === 1 ? 1 : 0);
+      const turns = Math.min(Math.floor(steps / 10), place <= 0 ? (payout ? 1 : 2) : place === 1 ? 1 : 0);
       const distance = modulo((target - reel.position) * direction) + 10 * turns;
+      const higher = Math.max(0, place);
       reel.motion = {
         from: reel.position, direction, distance: distance * direction,
-        start: now + Math.min(place > 0 ? place * (impact ? 9 : 19) : 0, 96),
-        duration: impact ? 125 + Math.min(Math.max(0, place) * 15, 75) : 185 + Math.min(Math.max(0, place) * 22, 110),
+        start: now + (payout === "lock" ? 0 : Math.min(higher * (payout ? 5 : 19), payout ? 25 : 96)),
+        duration: payout === "lock" ? 54 : counter.flow ? 77 + Math.min(higher * 12, 60) : 185 + Math.min(higher * 22, 110),
+        lock: payout === "lock" ? 26 : counter.flow ? 0 : 80,
       };
       changing = true;
     }
     counter.amount = amount;
+    if (counter.flow) element.dataset.rolling = "up";
     if (changing) {
       if (!element.dataset.rolling || old.whole !== next.whole || old.fraction !== next.fraction) {
         element.dataset.rolling = direction > 0 ? "up" : "down";
@@ -151,7 +156,7 @@ const MechanicalReels = (() => {
       if (!frame) frame = requestAnimationFrame(tick);
     } else {
       running.delete(counter);
-      delete element.dataset.rolling;
+      if (!counter.flow) delete element.dataset.rolling;
     }
   }
 

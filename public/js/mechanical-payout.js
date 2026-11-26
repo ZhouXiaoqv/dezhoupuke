@@ -1,103 +1,106 @@
-// Produces a representative stream from the public transfer denominations.
-// Visual sampling never decides the amount credited to a player.
-function createMechanicalPayout(targets, source, start, denominations) {
+// The visual inventory belongs to the table. Payouts reuse those chip objects
+// and use the server's transfers only to route them and advance the balances.
+function createMechanicalPayout(targets, sourcePiles, start, denominations) {
   const { easing, interpolate } = MechanicalArmMotion;
   const accelerate = easing([0.4, 0, 0.85, 0.2]);
-  const physical = targets.reduce((total, target) => total + target.counts.reduce((a, b) => a + b, 0), 0);
-  const budget = Math.min(24, Math.max(12, physical));
-  const quotas = targets.map(() => 1);
-  const weight = ({ counts, amount }) => counts.reduce((a, b) => a + b, 0) || amount;
-  for (let allocated = targets.length; allocated < budget; allocated++) {
-    let best = 0;
-    for (let index = 1; index < targets.length; index++) {
-      if (weight(targets[index]) / (quotas[index] + 1) > weight(targets[best]) / (quotas[best] + 1)) best = index;
-    }
-    quotas[best]++;
+  const piles = sourcePiles.map(pile => ({ ...pile, chips: pile.chips.slice() }));
+  const radius = pile => pile.x ** 2 + pile.y ** 2;
+  const particles = piles.slice().sort((a, b) => radius(b) - radius(a)).flatMap(pile =>
+    pile.chips.slice().reverse().map(chip => ({ chip, pile })));
+
+  const accounts = targets.map(target => ({ target, counts: target.counts.slice(), particles: [], value: 0, landed: 0, hits: 0 }));
+  function assign(particle, account) {
+    particle.account = account;
+    account.particles.push(particle);
+    account.value += particle.chip.value;
   }
 
-  function sample(target, quota) {
-    const available = denominations.map((value, index) => ({ value, count: target.counts[index], used: 0 }))
-      .filter(entry => entry.count > 0);
-    if (!available.length) return Array(quota).fill(1);
-    const values = [];
-    for (let index = 0; index < quota; index++) {
-      let best = available[index];
-      if (!best) {
-        best = available.reduce((first, item) =>
-          item.count / (item.used + 1) > first.count / (first.used + 1) ? item : first);
-      }
-      best.used++;
-      values.push(best.value);
-    }
-    return values;
+  for (const particle of particles) {
+    const denomination = denominations.indexOf(particle.chip.value);
+    const matches = accounts.filter(account => account.counts[denomination] > 0);
+    if (!matches.length) continue;
+    const account = matches.reduce((best, next) => next.counts[denomination] > best.counts[denomination] ? next : best);
+    account.counts[denomination]--;
+    assign(particle, account);
+  }
+  // A capped table pile or a split payout that made change can leave some
+  // displayed denominations unmatched. Route those chips by relative share.
+  for (const particle of particles) {
+    if (particle.account) continue;
+    const account = accounts.reduce((best, next) => next.value / next.target.amount < best.value / best.target.amount ? next : best);
+    assign(particle, account);
+  }
+  for (const account of accounts) {
+    if (account.particles.length) continue;
+    const donor = accounts.find(other => other.particles.length > 1);
+    if (!donor) continue;
+    const particle = donor.particles.pop();
+    donor.value -= particle.chip.value;
+    assign(particle, account);
   }
 
-  const streams = targets.map((target, index) => {
-    const values = sample(target, quotas[index]);
-    const total = values.reduce((a, b) => a + b, 0);
-    let cumulativeValue = 0, sent = 0;
-    return values.map((value, index) => {
-      cumulativeValue += value;
-      const credited = index === values.length - 1 ? target.amount : Math.floor(target.amount * cumulativeValue / total);
-      const credit = credited - sent;
-      sent = credited;
-      return { value, target, credit };
-    });
-  });
+  const count = particles.length;
+  const minGap = 15 - 8 * Math.min(1, Math.max(0, (count - 15) / 60));
+  let launch = start;
+  for (const [index, particle] of particles.entries()) {
+    const { account, chip } = particle;
+    const progress = index / Math.max(1, count - 1);
+    const intervalProgress = index / Math.max(1, count - 2);
+    // Shorten later flights without letting them land ahead of earlier ones.
+    const duration = 500 - Math.min(138, (count - 1) * 5) * progress;
+    particle.launch = launch;
+    particle.arrival = launch + duration;
+    particle.scatterTime = 86 - 38 * progress;
+    particle.theta = Math.random() * Math.PI * 2;
+    particle.reach = 14 + Math.random() * 27;
+    particle.curve = (Math.random() < .5 ? -1 : 1) * (24 + Math.random() * 68);
+    launch += minGap + (52 - minGap) * (1 - Math.min(1, intervalProgress)) ** (count < 18 ? 2 : 1.35);
 
-  const particles = [];
-  const spritesByValue = new Map(denominations.map(value => [value, source.filter(chip => chip.value === value)]));
-  let delay = 0;
-  for (let index = 0; index < Math.max(...quotas); index++) {
-    for (const stream of streams) {
-      const chip = stream[index];
-      if (!chip) continue;
-      const matching = spritesByValue.get(chip.value);
-      const from = matching[index % matching.length] || source[particles.length % source.length] || { x: 0, y: 0 };
-      const theta = Math.random() * Math.PI * 2;
-      particles.push({ ...chip, from, launch: start + delay, theta,
-        reach: 14 + Math.random() * 27, curve: (Math.random() < .5 ? -1 : 1) * (24 + Math.random() * 68) });
-      delay += 25 + Math.random() * 15;
-    }
+    account.landed += chip.value;
+    particle.final = ++account.hits === account.particles.length;
+    const amount = account.target.amount;
+    const share = amount * account.landed / account.value;
+    particle.credit = particle.final ? amount : Math.max(0, Math.min(Math.ceil(amount) - 1, Math.ceil(share - 1e-9)));
   }
 
+  let launched = 0, arrived = 0;
   function draw(now, { origin, targetAt, drawChip, arrive }) {
+    while (launched < count && particles[launched].launch <= now) particles[launched++].pile.chips.pop();
+    const impacts = new Map();
+    while (arrived < launched && particles[arrived].arrival <= now) {
+      const { account, credit, final } = particles[arrived++];
+      const previous = impacts.get(account.target);
+      impacts.set(account.target, { credit, final, hits: (previous?.hits ?? 0) + 1 });
+    }
     const anchors = new Map(targets.map(target => [target, targetAt(target)]));
-    let animations = false;
-    for (const chip of particles) {
-      if (chip.landed) continue;
-      const elapsed = now - chip.launch;
-      const from = { x: origin.x + chip.from.x, y: origin.y + chip.from.y };
-      const target = anchors.get(chip.target) || origin;
-      if (elapsed >= 565) {
-        chip.landed = true;
-        arrive(chip.target, chip.credit);
-        continue;
-      }
-      animations = true;
-      const burst = Math.max(0, Math.min(1, elapsed / 105));
-      const scatter = { x: Math.cos(chip.theta) * chip.reach, y: Math.sin(chip.theta) * chip.reach * .57 };
+    for (let index = arrived; index < launched; index++) {
+      const flight = particles[index];
+      const { chip, account, curve, scatterTime } = flight;
+      const elapsed = now - flight.launch;
+      const from = { x: origin.x + chip.x, y: origin.y + chip.y };
+      const target = anchors.get(account.target) || origin;
+      const scatter = { x: Math.cos(flight.theta) * flight.reach, y: Math.sin(flight.theta) * flight.reach * .57 };
       const lifted = { x: from.x + scatter.x, y: from.y + scatter.y - 11 };
-      const angle = chip.from.angle || 0;
-      if (burst < 1) {
+      if (elapsed < scatterTime) {
+        const burst = elapsed / scatterTime;
         const t = 1 - (1 - burst) ** 2;
         drawChip({ x: from.x + scatter.x * t, y: from.y + scatter.y * t - 11 * t - 7 * Math.sin(Math.PI * burst) },
-          chip.value, angle + burst * .15, 1);
+          chip.value, chip.angle + burst * .15);
         continue;
       }
-      const progress = (elapsed - 105) / 460;
+      const progress = (elapsed - scatterTime) / (flight.arrival - flight.launch - scatterTime);
       const dx = target.x - lifted.x, dy = target.y - lifted.y;
       const length = Math.max(1, Math.hypot(dx, dy));
-      const curveX = -dy / length * chip.curve, curveY = dx / length * chip.curve;
+      const curveX = -dy / length * curve, curveY = dx / length * curve;
       const controls = [
         { x: lifted.x + dx * .16 + curveX, y: lifted.y + dy * .16 + curveY },
         { x: target.x - dx * .24 + curveX * .32, y: target.y - dy * .24 + curveY * .32 },
       ];
-      drawChip(interpolate(lifted, target, accelerate(progress), controls), chip.value,
-        angle + .15 + progress * Math.sign(chip.curve) * .57, 1 - Math.max(0, progress - .89) * 3);
+      drawChip(interpolate(lifted, target, accelerate(progress), controls), chip.value, chip.angle + .15 + progress * Math.sign(curve) * .57);
     }
-    return animations;
+    for (const [target, impact] of impacts) arrive(target, impact);
+    return arrived < count;
   }
 
-  return { draw, count: particles.length };
+  return { draw, count, piles, get remaining() { return count - launched; } };
 }
