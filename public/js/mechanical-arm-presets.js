@@ -25,9 +25,9 @@ const MechanicalArmPresets = (() => {
         home,
         phases: [
           { kind: "stageOutlet", duration: 175, feedDuration: 240, feedSteps: 9, exposed: .30, clearance: 22 },
-          { kind: "gripOutlet", duration: 120, grip: 60 },
-          { kind: "retractOutlet", duration: 76 },
-          { kind: "extractOutlet", duration: 164 },
+          { kind: "gripOutlet", duration: 100, grip: 60 },
+          { kind: "retractOutlet", duration: 65 },
+          { kind: "extractOutlet", duration: 235 },
           { kind: "release", duration: 46 },
         ],
       },

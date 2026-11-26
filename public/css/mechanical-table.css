@@ -741,18 +741,9 @@
   inset: 0;
   pointer-events: none;
 }
-.mechanical-bay-cards {
-  z-index: 23;
-  clip-path: inset(19px calc(50% - 9px) 0 calc(50% - 69px));
-}
-.mechanical-recycled-cards {
-  z-index: 21;
-  clip-path: inset(92px calc(50% - 5px) 0 calc(50% - 65px));
-}
-.mechanical-print-feed {
-  z-index: 22;
-  clip-path: inset(109px calc(50% - 184px) 0 calc(50% - 110px));
-}
+.mechanical-bay-cards { z-index: 23; }
+.mechanical-recycled-cards { z-index: 21; }
+.mechanical-print-feed { z-index: 22; }
 .mechanical-chip-amount, .mechanical-carry, .mechanical-spark {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -804,7 +795,7 @@
 .mechanical-result > .mechanical-receipt { pointer-events: auto; }
 .mechanical-result > .mechanical-receipt[inert] { pointer-events: none; }
 .mechanical-receipt {
-  width: min(320px, calc(100vw - 28px));
+  width: min(448px, calc(100vw - 28px));
   color: #30291e;
   filter: drop-shadow(0 2px 2px #63472955) drop-shadow(3px 12px 16px #4b392b50);
   font: 700 12px/1.3 "JetBrains Mono", "Noto Sans Mono CJK SC", monospace;
@@ -814,7 +805,7 @@
   display: flex;
   flex-direction: column;
   min-height: min(338px, calc(100dvh - 20px));
-  padding: 22px 24px 19px;
+  padding: 18px 24px 14px;
   background:
     radial-gradient(circle at 9px 5px, #a38d675a 1.1px, #fffaf2 1.35px, transparent 2px) left top / 11px 13px repeat-y,
     radial-gradient(circle at 2px 5px, #a38d675a 1.1px, #fffaf2 1.35px, transparent 2px) right top / 11px 13px repeat-y,
@@ -827,11 +818,15 @@
   box-shadow: inset 0 11px 17px -13px #8a613a9e, inset -16px -17px 15px -19px #835938b8;
 }
 .mechanical-receipt-heading {
-  padding-bottom: 9px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding-bottom: 8px;
   border-bottom: 3px double #887352;
 }
 .mechanical-receipt-serial {
-  display: block;
+  grid-column: 1 / -1;
   color: #69563d;
   font-size: 10px;
   letter-spacing: .085em;
@@ -841,14 +836,14 @@
   font-size: clamp(16px, 4vw, 20px);
   letter-spacing: .035em;
 }
-.mechanical-receipt-pot { color: #4b3b24; font-size: 13px; }
+.mechanical-receipt-pot { color: #4b3b24; font-size: 13px; white-space: nowrap; }
 .mechanical-result-board {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 6px;
   min-height: 39px;
-  margin: 9px 0 7px;
+  margin: 7px 0 5px;
   padding: 4px;
   border: 1px dashed #ad9570;
   color: #66563e;
@@ -864,7 +859,7 @@
   grid-template-columns: minmax(0, 1fr) 43px 49px minmax(56px, auto);
   align-items: center;
   gap: 4px;
-  padding: 4px;
+  padding: 3px 4px;
   min-height: 36px;
   border-bottom: 1px dashed #b4a380;
 }
@@ -899,7 +894,7 @@
   background: #fff8e4;
   box-shadow: 0 1px 1px #6a513d3b;
 }
-.mechanical-result-hand .card { width: 22px; }
+.mechanical-result-hand .card { width: 21px; }
 .mechanical-receipt .card .rank, .mechanical-receipt .card .suit { font-size: 10px; }
 .mechanical-receipt .card .rank-br { font-size: 7px; }
 .mechanical-receipt-footer {
@@ -909,7 +904,7 @@
   gap: 10px;
   margin-top: auto;
   border-top: 1px dashed #ad9570;
-  padding-top: 9px;
+  padding-top: 7px;
 }
 .mechanical-receipt-imprint { color: #66533c; font-size: 9px; letter-spacing: .1em; }
 .mechanical-receipt-barcode {

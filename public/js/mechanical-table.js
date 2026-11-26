@@ -33,6 +33,9 @@ const MechanicalTable = (() => {
   const result = $("mechanicalResult");
   const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
+  const bayLip = table.querySelector(".mechanical-bay-rim path");
+  const recyclerLip = table.querySelector(".mechanical-recycle-rim path");
+  const printerOpening = table.querySelector(".mechanical-printer-opening");
   const container = $("table-container");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const handReels = $("mechanicalHandReels");
@@ -54,14 +57,13 @@ const MechanicalTable = (() => {
   let chipsDirty = true;
   const deliveries = new Map();
   const { jawReach } = MechanicalArmMotion;
-  const portCenter = y => ({ x: bounds.width / 2 - 30, y });
-  const recycleMouth = () => portCenter(92);
+  let bayPort, recyclerPort, printerPort;
+  const recycleMouth = () => recyclerPort;
   const base = $("mechanicalBase");
   const notice = createMechanicalNotice($("mechanicalNoticeLift"), $("mechanicalNoticeText"));
   const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), base);
   const printOutlet = {
-    // The feed mask starts at the lower lip of the printer slot, in table pixels.
-    pose: () => ({ x: bounds.width / 2 + 37, y: 109, angle: -90, lift: 4 }),
+    pose: () => ({ ...printerPort, angle: -90, lift: 4 }),
     layer: printLayer,
     setFeeding(active) { base.toggleAttribute("data-printing", active); },
   };
@@ -71,7 +73,7 @@ const MechanicalTable = (() => {
     feedLayer,
     recycleLayer,
     presets: MechanicalArmPresets.active,
-    bay: () => ({ ...portCenter(19), angle: -90, lift: 4 }),
+    bay: () => ({ ...bayPort, angle: -90, lift: 4 }),
     recycleMouth,
     home: () => ({ park: true }),
   });
@@ -264,6 +266,14 @@ const MechanicalTable = (() => {
     if (!frame && bounds) frame = requestAnimationFrame(draw);
   }
 
+  function measurePort(layer, lip, seamOffset = 0) {
+    const rect = lip.getBoundingClientRect();
+    const left = rect.left - bounds.left;
+    const y = rect.bottom - bounds.top + seamOffset;
+    layer.style.clipPath = `inset(${y}px ${bounds.right - rect.right}px 0 ${left}px)`;
+    return { x: left + rect.width / 2, y, width: rect.width };
+  }
+
   function measure() {
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return false;
@@ -271,6 +281,10 @@ const MechanicalTable = (() => {
       rig.resize(rect.width, rect.height);
     }
     bounds = rect;
+    bayPort = measurePort(feedLayer, bayLip);
+    // The recycler's front lip overlays the first three pixels of the intake.
+    recyclerPort = measurePort(recycleLayer, recyclerLip, -3);
+    printerPort = measurePort(printLayer, printerOpening, .5);
     center = { x: rect.width / 2, y: rect.height * .35 };
     const ratio = Math.min(2, devicePixelRatio || 1);
     const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
@@ -1119,9 +1133,10 @@ const MechanicalTable = (() => {
     carrier.inert = true;
     carrier.append(paper);
     moving.append(carrier);
-    const width = paper.offsetWidth, height = paper.offsetHeight;
+    const { width, height } = paper.getBoundingClientRect();
     carrier.remove();
-    const scale = Math.min(112 / width, 94 / height);
+    // Leave room at both ends of the slit and keep the pull within the arm's reach.
+    const scale = Math.min(1, (printerPort.width - 16) / width, 312 / height);
     carrier.style.width = width * scale + "px";
     carrier.style.height = height * scale + "px";
     paper.style.transform = `scale(${scale})`;

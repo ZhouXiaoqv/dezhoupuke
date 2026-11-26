@@ -468,7 +468,7 @@
             </g>
             <use href="#baseScrew" x="31" y="62"/><use href="#baseScrew" x="343" y="62"/>
             <use href="#baseScrew" x="34" y="128"/><use href="#baseScrew" x="340" y="128"/>
-            <g transform="translate(0 -38)">
+            <g transform="translate(0 -31)">
               <rect x="73" y="68" width="94" height="29" rx="6" fill="url(#baseRim)" stroke="#766653"/>
               <rect class="mechanical-bay-opening" x="77" y="72" width="86" height="22" rx="4" fill="#302c27" stroke="#ecdbc0"/>
               <g clip-path="url(#baseBayClip)">
@@ -488,7 +488,7 @@
                 </g>
               </g>
             </g>
-            <g class="mechanical-recycle-slot" transform="translate(0 14)">
+            <g class="mechanical-recycle-slot" transform="translate(0 4)">
               <rect x="81" y="101" width="79" height="25" rx="5" fill="url(#baseRim)" stroke="#766653"/>
               <rect x="85" y="104" width="70" height="17" rx="3" fill="#292622" stroke="#f3e2c6"/>
               <g clip-path="url(#baseRecyclerClip)">
@@ -508,7 +508,7 @@
               <circle cx="59" cy="77" r="3.3" fill="#bb864d" stroke="#76563a"/>
               <ellipse cx="58.3" cy="76.2" rx="1.25" ry=".65" fill="#ffe9b8"/>
             </g>
-            <g transform="translate(24 -12)">
+            <g transform="translate(24 -5)">
               <rect x="151" y="48" width="15" height="13" rx="3.3" fill="#635547" stroke="#f9e9cf"/>
               <g class="mechanical-press-button">
                 <rect x="153" y="49.5" width="11" height="8.8" rx="2" fill="url(#baseRim)" stroke="#8d795e"/>
@@ -530,7 +530,7 @@
             </g>
             <g class="mechanical-printer-slot">
               <rect x="36" y="139" width="302" height="11" rx="3" fill="url(#baseRim)" stroke="#75634f" stroke-width=".8"/>
-              <rect x="40" y="142" width="294" height="6.5" rx="1.6" fill="#2a2622" stroke="#8b7964" stroke-width=".8"/>
+              <rect class="mechanical-printer-opening" x="40" y="142" width="294" height="6.5" rx="1.6" fill="#2a2622" stroke="#8b7964" stroke-width=".8"/>
               <path d="M43 141h288m-288 8h288" fill="none" stroke="#efe0c7" stroke-opacity=".7" stroke-width=".65"/>
               <path class="mechanical-printer-teeth" d="M45 143.5h284" stroke="#c4b199" stroke-width="1.4" stroke-dasharray=".8 2.2"/>
               <path d="M44 146.5h286" stroke="#1e1b19" stroke-width="1.1"/>
@@ -560,12 +560,16 @@
         <div class="mechanical-only mechanical-recycled-cards" id="mechanicalRecycledCards" aria-hidden="true"></div>
         <div class="mechanical-only mechanical-print-feed" id="mechanicalPrintFeed" aria-hidden="true"></div>
         <svg class="mechanical-only mechanical-port-rim mechanical-bay-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
-          <path d="M78 53h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
-          <path d="M82 54h76" stroke="#fff0d6" stroke-opacity=".84"/>
+          <g transform="translate(0 7)">
+            <path d="M78 53h84v4l-3 2H81l-3-2z" fill="url(#baseRim)" stroke="#756450" stroke-width=".7"/>
+            <path d="M82 54h76" stroke="#fff0d6" stroke-opacity=".84"/>
+          </g>
         </svg>
         <svg class="mechanical-only mechanical-port-rim mechanical-recycle-rim" viewBox="0 -44 374 198" focusable="false" aria-hidden="true">
-          <path d="M85 130h70v3l-3 2H88l-3-2z" fill="url(#baseRim)" stroke="#6f5c46" stroke-width=".7"/>
-          <path d="M90 131h60" stroke="#fff0d6" stroke-opacity=".75"/>
+          <g transform="translate(0 -10)">
+            <path d="M85 130h70v3l-3 2H88l-3-2z" fill="url(#baseRim)" stroke="#6f5c46" stroke-width=".7"/>
+            <path d="M90 131h60" stroke="#fff0d6" stroke-opacity=".75"/>
+          </g>
         </svg>
         <canvas class="mechanical-only mechanical-chips" id="mechanicalChips" aria-hidden="true"></canvas>
         <div class="mechanical-only mechanical-chip-labels" id="mechanicalChipLabels"></div>
