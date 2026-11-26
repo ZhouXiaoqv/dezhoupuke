@@ -4,13 +4,12 @@ const MechanicalArmPresets = (() => {
   const slide = { mode: "slide", duration: 180, easing: [0.08, 0.92, 0.24, 1] };
   const home = { duration: 450, easing: [0.4, 0, 0.2, 1] };
   const deal = {
-    chain: "cards",
     lamp: "#4bcb9d",
     release: slide,
     home,
     phases: [
-      { kind: "pickup", duration: 120, chainedDuration: 25, dip: 4, hatch: true, feed: "card" },
-      { kind: "travel", duration: 300, easing: sweep, bend: 33, chainedBend: 64,
+      { kind: "pickup", duration: 120, dip: 4, hatch: true, feed: "card" },
+      { kind: "travel", duration: 300, easing: sweep, bend: 33,
         lift: 27, shortOf: 59, releaseAt: 0.88 },
       { kind: "brake", duration: 86, rebound: 1.5 },
     ],

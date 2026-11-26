@@ -179,11 +179,11 @@ async function run() {
     await host.evaluate(() => {
       const base = document.getElementById('mechanicalBase');
       const payloads = document.getElementById('mechanicalMovingCards');
-      window.armDealTrace = { opens: 0, slides: 0 };
+      window.armDealTrace = [];
       const observer = new MutationObserver(records => {
         for (const { target, attributeName } of records) {
-          if (attributeName === 'data-hatch' && target.dataset.hatch === 'open') window.armDealTrace.opens++;
-          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') window.armDealTrace.slides++;
+          if (attributeName === 'data-hatch' && target.dataset.hatch === 'open') window.armDealTrace.push('open');
+          if (attributeName === 'data-arm-flight' && target.dataset.armFlight === 'slide') window.armDealTrace.push('slide');
         }
       });
       observer.observe(base, { attributeFilter: ['data-hatch'] });
@@ -220,7 +220,7 @@ async function run() {
       assert.ok(table.backs >= 4);
       await page.waitForFunction(() => !document.querySelector('.mechanical-pending'));
     }
-    assert.deepEqual(await host.evaluate(() => window.armDealTrace), { opens: 1, slides: 6 });
+    assert.deepEqual(await host.evaluate(() => window.armDealTrace), Array.from({ length: 6 }, () => ['open', 'slide']).flat());
     const opening = await host.evaluate(() => window.openingReels);
     assert.equal(opening.length, 3);
     assert.ok(opening.every(counter => counter.digits === 5 && counter.windows));
@@ -302,6 +302,8 @@ async function run() {
     assert.equal(receipt.cards, 5);
     assert.equal(receipt.exposedHands, 4);
     assert.ok(receipt.winner?.includes('+'));
+    await host.waitForFunction(() => !document.querySelector('#community .mechanical-pending'));
+    assert.deepEqual(await host.evaluate(() => window.armDealTrace), Array.from({ length: 11 }, () => ['open', 'slide']).flat());
     const endedHand = await host.evaluate(() => gameState.handNum);
     await host.evaluate(() => Net.send('game:nextHand'));
     await host.waitForFunction(hand => gameState?.handNum === hand + 1 && gameState.phase === 'preflop', {}, endedHand);
