@@ -617,7 +617,7 @@ function renderGame(state) {
     const seatAvatar =
       p.avatar || PLAYER_AVATARS[i % PLAYER_AVATARS.length];
 
-    // Update info (always update - it's lightweight innerHTML change)
+    // Keep mechanical reel nodes mounted while new snapshots arrive.
     const actionMap = {
       fold: "弃牌",
       check: "过牌",
@@ -644,24 +644,33 @@ function renderGame(state) {
       infoEl.style.borderColor = seatColor;
       infoEl.style.borderLeftColor = seatColor;
       infoEl.style.boxShadow = `0 0 20px ${seatColor}66, 0 0 40px ${seatColor}33`;
-    } else if (p.lastAction === "winner") {
+    } else if (!mechanical && p.lastAction === "winner") {
       infoEl.style.borderColor = "#40e080";
       infoEl.style.boxShadow = "0 0 24px rgba(64,224,128,0.4)";
     } else {
-      infoEl.style.boxShadow = "none";
+      infoEl.style.boxShadow = mechanical ? "" : "none";
       infoEl.style.borderColor = "";
     }
-    infoEl.innerHTML = `
+    if (!mechanical || !existingInfo) {
+      infoEl.innerHTML = `
 <div class="seat-name"><span class="seat-medallion"></span><span class="seat-player-name"></span></div>
-<div class="seat-stack">${p.stack}</div>
-<div class="seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}">${actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "")}</div>
+<div class="seat-stack"></div>
+<div class="seat-action"></div>
     `;
+    }
+    const stack = infoEl.querySelector(".seat-stack");
+    if (mechanical) MechanicalTable.updateStack(stack, p, state);
+    else stack.textContent = p.stack;
     const result = state.winners?.find(w => w.id === p.id);
     const shownRank = result?.revealedRank || (state.phase === "showdown" && result?.hand);
-    if (shownRank) {
-      const badge = infoEl.querySelector(".seat-action");
-      badge.className = "seat-action revealed-rank";
-      badge.textContent = "🏆 " + shownRank;
+    const badge = infoEl.querySelector(".seat-action");
+    const badgeClass = shownRank ? "seat-action revealed-rank"
+      : `seat-action ${actionClass} ${p.lastAction ? "seat-action-anim" : ""}`;
+    const badgeText = shownRank ? "🏆 " + shownRank
+      : actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "");
+    if (badge.className !== badgeClass || badge.textContent !== badgeText) {
+      badge.className = badgeClass;
+      badge.textContent = badgeText;
     }
     const medallion = infoEl.querySelector(".seat-medallion");
     medallion.textContent = seatAvatar;

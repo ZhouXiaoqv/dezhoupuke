@@ -122,6 +122,17 @@ async function run() {
       });
       observer.observe(base, { attributeFilter: ['data-hatch'] });
       observer.observe(payloads, { subtree: true, attributeFilter: ['data-arm-flight'] });
+      Net.on('game:state', state => {
+        if (window.openingReels || state.phase !== 'preflop') return;
+        window.openingReels = [...document.querySelectorAll('#table .mechanical-reels')].map(el => ({
+          direction: el.dataset.rolling,
+          digits: el.querySelectorAll('.mechanical-reel').length,
+          windows: [...el.querySelectorAll('.mechanical-reel')].every(slot => {
+            const cell = slot.querySelector('.mechanical-reel-strip > span');
+            return slot.clientHeight === cell.clientHeight && getComputedStyle(slot).overflowY === 'hidden';
+          }),
+        }));
+      });
     });
     await host.click('#startGameBtn');
     for (const page of [host, guest]) {
@@ -144,6 +155,10 @@ async function run() {
       await page.waitForFunction(() => !document.querySelector('.mechanical-pending'));
     }
     assert.deepEqual(await host.evaluate(() => window.armDealTrace), { opens: 1, slides: 6 });
+    const opening = await host.evaluate(() => window.openingReels);
+    assert.equal(opening.length, 3);
+    assert.ok(opening.every(counter => counter.digits === 5 && counter.windows));
+    assert.equal(opening.filter(counter => counter.direction === 'down').length, 2);
 
     let raiser = await nextActor([host, guest]);
     if (await raiser.evaluate(() => gameState.players.find(player => player.id === Net.playerId).bet === 0)) {
@@ -158,6 +173,8 @@ async function run() {
     }, { timeout: 4000 });
     await sendAction(raiser, 'raise', 57);
     await host.waitForSelector('#mechanicalChipLabels [data-amount="57"]');
+    await raiser.waitForFunction(() => document.querySelector('[data-mechanical-slot="0"] .mechanical-reels[data-rolling="down"]'),
+      { timeout: 4000 });
     const inventory = await host.$eval('#mechanicalChipLabels [data-amount="57"]', node => node.title);
     assert.equal(inventory, '20 × 2 · 10 × 1 · 5 × 1 · 1 × 2');
     await raiser.waitForFunction(() => {
@@ -180,6 +197,11 @@ async function run() {
       inventory: document.querySelector('#mechanicalChipLabels [data-amount]')?.title,
       cards: document.querySelectorAll('#community .card-front').length,
       revealed: gameState.players.filter(player => !player.folded && player.hand.every(Boolean)).length,
+      waitingForImpact: gameState.winners.every(winner => {
+        const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === winner.id);
+        const player = gameState.players.find(player => player.id === winner.id);
+        return Number(seat.querySelector('.mechanical-reels').dataset.balance) < player.stack;
+      }),
     }));
     assert.equal(showdown.total, showdown.collected);
     assert.ok(showdown.total >= 100);
@@ -187,6 +209,19 @@ async function run() {
     assert.match(showdown.inventory, /1 × [4-9]/);
     assert.equal(showdown.cards, 5);
     assert.equal(showdown.revealed, 2);
+    assert.ok(showdown.waitingForImpact);
+    await host.waitForSelector('#mechanicalPayout[data-chips]');
+    const chips = await host.$eval('#mechanicalPayout', el => Number(el.dataset.chips));
+    assert.ok(chips >= 12 && chips <= 24);
+    await host.waitForSelector('#table .seat.winner .mechanical-reels[data-rolling="up"]');
+    await host.waitForFunction(() => !document.getElementById('mechanicalPayout').hasAttribute('data-chips') &&
+      gameState.winners.every(winner => {
+        const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === winner.id);
+        const player = gameState.players.find(player => player.id === winner.id);
+        const reel = seat.querySelector('.mechanical-reels');
+        const digits = [...reel.querySelectorAll('.mechanical-reel')].map(slot => slot.dataset.digit).join('');
+        return !reel.dataset.rolling && Number(digits) === player.stack;
+      }));
 
     await host.waitForSelector('#mechanicalResult', { visible: true });
     const receipt = await host.evaluate(() => ({
@@ -201,7 +236,16 @@ async function run() {
     assert.equal(receipt.cards, 5);
     assert.equal(receipt.exposedHands, 4);
     assert.ok(receipt.winner?.includes('+'));
-    console.log('PASS mechanical room rotates each view, renders exact wagers, folds, showdown and settlement');
+    const endedHand = await host.evaluate(() => gameState.handNum);
+    await host.evaluate(() => Net.send('game:nextHand'));
+    await host.waitForFunction(hand => gameState?.handNum === hand + 1 && gameState.phase === 'preflop', {}, endedHand);
+    assert.ok(await host.evaluate(() => document.getElementById('mechanicalResult').hidden &&
+      !document.getElementById('mechanicalPayout').hasAttribute('data-chips') &&
+      gameState.players.every(player => {
+        const seat = [...document.querySelectorAll('#table .seat')].find(seat => seat.dataset.playerId === player.id);
+        return Number(seat.querySelector('.mechanical-reels').dataset.balance) === player.stack;
+      })));
+    console.log('PASS mechanical table seats, wagers, mechanical reels, payout flight and settlement');
   } finally {
     await browser.close();
   }

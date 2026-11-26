@@ -186,9 +186,10 @@ class Game {
     const chips = this.potChips?.slice();
     let available = this.pot;
     return (player, amount) => {
-      if (chips) transferChips(chips, player.chips, amount, available, player.stack);
+      const paid = chips ? transferChips(chips, player.chips, amount, available, player.stack) : undefined;
       available -= amount;
       player.stack += amount;
+      return paid;
     };
   }
 
@@ -694,18 +695,18 @@ class Game {
       if (amount <= 0) continue;
       const player = this.players.find(p => p.id === pid);
       if (!player) continue;
-      payout(player, amount);
-      this.refunds.push({ id: pid, name: player.name, amount });
+      const chips = payout(player, amount);
+      this.refunds.push({ id: pid, name: player.name, amount, ...(chips && { chips }) });
     }
 
     for (const [pid, amount] of Object.entries(awards)) {
       if (amount <= 0) continue;
       const e = evals.find(e => e.player.id === pid);
-      payout(e.player, amount);
+      const chips = payout(e.player, amount);
       e.player.lastAction = 'winner';
       this.winners.push({
         id: pid, name: e.player.name,
-        hand: e.eval.name, amount,
+        hand: e.eval.name, amount, ...(chips && { chips }),
       });
     }
 
@@ -735,9 +736,9 @@ class Game {
       this.clearPhaseTimeout();
       const winner = inHand[0];
       const payout = this.payoutFromPot();
-      payout(winner, this.pot);
+      const chips = payout(winner, this.pot);
       winner.lastAction = 'winner';
-      this.winners = [{ id: winner.id, name: winner.name, hand: '其他人弃牌', amount: this.pot }];
+      this.winners = [{ id: winner.id, name: winner.name, hand: '其他人弃牌', amount: this.pot, ...(chips && { chips }) }];
       this.phase = 'show_choice';
       this.currentIdx = winner.seatIdx;
       this.showHandPending = { playerId: winner.id, settled: false };

@@ -292,14 +292,15 @@ Net.on("game:showdown", (d) => {
     .join(", ");
   toast(`摊牌: ${winners}`);
   showLogResult(d.winners);
-  if (!MechanicalTable.enabled()) window.Pets3D?.celebrateWinners(d.winners);
-  // Win celebration particles
-  setTimeout(() => {
-    for (const w of d.winners) {
-      const seatEl = document.querySelector(`.seat.winner .seat-info`);
-      if (seatEl) spawnWinParticles(seatEl);
-    }
-  }, 300);
+  if (!MechanicalTable.enabled()) {
+    window.Pets3D?.celebrateWinners(d.winners);
+    setTimeout(() => {
+      for (const w of d.winners) {
+        const seatEl = document.querySelector(`.seat.winner .seat-info`);
+        if (seatEl) spawnWinParticles(seatEl);
+      }
+    }, 300);
+  }
 });
 
 Net.on("game:handEnd", (d) => {

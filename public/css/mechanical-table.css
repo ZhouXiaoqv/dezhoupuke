@@ -117,7 +117,10 @@
   outline: 2px solid #4f8069;
   animation: none;
 }
-#table-container.mechanical-table #table .seat.winner .seat-info { outline: 2px solid #af803f; }
+#table-container.mechanical-table #table .seat.winner .seat-info {
+  outline: 2px solid #af803f;
+  animation: none;
+}
 #table-container.mechanical-table #table .seat-medallion { border-radius: 5px; height: 21px; min-width: 21px; }
 #table-container.mechanical-table #table .seat-player-name {
   max-width: 100px;
@@ -125,7 +128,48 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#table-container.mechanical-table #table .seat-stack { letter-spacing: .09em; font-size: 13px; }
+#table-container.mechanical-table #table .mechanical-reels {
+  --reel-step: 17px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 2px 3px;
+  background: linear-gradient(#5d5142, #817263 48%, #514639);
+  border: 1px solid #847460;
+  box-shadow: 0 1px #fff8eb, inset 0 1px 2px #362e27aa;
+  color: #312a24;
+  font: 800 13px/var(--reel-step) "JetBrains Mono", monospace;
+  letter-spacing: 0;
+}
+.mechanical-reel {
+  position: relative;
+  display: block;
+  flex: 0 1 13px;
+  min-width: 0;
+  height: var(--reel-step);
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 2px;
+  background: #eae1cf;
+  text-align: center;
+}
+.mechanical-reel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#28201777, transparent 29%, #fffdf22f 45%, #fffdf267 50%,
+      transparent 62%, #33291f75);
+  box-shadow: inset 0 1px 1px #342b245c, inset 0 -1px 1px #32261b5c;
+  pointer-events: none;
+}
+.mechanical-reel-strip {
+  display: block;
+  transform: translateY(calc(var(--reel-offset) * var(--reel-step)));
+}
+.mechanical-reel-strip > span { display: block; height: var(--reel-step); }
+.mechanical-reel-leading .mechanical-reel-strip { opacity: .38; }
+.mechanical-reel-dot { color: #fff7e4; }
+#table-container.mechanical-table #table .mechanical-reels:has(.mechanical-reel-dot) { gap: 1px; }
 #table-container.mechanical-table #table .seat-cards {
   position: absolute;
   left: var(--hand-x, 50%);
@@ -217,6 +261,7 @@
 }
 .mechanical-chips { z-index: 13; }
 .mechanical-chip-labels { z-index: 16; }
+.mechanical-payout { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 32; pointer-events: none; }
 .mechanical-arm-shadow { z-index: 10; overflow: visible; }
 .mechanical-arm { z-index: 26; overflow: visible; }
 .mechanical-moving-cards { z-index: 25; overflow: visible; }

@@ -35,7 +35,7 @@ Key classes:
 
 ### Frontend (`public/`)
 
-Pure HTML/CSS/JS — no frameworks, no build tools. `index.html` loads CSS and JS files via `<link>` and `<script>` tags. Script load order matters: net → ui → sfx → emotionFx → emotionRigs → lobby → extras → tableEffects → mechanical-arm-rig → mechanical-arm-presets → mechanical-arm-actions → mechanical-table → game → actions → handlers → controls → app.
+Pure HTML/CSS/JS — no frameworks, no build tools. `index.html` loads CSS and JS files via `<link>` and `<script>` tags. Script load order matters: net → ui → sfx → emotionFx → emotionRigs → lobby → extras → tableEffects → mechanical-arm-rig → mechanical-arm-presets → mechanical-arm-actions → mechanical-reels → mechanical-payout → mechanical-table → game → actions → handlers → controls → app.
 
 Key modules:
 - `net.js` — `Net` object: WebSocket connection, event emitter (`on/off/once/emit/send`), auto-reconnect
@@ -67,6 +67,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 - The default ivory scene uses a horizontal rounded rectangle in both phone orientations. Table scenes are registered in `public/js/extras.js`.
 - Room style is set by `room:create { tableStyle }` and sent in room and filtered game snapshots. Keep classic as the default. Mechanical rooms use server-side chip inventories from `server/chips.js`. Filtered snapshots expose only the physical chips already committed, as `betChips` per street and `potChips` for the whole hand, in `[100, 50, 20, 10, 5, 1]` order. Keep each player's remaining chip counts private and carry them across hands in `Room`. Mechanical rooms disable in-room emotions, pets, and card back customization.
 - `mechanical-table.js` queues deal, reveal, and fold tasks with table-relative targets and lifecycle callbacks. Keep joint geometry and SVG rendering in `mechanical-arm-rig.js`, phase scheduling and payload handoff in `mechanical-arm-actions.js`, and timings and hardware cues in `mechanical-arm-presets.js`. The gift example is available for controller tests and is outside the poker action registry.
+- Mechanical winner and refund entries include their public transfer denominations as `chips`. The table samples these to animate payouts and lets incoming chips advance the persistent balance reels. The final balance always comes from the game snapshot, including on reconnect and when motion is reduced.
 - CSS is split by functional domain (base, lobby, table, action, components, responsive, extras)
 - JS globals are shared across modules via `window` scope (no bundler)
 - The `attemptReconnect` function is defined in `app.js` (token-based session restore), not in `handlers.js`
