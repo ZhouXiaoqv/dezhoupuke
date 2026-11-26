@@ -69,7 +69,6 @@ const MechanicalTable = (() => {
   let bayPort, recyclerPort, printerPort;
   const recycleMouth = () => recyclerPort;
   const base = $("mechanicalBase");
-  const cabinetShell = base.querySelector(".mechanical-base-shell");
   const notice = createMechanicalNotice($("mechanicalNoticeLift"), $("mechanicalNoticeText"));
   const rig = createMechanicalArmRig($("mechanicalArm"), $("mechanicalArmShadow"), base);
   const printOutlet = {
@@ -855,20 +854,33 @@ const MechanicalTable = (() => {
     const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
     const board = community.getBoundingClientRect();
     const upperSeat = seats.get(3);
+    const topSeat = seats.get(4);
     const leftUpper = point(upperSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
     const leftLower = point(seats.get(2).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
-    const topLeft = point(seats.get(4).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    const topLeft = point(topSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
     const bottomLeft = point(seats.get(1).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
-    // Fit the top wager between the side hand and the cabinet when the table narrows.
+    // Reserve the full two-card width even while the arm is still delivering the hand.
+    const topCardWidth = parseFloat(getComputedStyle(topSeat).getPropertyValue("--seat-card-width"));
     const sideCardWidth = parseFloat(getComputedStyle(upperSeat).getPropertyValue("--seat-card-width"));
-    const sideHandRight = leftUpper.x + sideCardWidth * 2 + 14;
-    const cabinetLeft = cabinetShell.getBoundingClientRect().left - left;
-    const topScale = Math.min(scale, Math.max(.4, (cabinetLeft - sideHandRight - 8) / 92));
+    const sideAvatar = upperSeat.querySelector(".mechanical-seat-avatar").getBoundingClientRect();
+    const sidePlate = upperSeat.querySelector(".mechanical-seat-plate").getBoundingClientRect();
+    const topHandEdge = topLeft.x - topCardWidth - 2;
+    const topLaneEnd = topHandEdge - 8;
+    const railInset = Math.max(8, sideAvatar.right - left + 1);
+    const preferredScale = Math.max(.38, (topLaneEnd - railInset) / 92);
+    const clearHandScale = Math.max(.25, (topHandEdge - railInset - 2) / 92);
+    const topScale = Math.min(scale, preferredScale, clearHandScale);
     const topHalfWidth = 46 * topScale, topHalfHeight = 37 * topScale;
-    const topWager = { x: Math.min(cabinetLeft - topHalfWidth - 4, Math.max(topLeft.x, sideHandRight + topHalfWidth + 4)),
-      y: topLeft.y + (narrow ? 70 : 77) + topHalfHeight };
+    const topBandY = topLeft.y + (narrow ? 70 : 77);
+    const topX = Math.max(railInset + topHalfWidth, topLaneEnd - topHalfWidth);
+    const nearSideHand = topX - topHalfWidth < leftUpper.x + sideCardWidth * 2 + 14;
+    const nearSidePlate = topX - topHalfWidth < sidePlate.right - left;
+    const sideHandTop = leftUpper.y - sideCardWidth * 5 / 7;
+    const topWager = { x: topX, y: Math.min(topBandY + topHalfHeight,
+      nearSideHand ? sideHandTop - topHalfHeight - 4 : Infinity,
+      nearSidePlate ? sidePlate.top - top - topHalfHeight - 13 : Infinity) };
     const upper = { x: Math.min(leftUpper.x + 152, board.left - left - halfWidth - 8),
-      y: Math.max(leftUpper.y + 16 * scale, topWager.y + topHalfHeight + halfHeight + 6) };
+      y: Math.max(leftUpper.y + 16 * scale, topBandY + zoneHeight + halfHeight + 6) };
     const lower = { x: leftLower.x + 54 * scale + 8, y: leftLower.y - 30 - halfHeight };
     const boardBottom = board.bottom - top;
     const bottom = compact
