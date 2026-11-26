@@ -15,6 +15,9 @@ const MechanicalTable = (() => {
     [10, "#397baa"], [5, "#c48732"], [1, "#77746d"],
   ];
   const CHIP_SCALE = 1.23;
+  const WAGER_SCATTER_MS = 145;
+  const WAGER_FLIGHT_MS = 390;
+  const POT_SWEEP_MS = 700;
   const PILE_POSITIONS = [
     [0, 0, 1.7], [-26, -6, 1.1], [25, -9, 1.08], [-14, 16, .75], [15, 14, .81],
     [5, -24, .94], [-39, 10, .61], [39, 8, .65], [-25, -22, .59], [29, -22, .63],
@@ -662,6 +665,7 @@ const MechanicalTable = (() => {
     if (!measure()) return;
     renderInstruments(next);
     const sameHand = last?.handNum === next.handNum;
+    const freshDeal = handToDeal === next.handNum;
     if (last && !sameHand) deliveries.clear();
     const newBatch = next.cardGate && cardBatch?.id !== next.cardGate.id
       ? cardBatch = { ...next.cardGate, pending: new Set() }
@@ -680,7 +684,7 @@ const MechanicalTable = (() => {
       card.classList.remove("card-flip-in");
       card.classList.add("mechanical-pending");
     }
-    if (newBatch?.boardFrom === null || (!next.cardGate && handToDeal === next.handNum)) {
+    if (newBatch?.boardFrom === null || (!next.cardGate && freshDeal)) {
       const cards = [0, 1].flatMap(round => hands.map(hand => hand[round]).filter(Boolean));
       queueCards("deal", cards, newBatch);
       handToDeal = null;
@@ -697,12 +701,17 @@ const MechanicalTable = (() => {
     groups = readGroups(next);
     MechanicalReels.set(potReels, next.pot);
     potMeter.dataset.amount = next.pot;
-    if (sameHand && !reduced.matches) scheduleChips(oldGroups, groups);
+    if ((sameHand || freshDeal) && !reduced.matches && !document.hidden) {
+      scheduleChips(sameHand ? oldGroups : new Map(), groups);
+    } else {
+      wagers.clear();
+      sweep = null;
+    }
     const payout = payouts.get(next.handNum);
     if (payout && payout.start === undefined) {
       payout.pot = groups.get("pot");
       payout.sweep = sweep;
-      payout.start = Math.max(performance.now() + 280, sweep ? sweep.start + 700 : 0);
+      payout.start = Math.max(performance.now() + 280, sweep ? sweep.start + POT_SWEEP_MS : 0);
       sweep = null;
     }
     syncLabels();
@@ -903,7 +912,10 @@ const MechanicalTable = (() => {
     [hero, bottom, lower, upper, topWager, mirror(topWager), mirror(upper), mirror(lower), mirror(bottom)]
       .forEach((at, slot) => {
         const chipScale = STATIONS[slot] === "top" ? topScale : scale;
-        wagerZones.set(slot, { at, scale: chipScale, direction: slot >= 5 ? -1 : 1,
+        const tongue = point(seats.get(slot).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+        const outlet = { x: Math.max(17, Math.min(width - 17, tongue.x)),
+          y: Math.max(14, Math.min(height - 14, tongue.y)) };
+        wagerZones.set(slot, { at, outlet, scale: chipScale, direction: slot >= 5 ? -1 : 1,
           width: 92 * chipScale, height: 74 * chipScale });
       });
   }
@@ -1101,30 +1113,93 @@ const MechanicalTable = (() => {
 
   function scheduleChips(previous, next) {
     const start = performance.now();
-    const sources = [...previous.values()].filter(group => group.id !== "pot" && !next.has(group.id));
+    const sources = [...previous.values()].filter(group => group.id !== "pot" && !next.has(group.id))
+      .sort((a, b) => a.at.y - b.at.y);
     const nextPot = next.get("pot");
     const oldPot = previous.get("pot");
     if (sources.length && nextPot && nextPot.amount > (oldPot?.amount || 0)) {
-      sweep = chipMotion(nextPot, oldPot ? [oldPot, ...sources] : sources, start);
+      const outgoing = sources.map(group => ({ group, motion: wagers.get(group.id) }));
+      const ready = Math.max(start, sweep ? sweep.start + POT_SWEEP_MS : start,
+        ...outgoing.map(({ motion }) => motion?.end ?? start));
+      const origins = matchChipSources(nextPot, oldPot ? [oldPot, ...sources] : sources).map(source => source && {
+        ...chipPoint(source.group, source.chip), angle: source.chip.angle, scale: source.chip.scale,
+      });
+      // The server can open a new street in the same tick as a call. Keep the last
+      // chips flying to their wager before sweeping them up on the visual timeline.
+      sweep = { start: ready, origins, outgoing, oldPot, previous: sweep };
     }
     for (const [id, group] of next) {
       if (id === "pot") continue;
       const old = previous.get(id);
-      if (group.amount > (old?.amount || 0)) wagers.set(id, chipMotion(group, old ? [old] : [], start));
+      if (group.amount > (old?.amount || 0)) wagers.set(id, wagerMotion(group, old, wagers.get(id), start));
     }
     for (const id of wagers.keys()) if (!next.has(id)) wagers.delete(id);
   }
 
-  function chipMotion(group, sources, start) {
+  function matchChipSources(group, sources) {
     const fromByValue = new Map();
     for (const source of sources) {
-      for (const chip of source.inventory.chips) {
+      for (const [index, chip] of source.inventory.chips.entries()) {
         if (!fromByValue.has(chip.value)) fromByValue.set(chip.value, []);
-        fromByValue.get(chip.value).push(chipPoint(source, chip));
+        fromByValue.get(chip.value).push({ group: source, chip, index });
       }
     }
     for (const positions of fromByValue.values()) positions.reverse();
-    return { start, origins: group.inventory.chips.map(chip => fromByValue.get(chip.value)?.pop()) };
+    return group.inventory.chips.map(chip => fromByValue.get(chip.value)?.pop());
+  }
+
+  function wagerMotion(group, old, previous, now) {
+    const sources = matchChipSources(group, old ? [old] : []);
+    const additions = sources.reduce((total, source) => total + (source ? 0 : 1), 0);
+    const span = Math.min(290, Math.max(0, additions - 1) * 23);
+    let flightIndex = 0;
+    let end = now, shadowAt = Infinity;
+    const particles = sources.map((source, index) => {
+      let particle;
+      if (source) {
+        const earlier = previous?.particles[source.index];
+        if (earlier?.scatter && now < earlier.start + WAGER_SCATTER_MS) particle = earlier;
+        else {
+          const airborne = earlier?.airborne && now < earlier.end;
+          const from = wagerPosition(source.group, source.chip, earlier, now);
+          const start = !airborne && additions ? now + WAGER_FLIGHT_MS - 130 : now;
+          particle = { from, start, end: airborne ? earlier.end : start + 160, airborne };
+        }
+      } else {
+        const progress = flightIndex / Math.max(1, additions - 1);
+        const start = now + span * (1 - (1 - progress) ** 1.4);
+        const scatter = scatterPoint({ x: 0, y: 0 }, flightIndex + 9, 22 + 19 * group.zone.scale);
+        particle = { start, end: start + WAGER_FLIGHT_MS, scatter, airborne: true };
+        flightIndex++;
+      }
+      end = Math.max(end, particle.end);
+      shadowAt = Math.min(shadowAt, particle.airborne ? particle.end : now - 80);
+      return particle;
+    });
+    return { end, particles, shadowAt };
+  }
+
+  function wagerPosition(group, chip, motion, now) {
+    const target = chipPoint(group, chip);
+    if (!motion || now >= motion.end) return { ...target, angle: chip.angle };
+    const elapsed = now - motion.start;
+    if (motion.from) {
+      const t = ease(Math.max(0, elapsed / (motion.end - motion.start)));
+      return { ...lerp(motion.from, target, t), angle: motion.from.angle + (chip.angle - motion.from.angle) * t };
+    }
+    if (elapsed < 0) return null;
+    const { outlet } = group.zone;
+    const middle = lerp(outlet, group.at, .61);
+    const scattered = { x: middle.x + motion.scatter.x, y: middle.y + motion.scatter.y };
+    if (elapsed < WAGER_SCATTER_MS) {
+      const t = elapsed / WAGER_SCATTER_MS;
+      const position = lerp(outlet, scattered, 1 - (1 - t) ** 2);
+      return { x: position.x, y: position.y - 13 * Math.sin(Math.PI * t), angle: motion.scatter.x * .014 * t };
+    }
+    const t = (elapsed - WAGER_SCATTER_MS) / (WAGER_FLIGHT_MS - WAGER_SCATTER_MS);
+    const position = lerp(scattered, target, 1 - (1 - t) ** 2.3);
+    return { x: position.x, y: position.y - 5 * Math.sin(Math.PI * t),
+      angle: motion.scatter.x * .014 * (1 - t) + chip.angle * t };
   }
 
   function chipPoint(group, chip) {
@@ -1228,25 +1303,51 @@ const MechanicalTable = (() => {
     context.restore();
   }
 
-  function drawChipGroup(group, motion, now) {
-    const pot = group.id === "pot";
-    const { at, zone } = group;
-    const progress = motion ? Math.max(0, Math.min(1, (now - motion.start) / (pot ? 700 : 460))) : 1;
+  function drawWager(group, motion, now) {
+    if (!motion || now >= motion.end) {
+      drawSettledChips(group);
+      return true;
+    }
+    drawPileShadows(group, ease(Math.max(0, Math.min(1, (now - motion.shadowAt) / 80))));
+    for (const [index, chip] of group.inventory.chips.entries()) {
+      const position = wagerPosition(group, chip, motion.particles[index], now);
+      if (position) drawChip(position, { value: chip.value, angle: position.angle, scale: chip.scale });
+    }
+    return false;
+  }
+
+  function drawSettledChips(group, piles = group.inventory.piles) {
+    drawPileShadows(group, 1, piles);
+    for (const pile of piles) {
+      for (const chip of pile.chips) drawChip(chipPoint(group, chip), chip);
+    }
+  }
+
+  function drawPot(group, motion, now) {
+    if (!motion || now >= motion.start + POT_SWEEP_MS) {
+      drawSettledChips(group);
+      return true;
+    }
+    if (now < motion.start) {
+      if (motion.oldPot) drawPot({ ...motion.oldPot, at: center }, motion.previous, now);
+      for (const { group: wager, motion: flight } of motion.outgoing) drawWager(wager, flight, now);
+      return false;
+    }
+    const { at } = group;
+    const progress = (now - motion.start) / POT_SWEEP_MS;
     drawPileShadows(group, Math.max(0, (progress - .65) / .35));
     for (const [index, chip] of group.inventory.chips.entries()) {
       const target = chipPoint(group, chip);
-      if (progress === 1) {
-        drawChip(target, chip);
-        continue;
-      }
       const source = motion.origins[index];
-      const scattered = !pot && source ? source : scatterPoint(at, index, pot ? Math.min(55, potArea.height * .52) : 13 * zone.scale);
+      const scattered = scatterPoint(at, index, Math.min(55, potArea.height * .52));
       const from = source || at;
       const position = progress < .52 ? lerp(from, scattered, ease(progress / .52))
         : lerp(scattered, target, ease((progress - .52) / .48));
-      drawChip(position, chip);
+      const t = ease(progress);
+      drawChip(position, source ? { value: chip.value, angle: source.angle + (chip.angle - source.angle) * t,
+        scale: source.scale + (chip.scale - source.scale) * t } : chip);
     }
-    return progress === 1;
+    return false;
   }
 
   function drawChips(now) {
@@ -1256,25 +1357,17 @@ const MechanicalTable = (() => {
       if (!payout.pot) continue;
       const group = { ...payout.pot, at: center };
       if (!payout.timeline) {
-        if (drawChipGroup(group, payout.sweep, now)) payout.sweep = null;
+        if (drawPot(group, payout.sweep, now)) payout.sweep = null;
         continue;
       }
-      const { piles } = payout.timeline;
-      drawPileShadows(group, 1, piles);
-      for (const pile of piles) {
-        for (const chip of pile.chips) drawChip(chipPoint(group, chip), chip);
-      }
+      drawSettledChips(group, payout.timeline.piles);
     }
     // Paint from the back of the felt to the front, using each group's base rather than seat order.
     const depthOrder = [...groups.values()].sort((a, b) => a.at.y - b.at.y);
     for (const group of depthOrder) {
-      const pot = group.id === "pot";
-      if (pot && payouts.has(state?.handNum)) continue;
-      const motion = pot ? sweep : wagers.get(group.id);
-      if (drawChipGroup(group, motion, now) && motion) {
-        if (pot) sweep = null;
-        else wagers.delete(group.id);
-      }
+      if (group.id === "pot") {
+        if (!payouts.has(state?.handNum) && drawPot(group, sweep, now)) sweep = null;
+      } else if (drawWager(group, wagers.get(group.id), now)) wagers.delete(group.id);
     }
   }
 
@@ -1515,6 +1608,9 @@ const MechanicalTable = (() => {
     finishCardBatch(cardBatch);
     flipPhase(phaseLabel.getAttribute("aria-label"), false);
     clearPayouts();
+    wagers.clear();
+    sweep = null;
+    chipsDirty = true;
     arm.reset();
     nextFrame();
   });
