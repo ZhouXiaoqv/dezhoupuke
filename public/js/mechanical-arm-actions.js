@@ -155,7 +155,6 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
           if (!touched && time >= contact) {
             touched = true;
             step.until = time + 50;
-            aimCarriage(time);
             cue("grasp", time);
             grab(frame);
           }
@@ -273,7 +272,6 @@ function createMechanicalArmActions({ rig, layer, presets, bay, home }) {
       if (lastPreset && !returning) {
         const { duration } = lastPreset.home;
         hardware({ stage: "returning", jawDeadline: now + duration + motion.followDelay }, now);
-        motion.slideTo(0, 350, now);
         motion.move(home(), { ...lastPreset.home, state: "returning" }, now);
         returning = true;
         lastPreset = null;

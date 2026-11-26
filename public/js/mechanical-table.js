@@ -27,7 +27,7 @@ const MechanicalTable = (() => {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const handReels = $("mechanicalHandReels");
   const phaseLabel = $("mechanicalPhaseLabel");
-  const previousPhase = $("mechanicalPhasePrevious");
+  const [upperFlap, lowerFlap, foldingFlap, fallingFlap] = phaseLabel.children;
   const blindValue = $("mechanicalBlindValue");
   const phaseNames = {
     idle: "等待开局", preflop: "翻牌前", flop: "翻牌圈", turn: "转牌圈",
@@ -45,7 +45,7 @@ const MechanicalTable = (() => {
     layer: moving,
     presets: MechanicalArmPresets.active,
     bay: () => ({ x: bounds.width / 2, y: 43, angle: 0, lift: 4 }),
-    home: () => ({ x: bounds.width / 2 + 72, y: 45, angle: 6, lift: 0, park: true }),
+    home: () => ({ park: true }),
   });
 
   function enabled() {
@@ -216,6 +216,37 @@ const MechanicalTable = (() => {
     }));
   }
 
+  function flipPhase(label, animate) {
+    phaseAnimations.forEach(animation => animation.cancel());
+    phaseAnimations = [];
+    const previous = phaseLabel.getAttribute("aria-label");
+    phaseLabel.setAttribute("aria-label", label);
+    upperFlap.firstElementChild.textContent = label;
+    lowerFlap.firstElementChild.textContent = animate ? previous : label;
+    if (!animate) return;
+
+    const half = 110;
+    foldingFlap.firstElementChild.textContent = previous;
+    fallingFlap.firstElementChild.textContent = label;
+    const fold = foldingFlap.animate([
+      { transform: "scaleY(1)", filter: "brightness(1)" },
+      { transform: "scaleY(0)", filter: "brightness(.72)" },
+    ], { duration: half, fill: "backwards", easing: "cubic-bezier(.48,.05,.82,.42)" });
+    const fall = fallingFlap.animate([
+      { transform: "scaleY(0)", filter: "brightness(.78)" },
+      { transform: "scaleY(1)", filter: "brightness(1)", offset: .84 },
+      { transform: "scaleY(.965)", filter: "brightness(.98)", offset: .92 },
+      { transform: "scaleY(1)", filter: "brightness(1)" },
+    ], { duration: half, delay: half, fill: "both", easing: "cubic-bezier(.22,.54,.54,1)" });
+    phaseAnimations = [fold, fall];
+    fall.onfinish = () => {
+      if (phaseAnimations[1] !== fall) return;
+      lowerFlap.firstElementChild.textContent = label;
+      fall.cancel();
+      phaseAnimations = [];
+    };
+  }
+
   function renderInstruments({ handNum, phase, sb, bb }) {
     const newSession = instrumentRoom !== roomCode || instrumentHand == null || handNum < instrumentHand;
     if (newSession) {
@@ -227,25 +258,7 @@ const MechanicalTable = (() => {
     instrumentHand = handNum;
 
     if (newSession || instrumentPhase !== phase) {
-      phaseAnimations.forEach(animation => animation.cancel());
-      phaseAnimations = [];
-      previousPhase.textContent = phaseLabel.textContent;
-      phaseLabel.textContent = phaseNames[phase] || phase;
-      if (!newSession && !reduced.matches) {
-        const options = { duration: 220 };
-        phaseAnimations = [
-          previousPhase.animate([
-            { opacity: 1, transform: "rotateX(0deg)" },
-            { opacity: 0, transform: "rotateX(86deg)", offset: .5 },
-            { opacity: 0, transform: "rotateX(86deg)" },
-          ], options),
-          phaseLabel.animate([
-            { opacity: 0, transform: "rotateX(-86deg)" },
-            { opacity: 0, transform: "rotateX(-86deg)", offset: .5 },
-            { opacity: 1, transform: "rotateX(0deg)" },
-          ], options),
-        ];
-      }
+      flipPhase(phaseNames[phase] || phase, !newSession && !reduced.matches);
       instrumentPhase = phase;
     }
 
@@ -749,7 +762,10 @@ const MechanicalTable = (() => {
   reduced.addEventListener("change", () => {
     if (!enabled()) return;
     arm.reset();
-    if (reduced.matches) finishPayout(true);
+    if (reduced.matches) {
+      flipPhase(phaseLabel.getAttribute("aria-label"), false);
+      finishPayout(true);
+    }
     nextFrame();
   });
 

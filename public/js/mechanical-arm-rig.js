@@ -31,43 +31,74 @@ const MechanicalArmMotion = (() => {
     return { x: bezier(t, a.x, first.x, second.x, b.x), y: bezier(t, a.y, first.y, second.y, b.y) };
   }
 
+  const radians = Math.PI / 180;
+  const minCos = Math.cos(155 * radians), maxCos = Math.cos(25 * radians);
+  const parking = { shoulder: 150, elbow: -85, upper: 72, lower: 54, wrist: 27, angle: 0, lift: 0, park: 1 };
+  const parkOffset = 12;
+
+  function advance(point, angle, length) {
+    return { x: point.x + Math.cos(angle * radians) * length, y: point.y + Math.sin(angle * radians) * length };
+  }
+
+  function forward(root, shoulder, elbow, wrist) {
+    const hinge = advance(root, shoulder.shoulder, shoulder.upper);
+    const socket = advance(hinge, shoulder.shoulder + elbow.elbow, elbow.lower);
+    const tip = { ...advance(socket, wrist.angle, wrist.wrist), angle: wrist.angle, lift: wrist.lift };
+    return { pose: tip, joints: [root, hinge, socket, tip] };
+  }
+
   function solve(root, tip) {
     const travel = Math.hypot(tip.x - root.x, tip.y - root.y);
-    const angle = tip.angle * Math.PI / 180;
-    const extension = 27 + travel * .115;
-    const wrist = { x: tip.x - Math.cos(angle) * extension, y: tip.y - Math.sin(angle) * extension };
-    const dx = wrist.x - root.x, dy = wrist.y - root.y;
-    const distance = Math.max(.1, Math.hypot(dx, dy));
-    let upper = 93 + travel * .28, lower = 91 + travel * .25;
-    const stretch = Math.max(1, (distance + 8) / (upper + lower));
-    upper *= stretch;
-    lower *= stretch;
-    const cosine = (upper ** 2 + distance ** 2 - lower ** 2) / (2 * upper * distance);
-    const shoulder = Math.atan2(dy, dx) - Math.acos(Math.max(-1, Math.min(1, cosine)));
-    const elbow = { x: root.x + Math.cos(shoulder) * upper, y: root.y + Math.sin(shoulder) * upper };
-    return { elbow, wrist };
+    const wrist = 27 + travel * .115;
+    const socket = advance(tip, tip.angle, -wrist);
+    const dx = socket.x - root.x;
+    // The rail sits above the work area. Keep the wrist on its table-facing side near the pivot.
+    const dy = Math.max(12, socket.y - root.y);
+    const distance = Math.hypot(dx, dy);
+    const upper = 93 + travel * .28, lower = 91 + travel * .25;
+    const cosine = (distance ** 2 - upper ** 2 - lower ** 2) / (2 * upper * lower);
+    // A negative elbow turn is the only solution. Clamp it before computing the telescoping lengths.
+    const bend = -Math.acos(Math.max(minCos, Math.min(maxCos, cosine)));
+    const along = upper + lower * Math.cos(bend), across = lower * Math.sin(bend);
+    const stretch = Math.max(54 / upper, 44 / lower, distance / Math.hypot(along, across));
+    return { shoulder: (Math.atan2(dy, dx) - Math.atan2(across, along)) / radians, elbow: bend / radians,
+      upper: upper * stretch, lower: lower * stretch, wrist, angle: tip.angle, lift: tip.lift, park: 0 };
+  }
+
+  function jointMix(from, to, t) {
+    return {
+      shoulder: from.shoulder + angleDelta(from.shoulder, to.shoulder) * t,
+      elbow: mix(from.elbow, to.elbow, t),
+      upper: mix(from.upper, to.upper, t),
+      lower: mix(from.lower, to.lower, t),
+      wrist: mix(from.wrist, to.wrist, t),
+      angle: from.angle + angleDelta(from.angle, to.angle) * t,
+      lift: mix(from.lift, to.lift, t), park: mix(from.park, to.park, t),
+    };
   }
 
   /**
-   * @typedef {{x:number,y:number,angle?:number,lift?:number,park?:boolean}} ArmPose
+   * @typedef {{x?:number,y?:number,angle?:number,lift?:number,park?:boolean}} ArmPose
    * @typedef {{duration:number,easing?:(number[]|function(number):number),
    *   controls?:ArmPose[],rebound?:number,reboundDuration?:number,
    *   dip?:number,bob?:number,wristAngle?:number,wristDuration?:number,
    *   wristEasing?:(number[]|function(number):number),state?:"moving"|"holding"|"returning"}} ArmMove
    *
-   * The driver takes Cartesian poses only. Its sample includes the displayed tip and
-   * tangent, so an object released partway through a command starts at the drawn pose.
+   * The driver accepts Cartesian targets or the built-in parking pose. The tip and
+   * release tangent always come from the displayed joint configuration.
    */
   function create({ draw = () => {}, elbowDelay = 45, wristDelay = 55 } = {}) {
+    const followDelay = Math.max(elbowDelay, wristDelay);
     let root = { x: 0, y: 0 };
-    let home = { x: 0, y: 0, angle: 0, lift: 0, park: 0 };
+    let initial = parking;
+    let initialOffset = 0;
     let output;
     const slides = [];
     const motions = [];
 
     function slideAt(time) {
       const slide = slides.findLast(move => move.start <= time);
-      if (!slide) return 0;
+      if (!slide) return initialOffset;
       const t = clamp((time - slide.start) / slide.duration);
       return mix(slide.from, slide.to, t * t * (3 - 2 * t));
     }
@@ -79,87 +110,94 @@ const MechanicalArmMotion = (() => {
 
     function sample(time) {
       const command = motions.findLast(motion => motion.start <= time);
-      if (!command) return home;
-      const { start, duration, curve, wristCurve, wristDuration, from, to, controls, rebound, reboundDuration, dip, bob } = command;
-      const elapsed = time - start;
-      const progress = duration ? clamp(elapsed / duration) : 1;
-      const t = curve(progress);
-      const point = interpolate(from, to, t, controls);
-      const charge = Math.sin(Math.PI * clamp((progress - .25) / .75));
-      const wobble = rebound ? clamp(elapsed / reboundDuration) : 1;
-      const damped = wobble === 1 ? 0 : Math.sin(wobble * Math.PI * 3) * (1 - wobble) ** 2 * 1.35;
-      return {
-        x: point.x,
-        y: point.y + dip * charge - bob * Math.sin(progress * Math.PI) ** 2,
-        angle: from.angle + angleDelta(from.angle, to.angle) * wristCurve(clamp(elapsed / wristDuration)) + rebound * damped,
-        lift: mix(from.lift, to.lift, t),
-        park: mix(from.park, to.park, t),
-      };
+      if (!command) return initial;
+      const { start, span, knots } = command;
+      const position = clamp((time - start) / span) * (knots.length - 1);
+      const index = Math.floor(position);
+      if (index === knots.length - 1) return knots[index];
+      return jointMix(knots[index], knots[index + 1], position - index);
     }
 
     function resize(origin) {
-      const dx = origin.x - root.x;
-      const shift = point => ({ ...point, x: point.x + dx });
-      home = shift(home);
-      for (const motion of motions) {
-        motion.from = shift(motion.from);
-        motion.to = shift(motion.to);
-        motion.controls = motion.controls?.map(shift);
-      }
       root = origin;
     }
+
+    const shoulderAt = time => ({ x: root.x + slideAt(time), y: root.y });
 
     function reset(pose, time = 0) {
       motions.length = 0;
       slides.length = 0;
-      home = { angle: 0, lift: 0, ...pose, park: Number(!!pose.park) };
+      initialOffset = pose.park ? parkOffset : 0;
+      initial = pose.park ? parking : solve(shoulderAt(time), { angle: 0, lift: 0, ...pose });
       return tick(time);
     }
 
     /** @param {ArmPose} pose @param {ArmMove} options */
     function move(pose, options, time) {
       const from = sample(time);
-      const to = { ...from, ...pose };
-      if (pose.park !== undefined || pose.x !== undefined || pose.y !== undefined) to.park = Number(!!pose.park);
-      to.angle = options.wristAngle ?? to.angle;
-      const { duration, controls, dip = 0, bob = 0, rebound = 0, reboundDuration = duration } = options;
-      motions.push({ start: time, duration, controls, dip, bob, rebound,
-        reboundDuration: Math.max(1, reboundDuration), from, to, curve: easing(options.easing),
-        wristCurve: easing(options.wristEasing ?? options.easing), wristDuration: Math.max(1, options.wristDuration ?? duration),
-        state: options.state || "moving" });
+      const start = forward(shoulderAt(time), from, from, from).pose;
+      const { duration, controls, dip = 0, bob = 0, rebound = 0, reboundDuration = duration, state = "moving" } = options;
+      const target = { ...start, ...pose, angle: options.wristAngle ?? pose.angle ?? start.angle };
+      const curve = easing(options.easing);
+      const wristCurve = easing(options.wristEasing ?? options.easing);
+      const wristDuration = options.wristDuration ?? duration;
+      const span = Math.max(1, duration, wristDuration, rebound ? reboundDuration : 0);
+      if (state === "returning") slideTo(pose.park ? parkOffset : 0, Math.min(350, duration), time);
+      const followsPath = pose.x !== undefined || pose.y !== undefined || bob || dip || target.angle !== start.angle;
+      // Bake the Cartesian path into bounded joint poses. The live servo samples only angles and link lengths.
+      const steps = Math.ceil(span / 8);
+      const knots = [from];
+      for (let index = 1; index <= steps; index++) {
+        const elapsed = span * index / steps;
+        const progress = duration ? clamp(elapsed / duration) : 1;
+        const t = clamp(curve(progress));
+        const wristProgress = wristDuration ? clamp(elapsed / wristDuration) : 1;
+        const wobble = rebound ? clamp(elapsed / Math.max(1, reboundDuration)) : 1;
+        const damped = Math.sin(wobble * Math.PI * 3) * (1 - wobble) ** 2 * 1.35;
+        const angle = start.angle + angleDelta(start.angle, target.angle) * wristCurve(wristProgress);
+        let next;
+        if (pose.park) {
+          next = jointMix(from, parking, t);
+        } else if (followsPath) {
+          const point = from.park ? target : interpolate(start, target, t, controls);
+          const y = point.y + dip * Math.sin(Math.PI * clamp((progress - .25) / .75)) -
+            bob * Math.sin(progress * Math.PI) ** 2;
+          const goal = solve(shoulderAt(time + elapsed), { x: point.x, y, angle, lift: mix(start.lift, target.lift, t) });
+          // Leaving the dock changes link lengths as well as angles, along one continuous fold.
+          next = from.park ? jointMix(from, goal, t) : goal;
+        } else {
+          next = { ...from, angle, lift: mix(start.lift, target.lift, t) };
+        }
+        next.angle += rebound * damped;
+        knots.push(next);
+      }
+      motions.push({ start: time, span, knots, state });
+    }
+
+    function configuration(time) {
+      return forward(shoulderAt(time), sample(time), sample(time - elbowDelay), sample(time - wristDelay));
     }
 
     function tick(time) {
-      const tipTime = time - wristDelay;
-      const { park, ...tip } = sample(tipTime);
-      const near = sample(tipTime - 10);
-      const far = sample(tipTime + 10);
+      const now = configuration(time);
+      const near = configuration(time - 10).pose;
+      const far = configuration(time + 10).pose;
       const latest = motions.at(-1);
-      const active = !!latest && time < latest.start +
-        Math.max(latest.duration, latest.wristDuration, latest.rebound ? latest.reboundDuration : 0) + wristDelay;
+      const active = !!latest && time < latest.start + latest.span + followDelay;
       const dx = far.x - near.x, dy = far.y - near.y;
       const length = Math.hypot(dx, dy);
-      const bearing = tip.angle * Math.PI / 180;
+      const bearing = now.pose.angle * radians;
       const tangent = length > .001 ? { x: dx / length, y: dy / length }
         : { x: Math.cos(bearing), y: Math.sin(bearing) };
-      const offset = slideAt(time);
-      const shoulder = { x: root.x + offset, y: root.y };
-      const delayedShoulder = { x: root.x + slideAt(time - elbowDelay), y: root.y };
-      const elbowPose = sample(time - elbowDelay);
-      // The low parking position retracts the upper link and folds the forearm back across the base.
-      const elbow = interpolate(solve(delayedShoulder, elbowPose).elbow,
-        { x: delayedShoulder.x - 64, y: delayedShoulder.y + 6 }, elbowPose.park);
-      const wrist = interpolate(solve(shoulder, tip).wrist,
-        { x: tip.x - Math.cos(bearing) * 27, y: tip.y - Math.sin(bearing) * 27 }, park);
-      output = { pose: tip, joints: [shoulder, elbow, wrist, tip], tangent, active, time, offset, park,
+      output = { ...now, tangent, active, time, offset: slideAt(time), park: sample(time - wristDelay).park,
         state: active ? latest.state : "idle" };
       draw(output);
-      while (motions.length > 1 && motions[1].start < tipTime - 10) motions.shift();
-      while (slides.length > 1 && slides[1].start < time - elbowDelay) slides.shift();
+      while (motions.length > 1 && motions[1].start < time - followDelay - 10) motions.shift();
+      while (slides.length > 1 && slides[1].start < time - 10) slides.shift();
       return output;
     }
 
-    return { resize, reset, move, slideTo, tick, get pose() { return output?.pose || home; }, followDelay: wristDelay };
+    return { resize, reset, move, slideTo, tick, get pose() { return output?.pose; }, followDelay };
   }
 
   return { create, easing, interpolate, angleDelta };
@@ -246,7 +284,7 @@ function createMechanicalArmRig(svg, shadow, base) {
   }
 
   const hydraulicId = svg.id + "Hydraulic";
-  const updateHydraulic = cylinder(svg, { name: hydraulicId, bore: 11, barrelLength: 61 });
+  const updateHydraulic = cylinder(svg, { name: hydraulicId, bore: 11, barrelLength: 44 });
 
   function upperLink(parent) {
     const edgePlate = svgElement(parent, "path", { fill: edge, stroke: "#665746", transform: "translate(0 4.4)" });
@@ -504,7 +542,7 @@ function createMechanicalArmRig(svg, shadow, base) {
     position(eccentricPins[0], elbow, pinAngle);
     position(eccentricPins[1], socket, pinAngle);
 
-    const anchor = { x: shoulder.x + 10, y: shoulder.y - 23 };
+    const anchor = { x: shoulder.x + 9, y: shoulder.y - 9 };
     const lug = offset(elbowPins[0], forearmAxis.angle, 9);
     updateHydraulic(anchor, lug);
     upperParts.expose(shoulder, upperAxis.angle);
@@ -560,6 +598,6 @@ function createMechanicalArmRig(svg, shadow, base) {
     const viewBox = "0 0 " + width + " " + height;
     svg.setAttribute("viewBox", viewBox);
     shadow.setAttribute("viewBox", viewBox);
-    motion.resize({ x: width / 2, y: 22 });
+    motion.resize({ x: width / 2 + 120, y: -20 });
   } };
 }

@@ -72,18 +72,59 @@ async function verifyArmController(page) {
       flew ||= payload.parentElement === layer && payload.dataset.armFlight === 'drop';
     }
     return {
-      wristWaited: following.pose.x === home.x && following.pose.y === home.y,
+      wristWaited: following.pose.angle === folded.pose.angle,
       elbowFollowed: JSON.stringify(folded.joints[1]) !== JSON.stringify(following.joints[1]),
       synchronous, settled, lifecycle, flew, empty: !layer.childElementCount, states: [...states],
       registered: Object.keys(MechanicalArmPresets.active),
     };
   });
   assert.ok(result.wristWaited && result.elbowFollowed && result.synchronous);
-  assert.deepEqual(result.settled, { x: 480, y: 180, angle: 0, lift: 10 });
+  for (const [key, value] of Object.entries({ x: 480, y: 180, angle: 0, lift: 10 })) {
+    assert.ok(Math.abs(result.settled[key] - value) < .001);
+  }
   assert.deepEqual(result.lifecycle, ['open', 'grab', 'carry', 'drop', 'land']);
   assert.ok(result.flew && result.empty);
   assert.deepEqual(result.states.sort(), ['holding', 'idle', 'moving', 'returning']);
   assert.deepEqual(result.registered, ['deal', 'reveal', 'fold']);
+}
+
+async function verifyJointLimits(page) {
+  const result = await page.evaluate(() => {
+    const motion = MechanicalArmMotion.create();
+    const root = { x: 600, y: -20 };
+    const turn = MechanicalArmMotion.angleDelta;
+    const heading = (a, b) => Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    const bay = { x: 480, y: 43, angle: 0 };
+    motion.resize(root);
+    motion.reset({ park: true });
+    const commands = [bay, { x: 730, y: 118, angle: 179 }, { x: 480, y: 43, angle: -179 },
+      { x: 235, y: 156, angle: 138 }, { x: 600, y: 12, angle: 90 }, bay, { park: true }];
+    const foldedAngles = [];
+    const errors = [];
+    let previous, maxShoulderStep = 0, maxWrapStep = 0;
+    for (const [index, target] of commands.entries()) {
+      const time = index * 400;
+      motion.slideTo(index % 2 ? -12 : 12, 125, time);
+      motion.move(target, { duration: 300, easing: [0.4, 0, 0.2, 1], state: target.park ? 'returning' : 'moving' }, time);
+      for (let at = time; at < time + 400; at += 8) {
+        const frame = motion.tick(at);
+        const [shoulder, elbow, wrist] = frame.joints;
+        const upper = heading(shoulder, elbow);
+        foldedAngles.push(turn(upper, heading(elbow, wrist)));
+        if (previous) {
+          maxShoulderStep = Math.max(maxShoulderStep, Math.abs(turn(previous.upper, upper)));
+          if (index === 2) maxWrapStep = Math.max(maxWrapStep, Math.abs(turn(previous.angle, frame.pose.angle)));
+        }
+        previous = { upper, angle: frame.pose.angle };
+      }
+      const { pose } = motion.tick(time + 390);
+      if (target.y >= 43) errors.push(Math.hypot(target.x - pose.x, target.y - pose.y));
+    }
+    return { min: Math.min(...foldedAngles), max: Math.max(...foldedAngles), maxShoulderStep, maxWrapStep, errors };
+  });
+  assert.ok(result.min >= -155.001 && result.max <= -24.999, JSON.stringify(result));
+  assert.ok(result.maxShoulderStep < 30 && result.maxWrapStep < 1, JSON.stringify(result));
+  assert.ok(result.errors.every(error => error < .001), JSON.stringify(result));
 }
 
 async function verifyMovingRig(page) {
@@ -159,6 +200,7 @@ async function run() {
     const suffix = Date.now().toString(36);
     await Promise.all([register(host, 'mh' + suffix), register(guest, 'mg' + suffix)]);
     await verifyArmController(host);
+    await verifyJointLimits(host);
     await verifyMovingRig(host);
     await host.click('#cardCreate');
     await host.click('input[name="tableStyle"][value="mechanical"]');
@@ -192,8 +234,12 @@ async function run() {
       Net.on('game:state', state => {
         const phase = document.getElementById('mechanicalPhaseLabel');
         if (window.consolePhaseTrace.at(-1)?.phase !== state.phase) {
-          window.consolePhaseTrace.push({ phase: state.phase, label: phase.textContent,
-            duration: phase.getAnimations()[0]?.effect.getTiming().duration });
+          const steps = phase.getAnimations({ subtree: true }).map(({ effect }) => {
+            const { delay, duration } = effect.getTiming();
+            return { delay, duration, upper: effect.target.classList.contains('mechanical-flap-upper'),
+              onlyFolds: effect.getKeyframes().every(frame => frame.transform.startsWith('scaleY(')) };
+          });
+          window.consolePhaseTrace.push({ phase: state.phase, label: phase.getAttribute('aria-label'), steps });
         }
         if (window.openingReels || state.phase !== 'preflop') return;
         window.openingReels = [...document.querySelectorAll('#table .seat .mechanical-reels')].map(el => ({
@@ -235,10 +281,29 @@ async function run() {
     const consoleState = await host.evaluate(() => {
       const arm = document.getElementById('mechanicalArm');
       const base = document.getElementById('mechanicalBase');
-      const dashboard = base.querySelector('.mechanical-instruments').getBoundingClientRect();
       const cradle = base.querySelector('.mechanical-park-cradle').getBoundingClientRect();
       const gripper = arm.querySelector('.arm-gripper');
-      const [, elbow, wrist] = [...arm.querySelectorAll('.arm-hinge')].map(hub => hub.getBoundingClientRect());
+      const center = element => {
+        const { e: x, f: y } = element.transform.baseVal.getItem(0).matrix;
+        return { x, y };
+      };
+      const [shoulder, elbow, wrist] = [...arm.querySelectorAll('.arm-hinge')].map(center);
+      const angle = (a, b) => Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      const upper = angle(shoulder, elbow);
+      const bend = MechanicalArmMotion.angleDelta(upper, angle(elbow, wrist));
+      const exposed = target => {
+        const { left, right, top, bottom } = target.getBoundingClientRect();
+        for (let x = left + 1; x < right; x += 2) {
+          for (let y = top + 1; y < bottom; y += 2) {
+            if (document.elementsFromPoint(x, y).some(element => element !== arm && arm.contains(element))) return false;
+          }
+        }
+        return true;
+      };
+      arm.style.pointerEvents = 'visiblePainted';
+      const clear = ['.mechanical-instruments', '.mechanical-bay-opening', '.mechanical-lamp-glass']
+        .every(selector => exposed(base.querySelector(selector)));
+      arm.style.removeProperty('pointer-events');
       const jaws = [...gripper.querySelectorAll('.arm-jaw')].map(jaw => jaw.getBoundingClientRect());
       const hand = document.getElementById('mechanicalHandReels');
       const z = id => Number(getComputedStyle(document.getElementById(id)).zIndex);
@@ -247,11 +312,11 @@ async function run() {
         hasFloatingBlinds: !!document.getElementById('mechanicalBlinds'),
         handDigits: [...hand.querySelectorAll('.mechanical-reel')].map(reel => reel.dataset.digit).join(''),
         handNum: gameState.handNum,
-        phase: document.getElementById('mechanicalPhaseLabel').textContent,
+        phase: document.getElementById('mechanicalPhaseLabel').getAttribute('aria-label'),
         blinds: document.getElementById('mechanicalBlindValue').textContent,
         expectedBlinds: `${gameState.sb} / ${gameState.bb}`,
-        clear: arm.getBBox().y + arm.getBoundingClientRect().top > dashboard.bottom,
-        lowFold: elbow.right < wrist.left && Math.abs(elbow.y + elbow.height / 2 - wrist.y - wrist.height / 2) < 20,
+        clear,
+        halfFold: shoulder.x > elbow.x && elbow.x < wrist.x && upper >= 145 && upper <= 155 && bend >= -95 && bend <= -75,
         docked: jaws.every(jaw => jaw.right > cradle.left && jaw.right < cradle.right &&
           jaw.top + jaw.height / 2 >= cradle.top && jaw.top + jaw.height / 2 <= cradle.bottom),
         aperture: Number(gripper.dataset.aperture),
@@ -263,7 +328,7 @@ async function run() {
     assert.equal(consoleState.handDigits, String(consoleState.handNum).padStart(3, '0'));
     assert.equal(consoleState.phase, '翻牌前');
     assert.equal(consoleState.blinds, consoleState.expectedBlinds);
-    assert.ok(consoleState.clear && consoleState.lowFold && consoleState.docked && consoleState.layered);
+    assert.ok(consoleState.clear && consoleState.halfFold && consoleState.docked && consoleState.layered, JSON.stringify(consoleState));
     assert.equal(consoleState.aperture, 30);
     assert.equal(consoleState.stage, 'idle');
 
@@ -300,7 +365,10 @@ async function run() {
     await host.waitForFunction(() => gameState?.phase === 'showdown' && gameState.community.length === 5);
     const phases = await host.evaluate(() => window.consolePhaseTrace);
     for (const [phase, label] of [['flop', '翻牌圈'], ['turn', '转牌圈'], ['river', '河牌圈'], ['showdown', '摊牌']]) {
-      assert.deepEqual(phases.find(entry => entry.phase === phase), { phase, label, duration: 220 });
+      assert.deepEqual(phases.find(entry => entry.phase === phase), { phase, label, steps: [
+        { delay: 0, duration: 110, upper: true, onlyFolds: true },
+        { delay: 110, duration: 110, upper: false, onlyFolds: true },
+      ] });
     }
     const showdown = await host.evaluate(() => ({
       total: gameState.pot,
