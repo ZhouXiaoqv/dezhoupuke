@@ -1251,7 +1251,9 @@ const MechanicalTable = (() => {
         for (const chip of pile.chips) drawChip(chipPoint(group, chip), chip);
       }
     }
-    for (const group of groups.values()) {
+    // Paint from the back of the felt to the front, using each group's base rather than seat order.
+    const depthOrder = [...groups.values()].sort((a, b) => a.at.y - b.at.y);
+    for (const group of depthOrder) {
       const pot = group.id === "pot";
       if (pot && payouts.has(state?.handNum)) continue;
       const motion = pot ? sweep : wagers.get(group.id);
