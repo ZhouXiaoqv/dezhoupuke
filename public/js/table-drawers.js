@@ -1,0 +1,95 @@
+const TableDrawers = (() => {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  const log = $("actionLogBody");
+  const drawers = [
+    { panel: $("actionLogPanel"), toggle: $("actionLogToggle"), close: $("actionLogClose"), prepare: () => scrollToLatest(false) },
+    { panel: $("scoreboardPanel"), toggle: $("scoreboardToggle"), close: $("scoreboardClose"), prepare: () => renderScoreboard() },
+  ];
+  let shown, requested, animation;
+  let retracting = false;
+  const deployed = "translateX(0px)";
+  const stowed = "translateX(calc(100% + var(--drawer-gap) + 16px))";
+
+  function scrollToLatest(animate = true) {
+    log.scrollTo({ top: log.scrollHeight, behavior: animate && MechanicalTable.enabled() && !reduced.matches ? "smooth" : "instant" });
+  }
+
+  function move(panel, frames, duration, finish) {
+    const from = getComputedStyle(panel).transform;
+    animation?.cancel();
+    animation = null;
+    const end = frames.at(-1).transform;
+    if (!MechanicalTable.enabled() || reduced.matches) {
+      panel.style.transform = MechanicalTable.enabled() ? end : "";
+      finish();
+      return;
+    }
+    const motion = animation = panel.animate([{ transform: from, ...frames[0] }, ...frames.slice(1)], {
+      duration, fill: "both",
+    });
+    motion.onfinish = () => {
+      if (animation !== motion) return;
+      panel.style.transform = end;
+      animation = null;
+      motion.cancel();
+      finish();
+    };
+  }
+
+  function hide(drawer) {
+    const { panel, toggle } = drawer;
+    panel.inert = true;
+    panel.classList.remove("open");
+    panel.style.transform = "";
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  function reconcile() {
+    if (retracting || requested === shown) return;
+    if (shown) {
+      const outgoing = shown;
+      const { panel, toggle } = outgoing;
+      if (panel.contains(document.activeElement)) toggle.focus();
+      panel.inert = true;
+      retracting = true;
+      move(panel, [{ easing: "cubic-bezier(.4,0,.35,1)" }, { transform: stowed }], requested ? 140 : 180, () => {
+        hide(outgoing);
+        shown = null;
+        retracting = false;
+        reconcile();
+      });
+      return;
+    }
+
+    shown = requested;
+    const { panel, toggle, prepare } = shown;
+    panel.classList.add("open");
+    toggle.setAttribute("aria-expanded", "true");
+    prepare();
+    move(panel, [
+      { easing: "cubic-bezier(.16,1,.3,1)" },
+      { transform: "translateX(-2.5px)", offset: .82, easing: "ease-out" },
+      { transform: deployed },
+    ], 220, () => { panel.inert = false; });
+  }
+
+  function reset() {
+    animation?.cancel();
+    animation = shown = requested = null;
+    retracting = false;
+    drawers.forEach(hide);
+  }
+
+  for (const drawer of drawers) {
+    drawer.toggle.addEventListener("click", () => {
+      requested = requested === drawer ? null : drawer;
+      reconcile();
+    });
+    drawer.close.addEventListener("click", () => {
+      requested = null;
+      reconcile();
+    });
+  }
+
+  return { reset, scrollToLatest };
+})();

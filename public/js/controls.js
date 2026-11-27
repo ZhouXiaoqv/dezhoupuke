@@ -40,9 +40,7 @@ $("leaveRoomBtn").addEventListener("click", () => {
   hideActions();
   hideShowHandBar();
   $("actionLogToggle").classList.remove("visible");
-  $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
-  $("scoreboardPanel").classList.remove("open");
   myReady = false;
   $("readyBtn").textContent = "准备";
   $("readyBtn").className = "btn btn-green";

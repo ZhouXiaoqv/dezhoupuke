@@ -464,6 +464,7 @@ function showScreen(id) {
     $("table-container").classList.add("active");
     syncActionPanelOffset();
   } else {
+    TableDrawers.reset();
     if (MechanicalTable.enabled()) hideActions();
     MechanicalTable.reset();
     window.Pets3D?.clear();

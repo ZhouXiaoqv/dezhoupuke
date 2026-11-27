@@ -152,6 +152,7 @@ const MechanicalTable = (() => {
   function setStyle(style) {
     const active = style === "mechanical";
     if (active !== enabled()) {
+      TableDrawers.reset();
       reset();
       container.classList.toggle("mechanical-table", active);
       if (container.classList.contains("active")) hideActions();

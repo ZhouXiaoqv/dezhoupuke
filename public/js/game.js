@@ -123,9 +123,8 @@ function enterLayoutTestRoom() {
   if (typeof hideNextHandBar === "function") hideNextHandBar();
   clearMyHandView();
   $("actionLogToggle")?.classList.remove("visible");
-  $("actionLogPanel")?.classList.remove("open");
   $("scoreboardToggle")?.classList.remove("visible");
-  $("scoreboardPanel")?.classList.remove("open");
+  TableDrawers.reset();
   $("spectatorBadge")?.classList.add("visible");
 
   const state = buildLayoutTestState();
@@ -164,9 +163,8 @@ function leaveLayoutTestRoom() {
   $("handRankLabel")?.classList.remove("visible");
   $("spectatorBadge")?.classList.remove("visible");
   $("actionLogToggle")?.classList.remove("visible");
-  $("actionLogPanel")?.classList.remove("open");
   $("scoreboardToggle")?.classList.remove("visible");
-  $("scoreboardPanel")?.classList.remove("open");
+  TableDrawers.reset();
   window.Pets3D?.clear();
   showScreen("lobbyScreen");
   toast("\u5df2\u9000\u51fa\u5e03\u5c40\u6d4b\u8bd5\u623f\u95f4");
@@ -177,6 +175,8 @@ function leaveLayoutTestRoom() {
 let logPrevPhase = "";
 let logPrevActions = {}; // playerId → lastAction
 let logPrevPot = 0;
+const tableNumber = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12 });
+const signedTableNumber = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 12, signDisplay: "exceptZero" });
 
 function addLogEntry(name, actionText, amount, pot, actionType) {
   const body = $("actionLogBody");
@@ -187,13 +187,20 @@ function addLogEntry(name, actionText, amount, pot, actionType) {
   const entry = document.createElement("div");
   entry.className = `log-entry log-${actionType}`;
 
-  let amountStr = "";
-  if (amount > 0)
-    amountStr = ` <span class="log-amount">${amount}</span>`;
-
-  entry.innerHTML = `<span class="log-name">${name}</span><span class="log-detail">${actionText}${amountStr}</span><span class="log-pot">底池${pot}</span>`;
+  entry.innerHTML = '<span class="log-name"></span><span class="log-detail"><span class="log-action-tag"></span></span><span class="log-pot"></span>';
+  const label = entry.querySelector(".log-name");
+  label.textContent = label.title = name;
+  entry.querySelector(".log-action-tag").textContent = actionText;
+  if (amount > 0) {
+    const paid = document.createElement("span");
+    paid.className = "log-amount";
+    paid.textContent = ` ${tableNumber.format(amount)}`;
+    entry.querySelector(".log-detail").append(paid);
+  }
+  const potLabel = entry.querySelector(".log-pot");
+  potLabel.textContent = potLabel.title = `底池 ${tableNumber.format(pot)}`;
   body.appendChild(entry);
-  body.scrollTop = body.scrollHeight;
+  TableDrawers.scrollToLatest();
 
   // Flash the toggle dot
   const dot = $("logDot");
@@ -208,9 +215,10 @@ function addLogPhaseSeparator(phaseName) {
 
   const sep = document.createElement("div");
   sep.className = "log-phase-sep";
-  sep.textContent = phaseName;
+  sep.append(document.createElement("span"));
+  sep.firstElementChild.textContent = phaseName;
   body.appendChild(sep);
-  body.scrollTop = body.scrollHeight;
+  TableDrawers.scrollToLatest();
 }
 
 function clearActionLog() {
@@ -234,9 +242,9 @@ function addLogPhaseIfNeeded(phase) {
   if (!phase || phase === "idle" || phase === logPrevPhase) return;
   const LOG_PHASE_NAMES = {
     preflop: "\u7ffb\u724c\u524d",
-    flop: "\u7ffb\u724c",
-    turn: "\u8f6c\u724c",
-    river: "\u6cb3\u724c",
+    flop: "翻牌圈",
+    turn: "转牌圈",
+    river: "河牌圈",
     showdown: "\u644a\u724c",
   };
   if (LOG_PHASE_NAMES[phase]) addLogPhaseSeparator(LOG_PHASE_NAMES[phase]);
@@ -250,9 +258,9 @@ const ACTION_LOG_LABELS = {
   check: "\u8fc7\u724c",
   call: "\u8ddf\u6ce8",
   raise: "\u52a0\u6ce8",
-  allin: "ALL IN",
-  allinCall: "ALL IN(\u8ddf\u6ce8)",
-  allinRaise: "ALL IN(\u52a0\u6ce8)",
+  allin: "全下",
+  allinCall: "全下跟注",
+  allinRaise: "全下加注",
 };
 
 function playActionSound(action) {
@@ -303,7 +311,8 @@ function handleActionLog(entry) {
   }
   addLogEntry(
     entry.playerName || "",
-    timeoutLabel || ACTION_LOG_LABELS[entry.action] || entry.action || "",
+    timeoutLabel || (entry.action === "raise" && entry.raiseBy > 0 && entry.raiseTo === entry.raiseBy ? "下注" :
+      ACTION_LOG_LABELS[entry.action]) || entry.action || "",
     entry.amount || 0,
     entry.pot || 0,
     entry.action === "allinCall" || entry.action === "allinRaise"
@@ -388,38 +397,43 @@ function getMySeatEl() {
   );
 }
 
-// Toggle logic
-$("actionLogToggle").addEventListener("click", () => {
-  $("actionLogPanel").classList.toggle("open");
-});
-$("actionLogClose").addEventListener("click", () => {
-  $("actionLogPanel").classList.remove("open");
-});
-$("scoreboardToggle").addEventListener("click", () => {
-  $("scoreboardPanel").classList.toggle("open");
-});
-$("scoreboardClose").addEventListener("click", () => {
-  $("scoreboardPanel").classList.remove("open");
-});
-
-function renderScoreboard(scores = []) {
+let tableScores = [];
+function renderScoreboard(scores = tableScores) {
+  tableScores = scores;
   const body = $("scoreboardBody");
-  if (!body) return;
-  if (!scores.length) {
+  const players = MechanicalTable.enabled() ? gameState?.players : null;
+  const seatsById = new Map([...$("table").querySelectorAll(".seat[data-player-id]")].map(seat => [seat.dataset.playerId, seat]));
+  const scoresById = new Map(scores.map(score => [score.id, score]));
+  const rows = players?.length
+    ? players.map(player => ({ id: player.id, name: player.name, score: scoresById.get(player.id)?.score ?? 0 }))
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    : scores;
+  if (!rows.length) {
     body.innerHTML =
       '<div class="action-log-empty">&#26242;&#26080;&#35760;&#24405;</div>';
     return;
   }
-  body.innerHTML = "";
-  for (const s of scores) {
+  body.replaceChildren(...rows.map((s, index) => {
     const row = document.createElement("div");
     row.className = "score-row";
     const score = Number(s.score || 0);
     const cls = score > 0 ? "positive" : score < 0 ? "negative" : "zero";
-    row.innerHTML = `<span class="score-name"></span><span class="score-value ${cls}">${score > 0 ? "+" : ""}${score}</span>`;
-    row.querySelector(".score-name").textContent = s.name || "";
-    body.appendChild(row);
-  }
+    row.innerHTML = `<span class="score-avatar" aria-hidden="true"></span><span class="score-name"></span><span class="score-value ${cls}"></span>`;
+    const label = row.querySelector(".score-name");
+    label.textContent = label.title = s.name || "";
+    row.querySelector(".score-value").textContent = signedTableNumber.format(score);
+    const portrait = row.querySelector(".score-avatar");
+    const medallion = seatsById.get(s.id)?.querySelector(".seat-medallion");
+    if (medallion?.hasChildNodes()) portrait.append(...[...medallion.childNodes].map(node => node.cloneNode(true)));
+    else portrait.textContent = Array.from(label.textContent)[0] ?? "";
+    if (index === 0 && score > 0) {
+      const leader = document.createElement("span");
+      leader.className = "score-leader";
+      leader.title = "当前领跑";
+      label.after(leader);
+    }
+    return row;
+  }));
 }
 
 function renderGame(state) {

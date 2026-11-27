@@ -223,9 +223,7 @@ Net.on("room:error", (d) => {
 Net.on("room:left", () => {
   if (typeof clearMyHandView === "function") clearMyHandView();
   $("actionLogToggle").classList.remove("visible");
-  $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
-  $("scoreboardPanel").classList.remove("open");
   myReady = false;
   $("readyBtn").textContent = "准备";
   $("readyBtn").className = "btn btn-green";
@@ -238,9 +236,7 @@ Net.on("room:left", () => {
 Net.on("room:destroyed", () => {
   if (typeof clearMyHandView === "function") clearMyHandView();
   $("actionLogToggle").classList.remove("visible");
-  $("actionLogPanel").classList.remove("open");
   $("scoreboardToggle").classList.remove("visible");
-  $("scoreboardPanel").classList.remove("open");
   myReady = false;
   $("readyBtn").textContent = "准备";
   $("readyBtn").className = "btn btn-green";

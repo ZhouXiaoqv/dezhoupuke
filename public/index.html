@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="css/extras.css" />
     <link rel="stylesheet" href="css/mechanical-table.css" />
     <link rel="stylesheet" href="css/mechanical-controls.css" />
+    <link rel="stylesheet" href="css/mechanical-drawers.css" />
   </head>
   <body>
     <!-- ===== LOBBY SCREEN ===== -->
@@ -721,25 +722,67 @@
     <div class="spectator-badge" id="spectatorBadge">
       <span class="eye">👁</span> 观战中
     </div>
-    <div class="table-tools">
-      <button
-        type="button"
-        class="table-tool"
-        id="tableOutfitBtn"
-        title="换装"
-        aria-label="换装"
-        aria-haspopup="dialog"
-        aria-controls="avatarModal"
-        hidden
-      >👕</button>
-      <button type="button" class="table-tool" id="soundToggle" title="音效开关" aria-label="音效" aria-pressed="true">
-        <span id="soundToggleGlyph" class="table-tool-glyph" aria-hidden="true">🔊</span>
-        <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 8h3l4-3v10l-4-3H3z"/>
-          <path class="desk-sound-wave" d="M13 7a4 4 0 0 1 0 6m2-8a7 7 0 0 1 0 10"/>
-          <path class="desk-sound-muted" d="m13 8 4 4m0-4-4 4"/>
-        </svg>
-      </button>
+    <div class="table-console" id="tableConsole">
+      <div class="table-tools">
+        <span class="desk-fasteners table-corner-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <button
+          type="button"
+          class="table-tool"
+          id="tableOutfitBtn"
+          title="换装"
+          aria-label="换装"
+          aria-haspopup="dialog"
+          aria-controls="avatarModal"
+          hidden
+        >👕</button>
+        <button type="button" class="table-tool" id="soundToggle" title="音效开关" aria-label="音效" aria-pressed="true">
+          <span id="soundToggleGlyph" class="table-tool-glyph" aria-hidden="true">🔊</span>
+          <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8h3l4-3v10l-4-3H3z"/>
+            <path class="desk-sound-wave" d="M13 7a4 4 0 0 1 0 6m2-8a7 7 0 0 1 0 10"/>
+            <path class="desk-sound-muted" d="m13 8 4 4m0-4-4 4"/>
+          </svg>
+        </button>
+        <button type="button" class="action-log-toggle" id="actionLogToggle" title="操作记录" aria-label="操作记录" aria-controls="actionLogPanel" aria-expanded="false">
+          <span class="table-tool-glyph" aria-hidden="true">📋</span>
+          <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 4H5v13h10V4h-2m-6 0h6m-6 1h6V3H7zm1 4h4m-4 3h4"/>
+          </svg>
+          <span class="log-dot" id="logDot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="scoreboard-toggle" id="scoreboardToggle" title="计分板" aria-label="计分板" aria-controls="scoreboardPanel" aria-expanded="false">
+          <span class="table-tool-glyph" aria-hidden="true">&#128290;</span>
+          <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 16h12M5 16v-4h2v4m2 0V8h2v8m2 0V4h2v12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="table-drawer-mask">
+        <section class="action-log-panel table-drawer" id="actionLogPanel" aria-labelledby="actionLogTitle" inert>
+          <span class="desk-fasteners table-corner-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="table-drawer-rails" aria-hidden="true"><i></i><i></i></span>
+          <div class="action-log-header">
+            <div class="action-log-title" id="actionLogTitle">操作记录</div>
+            <button type="button" class="action-log-close" id="actionLogClose" aria-label="关闭操作记录">×</button>
+          </div>
+          <div class="action-log-body" id="actionLogBody">
+            <div class="action-log-empty">等待牌局开始...</div>
+          </div>
+          <div class="log-result-bar" id="logResultBar" style="display: none"></div>
+        </section>
+        <section class="scoreboard-panel table-drawer" id="scoreboardPanel" aria-labelledby="scoreboardTitle" inert>
+          <span class="desk-fasteners table-corner-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="table-drawer-rails" aria-hidden="true"><i></i><i></i></span>
+          <div class="action-log-header">
+            <div class="action-log-title" id="scoreboardTitle">计分板</div>
+            <button type="button" class="action-log-close" id="scoreboardClose" aria-label="关闭计分板">×</button>
+          </div>
+          <div class="scoreboard-head"><span>席位 / 玩家</span><span>净盈亏</span></div>
+          <div class="scoreboard-body" id="scoreboardBody">
+            <div class="action-log-empty">暂无记录</div>
+          </div>
+        </section>
+      </div>
     </div>
     <!-- Player interaction panel (positioned dynamically) -->
     <div class="interact-panel" id="interactPanel"></div>
@@ -886,42 +929,6 @@
       <button class="next-hand-skip" id="nextHandSkip">立即开始</button>
     </div>
     <div class="toast" id="toast"></div>
-
-    <!-- Action Log Panel -->
-    <button type="button" class="action-log-toggle" id="actionLogToggle" title="操作记录" aria-label="操作记录">
-      <span class="table-tool-glyph" aria-hidden="true">📋</span>
-      <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 4H5v13h10V4h-2m-6 0h6m-6 1h6V3H7zm1 4h4m-4 3h4"/>
-      </svg>
-      <span class="log-dot" id="logDot"></span>
-    </button>
-    <div class="action-log-panel" id="actionLogPanel">
-      <div class="action-log-header">
-        <div class="action-log-title">操作记录</div>
-        <button class="action-log-close" id="actionLogClose">✕</button>
-      </div>
-      <div class="action-log-body" id="actionLogBody">
-        <div class="action-log-empty">等待牌局开始...</div>
-      </div>
-      <div class="log-result-bar" id="logResultBar" style="display: none"></div>
-    </div>
-
-    <!-- Scoreboard Panel -->
-    <button type="button" class="scoreboard-toggle" id="scoreboardToggle" title="计分板" aria-label="计分板">
-      <span class="table-tool-glyph" aria-hidden="true">&#128290;</span>
-      <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 16h12M5 16v-4h2v4m2 0V8h2v8m2 0V4h2v12"/>
-      </svg>
-    </button>
-    <div class="scoreboard-panel" id="scoreboardPanel">
-      <div class="action-log-header">
-        <div class="action-log-title">&#35745;&#20998;&#26495;</div>
-        <button class="action-log-close" id="scoreboardClose">×</button>
-      </div>
-      <div class="scoreboard-body" id="scoreboardBody">
-        <div class="action-log-empty">&#26242;&#26080;&#35760;&#24405;</div>
-      </div>
-    </div>
 
     <!-- ===== LEADERBOARD OVERLAY ===== -->
     <div class="leaderboard-overlay" id="leaderboardOverlay">
@@ -1113,6 +1120,7 @@
     <script src="js/mechanical-payout.js"></script>
     <script src="js/mechanical-notice.js"></script>
     <script src="js/mechanical-table.js"></script>
+    <script src="js/table-drawers.js"></script>
     <script src="js/game.js"></script>
     <script src="js/actions.js"></script>
     <script src="js/handlers.js"></script>
