@@ -599,24 +599,34 @@
   transition: border-color .2s ease, box-shadow .2s ease;
 }
 .mechanical-seat-clock {
+  --clock-color: #43efa7;
+  --clock-glow: #31de96bd;
+  --clock-head: #e5ffdd;
   display: none;
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  border-radius: 9px;
   overflow: hidden;
   fill: none;
-  stroke-width: 2.75;
   pointer-events: none;
 }
 .seat[data-turn-clock] .mechanical-seat-clock { display: block; }
-.mechanical-clock-track { stroke: #51463552; }
+.mechanical-clock-track {
+  stroke: #262724;
+  stroke-width: 4.75;
+  filter: drop-shadow(0 .35px .25px #fff7dfad);
+}
+.mechanical-clock-light { filter: drop-shadow(0 0 1.35px var(--clock-glow)); }
 .mechanical-clock-needle {
-  stroke: #4c9d76;
+  stroke: var(--clock-color);
+  stroke-width: 3.75;
   stroke-dasharray: 100 100;
   stroke-dashoffset: var(--clock-offset, 0);
   stroke-linecap: round;
 }
+.mechanical-clock-head { fill: var(--clock-head); }
 #table-container.mechanical-table #table .seat-medallion {
   width: 39px;
   height: 39px;
@@ -743,7 +753,7 @@
   filter: contrast(.88) saturate(.66);
 }
 #table-container.mechanical-table #table .seat.disconnected { opacity: .59; }
-.seat.active:not(.folded, .disconnected) .mechanical-seat-avatar {
+.seat.active:not(.folded, .disconnected, [data-turn-warning]) .mechanical-seat-avatar {
   border-color: #62866c;
   box-shadow: inset 0 0 0 1px #f6f4df, inset 0 0 0 3px #9fb194,
     0 3px #83856b, 0 5px 5px #392f244f, 0 0 9px #70a17d62;
@@ -770,20 +780,25 @@
   box-shadow: 0 0 0 1px #9a784c, 0 0 5px #e5b0528c;
   animation: none;
 }
-.seat[data-turn-warning] .mechanical-clock-needle { stroke: #cf6745; }
+.seat[data-turn-warning] .mechanical-seat-clock {
+  --clock-color: #ff7048;
+  --clock-glow: #ff5c36ee;
+  --clock-head: #fff1cc;
+}
+.seat[data-turn-warning] .mechanical-clock-light { filter: drop-shadow(0 0 1.85px var(--clock-glow)); }
 .seat[data-turn-warning] .mechanical-seat-lamp {
-  border-color: #ba855c;
-  background: radial-gradient(circle at 35% 28%, #ffe7b3, #e79957 39%, #bf563c 67%, #7a3e31 84%);
-  box-shadow: 0 0 0 1px #86543c, 0 0 4px #e797656b;
+  border-color: #ae7058;
+  background: radial-gradient(circle at 35% 28%, #ffe4b5, #ff754d 37%, #d0302b 64%, #7d2f27 84%);
+  box-shadow: 0 0 0 1px #875040, 0 0 6px #fb5946b0;
 }
-.seat[data-turn-warning] :is(.mechanical-clock-needle, .mechanical-seat-lamp) {
-  animation: mechanicalClockWarning 1s ease-in-out infinite;
+.seat[data-turn-warning] :is(.mechanical-clock-light, .mechanical-seat-lamp) {
+  animation: mechanicalClockWarning 680ms ease-in-out infinite;
 }
-@keyframes mechanicalClockWarning { 50% { opacity: .52; } }
+@keyframes mechanicalClockWarning { 45%, 55% { opacity: .42; } }
 .seat-allin .mechanical-seat-plate { border-color: #aa7059; }
 @media (prefers-reduced-motion: reduce) {
   .seat.active:not(.folded, .disconnected, [data-turn-warning]) .mechanical-seat-lamp,
-  .seat[data-turn-warning] :is(.mechanical-clock-needle, .mechanical-seat-lamp),
+  .seat[data-turn-warning] :is(.mechanical-clock-light, .mechanical-seat-lamp),
   .mechanical-seat-role[data-lit] { animation: none; }
 }
 

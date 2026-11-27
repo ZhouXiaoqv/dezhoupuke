@@ -262,8 +262,8 @@ const MechanicalTable = (() => {
     const info = document.createElement("div");
     info.className = "seat-info";
     // Start halfway along the top edge and follow the avatar's inward bevel clockwise.
-    const clockOutline = "M22.5 1.5 H36 A7.5 7.5 0 0 1 43.5 9 V36 A7.5 7.5 0 0 1 36 43.5 " +
-      "H9 A7.5 7.5 0 0 1 1.5 36 V9 A7.5 7.5 0 0 1 9 1.5 Z";
+    const clockOutline = "M22.5 2.5 H36 A6.5 6.5 0 0 1 42.5 9 V36 A6.5 6.5 0 0 1 36 42.5 " +
+      "H9 A6.5 6.5 0 0 1 2.5 36 V9 A6.5 6.5 0 0 1 9 2.5 Z";
     info.innerHTML = `
       <span class="mechanical-seat-tongue" aria-hidden="true"></span>
       <div class="mechanical-seat-body">
@@ -271,7 +271,10 @@ const MechanicalTable = (() => {
           <span class="seat-medallion" aria-hidden="true"></span>
           <svg class="mechanical-seat-clock" viewBox="0 0 45 45" aria-hidden="true">
             <path class="mechanical-clock-track" d="${clockOutline}"/>
-            <path class="mechanical-clock-needle" d="${clockOutline}" pathLength="100"/>
+            <g class="mechanical-clock-light">
+              <path class="mechanical-clock-needle" d="${clockOutline}" pathLength="100"/>
+              <circle class="mechanical-clock-head" cx="22.5" cy="2.5" r="1.35"/>
+            </g>
           </svg>
         </div>
         <div class="mechanical-seat-plate">
@@ -319,8 +322,11 @@ const MechanicalTable = (() => {
       return;
     }
     clearTurnClock();
-    turnClock = { ...turn, seat, end, dial: seat.querySelector(".mechanical-seat-clock") };
     seat.dataset.turnClock = "";
+    const dial = seat.querySelector(".mechanical-seat-clock");
+    const needle = dial.querySelector(".mechanical-clock-needle");
+    const head = dial.querySelector(".mechanical-clock-head");
+    turnClock = { ...turn, seat, end, dial, needle, head, pathLength: needle.getTotalLength() };
     drawTurnClock(performance.now());
     nextFrame();
   }
@@ -341,7 +347,7 @@ const MechanicalTable = (() => {
 
   function drawTurnClock(now) {
     if (!turnClock) return;
-    const { seat, dial, end, durationMs, playerId, deadline } = turnClock;
+    const { seat, dial, needle, head, pathLength, end, durationMs, playerId, deadline } = turnClock;
     const remaining = Math.max(0, end - now);
     if (!remaining) {
       clearTurnClock();
@@ -353,6 +359,9 @@ const MechanicalTable = (() => {
     }
     const elapsed = 1 - Math.min(1, remaining / durationMs);
     dial.style.setProperty("--clock-offset", (-100 * elapsed).toFixed(2));
+    const point = needle.getPointAtLength(pathLength * elapsed);
+    head.setAttribute("cx", point.x.toFixed(2));
+    head.setAttribute("cy", point.y.toFixed(2));
     const second = Math.ceil(remaining / 1000);
     if (second === turnClock.second) return;
     turnClock.second = second;
