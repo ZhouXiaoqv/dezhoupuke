@@ -132,24 +132,6 @@ function syncActionPanelOffset() {
   }
 }
 
-function syncAutoCallControls(data = {}) {
-  const input = $("autoCallAmount");
-  const toggle = $("autoCallToggle");
-  if (!input || !toggle) return;
-  const toCall = Number(data.toCall || 0);
-  const max = Number(data.maxRaise || 0);
-  input.placeholder = MechanicalTable.enabled() ? "跟注上限" : "最大自动跟注额度";
-  input.max = max > 0 ? String(max) : "";
-  input.disabled = false;
-  toggle.classList.toggle("active", !!window.autoCallEnabled);
-  toggle.setAttribute("aria-pressed", String(!!window.autoCallEnabled));
-  toggle.textContent = window.autoCallEnabled
-    ? "\u5173\u95ed\u81ea\u52a8\u8ddf\u6ce8"
-    : "\u5f00\u542f\u81ea\u52a8\u8ddf\u6ce8";
-  toggle.disabled = false;
-  input.title = toCall > 0 ? `当前跟注 ${toCall}` : "";
-}
-
 function showActions(data) {
   const panel = $("actionPanel");
   const mechanical = MechanicalTable.enabled();

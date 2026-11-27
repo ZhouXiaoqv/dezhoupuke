@@ -702,20 +702,24 @@
       </div>
       <section class="mechanical-result" id="mechanicalResult" aria-label="牌局结算单" hidden></section>
       </div>
-      <div class="auto-call-control" id="autoCallControl">
-        <button type="button" class="auto-call-toggle" id="autoCallToggle" aria-pressed="false">
-          &#24320;&#21551;&#33258;&#21160;&#36319;&#27880;
+      <div class="auto-call-control" id="autoCallControl" role="group" aria-label="自动巡航控制盒">
+        <span class="desk-fasteners auto-cruise-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <button type="button" class="auto-call-toggle" id="autoCallToggle" role="switch" aria-checked="false" aria-controls="autoCallSettings">
+          <span class="auto-cruise-track" aria-hidden="true"><span>关</span><i></i><span>开</span></span>
+          <span class="auto-cruise-label">自动跟注</span>
+          <span class="auto-cruise-lamp" id="autoCallLamp" aria-hidden="true"></span>
         </button>
-        <input
-          type="number"
-          class="auto-call-amount"
-          id="autoCallAmount"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          min="1"
-          aria-label="自动跟注上限"
-          placeholder="&#26368;&#22823;&#33258;&#21160;&#36319;&#27880;&#39069;&#24230;"
-        />
+        <div class="auto-cruise-lower">
+          <span class="auto-cruise-plaque" aria-hidden="true">上限</span>
+          <div class="auto-cruise-bay">
+            <fieldset id="autoCallSettings" class="auto-cruise-settings" aria-label="调整自动跟注上限" disabled>
+              <span id="autoCallReels" role="img" aria-label="自动跟注上限 0"></span>
+              <button type="button" class="auto-cruise-step" id="autoCallMinus" aria-label="降低自动跟注上限">−</button>
+              <button type="button" class="auto-cruise-step" id="autoCallPlus" aria-label="提高自动跟注上限">+</button>
+            </fieldset>
+            <span class="auto-cruise-shutter" aria-hidden="true"></span>
+          </div>
+        </div>
       </div>
     </div>
 

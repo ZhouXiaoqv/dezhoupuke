@@ -171,6 +171,12 @@ const SFX = (() => {
       lastDetent = c.currentTime;
       strike(c, "detent", .10);
     },
+    cruiseSwitch() {
+      const c = enabled && ensureCtx();
+      if (c?.state !== "running") return;
+      strike(c, "detent", .16, .88);
+      strike(c, "lock", .20, 1.13, c.currentTime + .013);
+    },
     check() {
       noise(0.06, 600, "sine", 0.12);
     },

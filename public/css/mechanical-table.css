@@ -656,7 +656,8 @@
   .mechanical-seat-role[data-lit] { animation: none; }
 }
 
-#table-container.mechanical-table :is(#table, #mechanicalActionDesk) .mechanical-reels {
+#table-container.mechanical-table :is(#table, #mechanicalActionDesk) .mechanical-reels,
+#autoCallReels.mechanical-reels {
   --reel-step: 17px;
   display: flex;
   justify-content: flex-end;

@@ -118,22 +118,6 @@
   padding: 1px 2px;
   border-radius: 3px;
 }
-#table-container.mechanical-table .auto-call-amount {
-  min-width: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0 3px;
-  border: 1px solid #9b8466;
-  border-radius: 3px;
-  appearance: textfield;
-  background: linear-gradient(#d6c6aa, #f7ead0 54%, #e8d6b8);
-  box-shadow: inset 0 2px 3px #7561484f, 0 1px #f6e6c9;
-  color: #483b2b;
-  font: 800 14px/1.2 "JetBrains Mono", monospace;
-  text-align: right;
-}
-#table-container.mechanical-table .auto-call-amount::-webkit-inner-spin-button { appearance: none; }
 .desk-scale {
   position: relative;
   display: grid;
@@ -322,64 +306,174 @@
   outline-offset: 2px;
 }
 
-#table-container.mechanical-table #autoCallControl {
+.auto-call-control {
+  position: fixed;
+  z-index: 60;
   left: max(18px, env(safe-area-inset-left));
   bottom: max(20px, env(safe-area-inset-bottom));
-  width: 118px;
-  gap: 7px;
+  display: grid;
+  width: 174px;
+  gap: 5px;
   padding: 8px;
-  border: 1px solid var(--desk-trim);
+  border: 1px solid var(--desk-trim, #9b8569);
   border-radius: 8px;
-  background:
-    radial-gradient(circle, #836c51 0 .8px, #eddbbb 1px 1.6px, transparent 1.9px) left 3px top 3px / 5px 5px no-repeat,
-    radial-gradient(circle, #836c51 0 .8px, #eddbbb 1px 1.6px, transparent 1.9px) right 3px top 3px / 5px 5px no-repeat,
-    radial-gradient(circle, #836c51 0 .8px, #eddbbb 1px 1.6px, transparent 1.9px) left 3px bottom 3px / 5px 5px no-repeat,
-    radial-gradient(circle, #836c51 0 .8px, #eddbbb 1px 1.6px, transparent 1.9px) right 3px bottom 3px / 5px 5px no-repeat,
-    var(--desk-case);
-  box-shadow: var(--desk-rim), 0 3px #a0896d, 0 6px 10px #654a3033;
-  backdrop-filter: none;
-  transition: none;
+  background: var(--desk-case, linear-gradient(#f9efdd, #ebdcc3 68%, #d4bc99));
+  box-shadow: var(--desk-rim, inset 0 0 0 1px #fff9ed, inset 0 0 0 4px #c7b194, inset 0 0 0 5px #f4e7d0),
+    0 3px #a0896d, 0 7px 12px #654a3040;
+  color: var(--desk-ink, #453a2d);
 }
-#table-container.mechanical-table .auto-call-toggle {
-  position: relative;
-  min-height: 26px;
-  padding: 2px 4px 2px 14px;
-  border: 1px solid #9b8466;
+#table-container:not(.mechanical-table).action-active .auto-call-control {
+  bottom: max(20px, calc(var(--action-panel-height) + 8px), env(safe-area-inset-bottom));
+}
+.auto-cruise-fasteners { inset: 3px; }
+.auto-cruise-fasteners i { width: 5px; height: 5px; }
+.auto-call-toggle {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 11px;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 3px 7px 3px 5px;
+  border: 1px solid #9e886d;
   border-radius: 5px;
-  background: var(--desk-enamel);
-  box-shadow: var(--desk-key-shadow);
-  color: var(--desk-ink);
-  font-size: 10px;
+  background: linear-gradient(#f8edd7, #e9d8ba 72%, #cfb797);
+  box-shadow: inset 0 1px #fff5df, inset 0 -1px #b39b7c, 0 1px #fff1dc8f;
+  color: inherit;
+  cursor: pointer;
 }
-#table-container.mechanical-table .auto-call-toggle::before {
+.auto-cruise-track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 22px;
+  padding: 0 3px;
+  border: 1px solid #8d765e;
+  border-radius: 4px;
+  background: linear-gradient(#98836b, #ccbaa0 40%, #dfcdae);
+  box-shadow: inset 0 2px 3px #493d3173, 0 1px #fdf1d9;
+  color: #514332;
+  font: 750 8px/1 system-ui, sans-serif;
+}
+.auto-cruise-track::before {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 5px;
-  width: 6px;
-  height: 6px;
-  transform: translateY(-50%);
-  border: 1px solid #8b795a;
+  inset: 3px 12px;
+  border-radius: 3px;
+  background: linear-gradient(#56473c, #786953 54%, #57493a);
+  box-shadow: inset 0 1px 2px #35291e, 0 1px #f9e9cd;
+}
+.auto-cruise-track i {
+  position: absolute;
+  left: 13px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #8e7759;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #9b8261 0 1px, #f6e5ca 1px 3px) center / 8px 8px no-repeat,
+    linear-gradient(#fff1d6, #d9c4a3 64%, #a78b67);
+  box-shadow: inset 0 1px #fff9eb, 0 2px 2px #574738ab;
+  transition: transform 160ms cubic-bezier(.22,.75,.33,1.19);
+}
+.auto-call-control[data-enabled] .auto-cruise-track i { transform: translateX(18px); }
+.auto-cruise-label {
+  font: 800 11px/1 system-ui, sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 1px #fdf0d5;
+}
+.auto-cruise-lamp {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #8c785b;
   border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, #aaa79a, #575951 69%);
-  box-shadow: 0 0 0 1px #6b5945;
+  background: radial-gradient(circle at 34% 29%, #dacdb4, #71695a 48%, #48493c 82%);
+  box-shadow: 0 0 0 1px #dac7a7, inset 0 -1px 2px #332b24;
 }
-#table-container.mechanical-table .auto-call-toggle.active::before {
-  background: radial-gradient(circle at 32% 29%, #e9ffbb, #78b879 49%, #346144 76%);
-  box-shadow: 0 0 0 1px #67845c, 0 0 4px #81bd7d;
+.auto-call-control[data-enabled] .auto-cruise-lamp {
+  background: radial-gradient(circle at 32% 28%, #f1ffcb, #8bd083 38%, #3f895a 69%, #264934 86%);
+  box-shadow: 0 0 0 1px #a7b389, 0 0 5px #80ba75ae;
 }
-#table-container.mechanical-table .auto-call-toggle:hover { filter: brightness(1.08); }
-#table-container.mechanical-table .auto-call-toggle:active {
-  transform: translateY(2px);
-  box-shadow: inset 0 1px #fff4d94f, 0 1px #9a8163;
+.auto-call-toggle:hover { filter: brightness(1.045); }
+.auto-cruise-lower {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #a68e71;
+  box-shadow: inset 0 1px #fff3dc;
 }
-#table-container.mechanical-table .auto-call-amount {
-  height: 25px;
-  padding: 1px 4px;
+.auto-cruise-plaque {
+  padding: 3px 1px;
+  border: 1px solid #ae9570;
+  border-radius: 3px;
+  background: linear-gradient(#f8e6bf, #d7bd93);
+  color: #5f4d36;
+  font: 750 9px/1 system-ui, sans-serif;
   text-align: center;
-  font-size: 12px;
+  white-space: nowrap;
 }
-#table-container.mechanical-table .auto-call-amount::placeholder { color: #7b6b57; font-size: 10px; }
+.auto-cruise-bay {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #9c866d;
+  border-radius: 4px;
+  background: #b7a38a;
+  box-shadow: inset 0 1px 3px #5b483e73, 0 1px #f8ead1;
+}
+.auto-cruise-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, 19px);
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  padding: 2px 8px 3px 3px;
+  border: 0;
+}
+.auto-call-control[data-enabled] .auto-cruise-bay { box-shadow: inset 0 1px 4px #76664e91, 0 1px #f8ead1, 0 0 5px #98b3845e; }
+#autoCallReels.mechanical-reels {
+  --reel-step: 14px;
+  min-width: 0;
+  gap: 1px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+#autoCallReels .mechanical-reel { flex: 1 1 10px; }
+.auto-cruise-step {
+  height: 20px;
+  padding: 0;
+  border: 1px solid #967e5e;
+  border-radius: 3px;
+  background: var(--desk-enamel, linear-gradient(#fff5e4, #eddcc0 70%, #d5bea0));
+  box-shadow: inset 0 1px #fffaf0, 0 2px #8f785c;
+  color: #47392c;
+  font: 800 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+  touch-action: none;
+}
+.auto-cruise-step:disabled { opacity: .58; cursor: default; }
+.auto-cruise-step:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 2px #866c514f; }
+.auto-call-control button:focus-visible { outline: 2px solid #4d785a; outline-offset: -2px; }
+.auto-cruise-shutter {
+  position: absolute;
+  inset: 1px 0 1px 1px;
+  border: 1px solid #96816a;
+  border-radius: 3px 2px 2px 3px;
+  background: linear-gradient(90deg, #9e886a, #ebddc3 4px, transparent 5px),
+    repeating-linear-gradient(135deg, #8d7e691d 0 1px, transparent 1px 4px),
+    linear-gradient(#ece4d5, #d7cbbb 55%, #bba993);
+  box-shadow: inset 0 1px #fff4e1, inset 0 -2px #9e8b75b3, 0 1px 2px #54423483;
+  pointer-events: none;
+  transition: transform 200ms cubic-bezier(.24,.78,.31,1);
+}
+.auto-call-control[data-enabled] .auto-cruise-shutter { transform: translateX(calc(100% - 5px)); }
+@media (prefers-reduced-motion: reduce) {
+  .auto-cruise-track i, .auto-cruise-shutter { transition: none; }
+}
 
 #table-container.mechanical-table #gameExitBtn {
   top: max(12px, env(safe-area-inset-top));
