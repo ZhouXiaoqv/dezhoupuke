@@ -86,6 +86,7 @@ const MechanicalTable = (() => {
   let potArea;
   let groups = new Map();
   let chipsDirty = true;
+  let viewerBackImage;
   const deliveries = new Map();
   const { jawReach } = MechanicalArmMotion;
   let bayPort, recyclerPort, printerPort;
@@ -163,7 +164,10 @@ const MechanicalTable = (() => {
       community.replaceChildren();
       delete table.dataset.mechanicalViewer;
       container.querySelector(":scope > .my-hand")?.remove();
-      $("tableOutfitBtn").hidden = active || !container.classList.contains("active") || !isRegistered || isSpectator;
+      const outfitButton = $("tableOutfitBtn");
+      outfitButton.title = active ? "更换牌背" : "换装";
+      outfitButton.setAttribute("aria-label", outfitButton.title);
+      outfitButton.hidden = !container.classList.contains("active") || !isRegistered || isSpectator;
       if (active) {
         fitStage();
         bindSeats([]);
@@ -357,9 +361,9 @@ const MechanicalTable = (() => {
     if (second <= 5 && playerId === Net.playerId && deadline !== submittedDeadline && !isSpectator && !document.hidden) SFX.ratchet();
   }
 
-  function cardBack(slot = false) {
+  function emptyCardSlot() {
     const el = document.createElement("div");
-    el.className = "card " + (slot ? "mechanical-card-slot" : "card-back mechanical-card-back");
+    el.className = "card mechanical-card-slot";
     el.setAttribute("aria-hidden", "true");
     return el;
   }
@@ -484,6 +488,10 @@ const MechanicalTable = (() => {
 
   const seatCardKey = (id, slot) => "seat:" + id + ":" + slot;
   const boardCardKey = slot => "board:" + slot;
+
+  function deliveryCardBack(playerId, slot, handNum) {
+    if (state?.handNum === handNum) return deliveries.get(seatCardKey(playerId, slot))?.dealtBack;
+  }
 
   function cardGeometry(card) {
     const rect = stageBox(card);
@@ -662,12 +670,13 @@ const MechanicalTable = (() => {
 
   function queueCards(action, slots, batch = null) {
     if (!animatesArm() || (batch && document.hidden)) return;
-    arm.enqueue(action, slots.map(({ key, card }) => {
+    arm.enqueue(action, slots.map(({ key, card, backId }) => {
       const faceUp = card.classList.contains("card-front") &&
         (action === "reveal" || (!isSpectator && !!card.closest(".my-hand")));
       let last = cardGeometry(card);
       const entry = {
         card,
+        backId,
         target() {
           if (entry.card.isConnected) last = cardGeometry(entry.card);
           return last;
@@ -704,7 +713,14 @@ const MechanicalTable = (() => {
         feedLength: () => standard.height,
         payload() {
           standard = standardCardSize();
-          if (!faceUp) return sizePayload(cardBack(), standard);
+          // This payload is created before the hatch opens and keeps its back through landing.
+          const back = createCardBackEl(entry.backId);
+          entry.dealtBack = back.dataset.cardBack;
+          if (!faceUp) {
+            carrier = sizePayload(back, standard);
+            carrier.toggleAttribute("data-reverse-art", cardWristAngle(entry.target()) > 0);
+            return carrier;
+          }
           carrier = document.createElement("div");
           carrier.className = "card mechanical-turnable-card";
           carrier.setAttribute("aria-hidden", "true");
@@ -712,7 +728,7 @@ const MechanicalTable = (() => {
           plane.className = "mechanical-card-roll-plane";
           const front = entry.card.cloneNode(true);
           front.classList.remove("mechanical-pending", "mechanical-card-seated", "card-flip-in");
-          plane.append(cardBack(), front);
+          plane.append(back, front);
           carrier.append(plane);
           return sizePayload(carrier, standard);
         },
@@ -790,7 +806,7 @@ const MechanicalTable = (() => {
     }
   }
 
-  function render(next) {
+  function render(next, viewerCardBack) {
     const last = state;
     state = next;
     fitStage();
@@ -802,16 +818,25 @@ const MechanicalTable = (() => {
     const newBatch = next.cardGate && cardBatch?.id !== next.cardGate.id
       ? cardBatch = { ...next.cardGate, pending: new Set() }
       : null;
+    const imageUrl = getCardBackDef(viewerCardBack).imageUrl;
+    if (imageUrl && imageUrl !== viewerBackImage?.getAttribute("src")) {
+      viewerBackImage = new Image();
+      viewerBackImage.src = imageUrl;
+    }
     const hands = next.players.map((player, index) => player.folded ? [] :
-      seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card })));
-    const board = [...community.querySelectorAll(".card")].map((card, slot) => ({ key: boardCardKey(slot), card }));
+      seatCards(index).map((card, slot) => ({ key: seatCardKey(player.id, slot), card,
+        backId: player.cardBack || (player.id === Net.playerId ? viewerCardBack : DEFAULT_CARD_BACK) })));
+    const board = [...community.querySelectorAll(".card")].map((card, slot) =>
+      ({ key: boardCardKey(slot), card, backId: viewerCardBack }));
     const winningIds = new Set(next.phase === "showdown" ? next.winners?.map(winner => winner.id) : []);
     const bestCards = new Set(next.players.filter(player => winningIds.has(player.id) && player.hand.length === 2 && player.hand.every(Boolean))
       .flatMap(player => evaluateHand([...player.hand, ...next.community])?.cards ?? []));
     board.forEach(({ card }, index) => card.parentElement.toggleAttribute("data-highlighted", bestCards.has(next.community[index])));
-    for (const { key, card } of [...hands.flat(), ...board]) {
+    for (const { key, card, backId } of [...hands.flat(), ...board]) {
       const delivery = deliveries.get(key);
-      if (!delivery || delivery.card === card) continue;
+      if (!delivery) continue;
+      delivery.backId = backId;
+      if (delivery.card === card) continue;
       delivery.card = card;
       card.classList.remove("card-flip-in");
       card.classList.add("mechanical-pending");
@@ -1740,5 +1765,5 @@ const MechanicalTable = (() => {
   });
 
   return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
-    cardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
+    emptyCardSlot, deliveryCardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
 })();

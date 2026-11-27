@@ -499,7 +499,7 @@ function $(id) {
 }
 function showScreen(id) {
   const outfitButton = $("tableOutfitBtn");
-  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator || MechanicalTable.enabled();
+  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator;
   if (outfitButton.hidden && $("avatarModal").classList.contains("table-outfit")) {
     closeAvatarModal();
   }

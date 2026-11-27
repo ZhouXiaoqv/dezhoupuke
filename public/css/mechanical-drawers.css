@@ -29,7 +29,7 @@
   background: var(--desk-case);
   box-shadow: var(--desk-rim), 0 3px #a18a6c, 0 6px 12px #5f49354a;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen) {
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen, #tableOutfitBtn) {
   position: relative;
   inset: auto;
   width: 35px;
@@ -45,11 +45,11 @@
   backdrop-filter: none;
   transition: transform 80ms ease-out, filter 90ms ease-out;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, .visible:is(#actionLogToggle, #scoreboardToggle)) { display: grid; }
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #tableOutfitBtn:not([hidden]), .visible:is(#actionLogToggle, #scoreboardToggle)) { display: grid; }
 #table-container.mechanical-table.active ~ .table-console .table-tool-glyph { display: none; }
 #table-container.mechanical-table.active ~ .table-console .desk-corner-icon { display: block; width: 18px; height: 18px; }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen):hover:not(:disabled) { filter: brightness(1.08); }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen):active:not(:disabled),
+#table-container.mechanical-table.active ~ .table-console .table-tools > button:hover:not(:disabled) { filter: brightness(1.08); }
+#table-container.mechanical-table.active ~ .table-console .table-tools > button:active:not(:disabled),
 #table-container.mechanical-table.active ~ .table-console #tableFullscreen[aria-pressed="true"],
 #table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)[aria-expanded="true"] {
   transform: translateY(1.5px);

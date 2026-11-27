@@ -473,12 +473,6 @@
   70% { transform: translateY(.8px) scale(.995); }
   100% { transform: none; }
 }
-#table-container.mechanical-table .mechanical-card-back {
-  background: repeating-linear-gradient(45deg, #ac834f 0 2px, #c1a175 2px 4px);
-  border: 1px solid #a48559;
-  box-shadow: inset 0 0 0 2px #ecdbba, 0 2px 0 #c8b89d;
-}
-.mechanical-card-back::after { display: none; }
 .mechanical-pending { visibility: hidden; }
 
 #table-container.mechanical-table #table .seat[data-mechanical-slot] {
@@ -1182,6 +1176,8 @@
   text-overflow: ellipsis;
 }
 .mechanical-carry { transform: none; translate: -50% -50%; animation: none; transition: none; }
+/* Align directional back artwork with the lower seats through the existing wrist turn. */
+.mechanical-carry.card-back[data-reverse-art] { transform: rotate(180deg); }
 .mechanical-card-roll-plane {
   position: absolute;
   inset: 0;

@@ -508,7 +508,7 @@ function renderGame(state) {
   const me = state.players.find((p) => p.id === Net.playerId);
   const viewerCardBack = isSpectator
     ? DEFAULT_CARD_BACK
-    : getEquippedCardBack(userProfile);
+    : (mechanical && me?.cardBack) || getEquippedCardBack(userProfile);
   // Detect if my hand cards actually changed (new deal vs re-render)
   const currentHandIds =
     me?.hand
@@ -529,6 +529,7 @@ function renderGame(state) {
 
   // Seats
   state.players.forEach((p, i) => {
+    const playerBack = getCardBackDef(p.cardBack).id;
     let seat = mechanicalSeats?.[i].seat ?? table.querySelector(`.seat-${i}`);
     const seatExisted = !!seat;
 
@@ -574,8 +575,9 @@ function renderGame(state) {
             .filter((c) => c)
             .map((c) => c.suit + "-" + c.rank)
             .join(",");
+        if (p.hand.some((card) => !card)) otherCardSig += ":" + playerBack;
       } else if (!p.folded && state.phase !== "idle") {
-        otherCardSig = "b:2:" + (mechanical ? "mechanical" : p.cardBack || DEFAULT_CARD_BACK);
+        otherCardSig = "b:2:" + playerBack + (mechanical ? ":" + state.handNum : "");
       } else {
         otherCardSig = "e";
       }
@@ -598,6 +600,9 @@ function renderGame(state) {
       cardsEl = document.createElement("div");
       if (isMySeat) cardsEl.className = "my-hand";
       else cardsEl.className = "seat-cards";
+      const backFor = slot => createCardBackEl(mechanical
+        ? MechanicalTable.deliveryCardBack(p.id, slot, state.handNum) ?? playerBack
+        : playerBack);
 
       if (isMySeat) {
         for (const card of p.hand || []) {
@@ -609,12 +614,10 @@ function renderGame(state) {
         }
       } else if (p.hand?.[0] && (!mechanical || !p.folded)) {
         const isNew = !cardsDiv;
-        for (const card of p.hand) {
+        for (const [slot, card] of p.hand.entries()) {
           const el = card
             ? createCardEl(card)
-            : mechanical
-              ? MechanicalTable.cardBack()
-              : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
+            : backFor(slot);
           if (isNew || otherCardsChanged)
             el.classList.add("card-flip-in");
           cardsEl.appendChild(el);
@@ -622,7 +625,7 @@ function renderGame(state) {
       } else if (!p.folded && state.phase !== "idle") {
         const isNew = !cardsDiv;
         for (let j = 0; j < 2; j++) {
-          const el = mechanical ? MechanicalTable.cardBack() : createCardBackEl(p.cardBack || DEFAULT_CARD_BACK);
+          const el = backFor(j);
           if (!mechanical && (isNew || otherCardsChanged)) {
             el.classList.add("seat-card-deal");
             el.style.animationDelay = `${j * 0.15}s`;
@@ -825,7 +828,7 @@ function renderGame(state) {
     const el = card
       ? createCardEl(card)
       : mechanical
-        ? MechanicalTable.cardBack(true)
+        ? MechanicalTable.emptyCardSlot()
         : createCardBackEl(viewerCardBack);
     el.dataset.cardKey = key;
     if (!mechanical && card && communityGrew && i >= previousCardCount) {
@@ -856,7 +859,7 @@ function renderGame(state) {
   if (mechanical) $("handRankLabel").classList.remove("visible");
   else updateHandLabel(state);
   if (mechanical) {
-    MechanicalTable.render(state);
+    MechanicalTable.render(state, viewerCardBack);
   } else {
     requestAnimationFrame(() => {
       if (gameState === state && $("table-container").classList.contains("active"))
