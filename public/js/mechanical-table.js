@@ -47,13 +47,26 @@ const MechanicalTable = (() => {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const handReels = $("mechanicalHandReels");
   const phaseLabel = $("mechanicalPhaseLabel");
-  const [upperFlap, lowerFlap, foldingFlap, fallingFlap] = phaseLabel.children;
+  const flipPhase = createSplitFlap(phaseLabel);
+  const strength = $("mechanicalStrength");
+  const strengthLamps = [...strength.querySelectorAll(".mechanical-strength-glass > i")];
+  const strengthWindows = strength.querySelector(".mechanical-strength-windows");
+  const strengthFlaps = Array.from({ length: 3 }, () => {
+    const cell = phaseLabel.cloneNode(true);
+    cell.removeAttribute("id");
+    cell.removeAttribute("role");
+    strengthWindows.append(cell);
+    const flip = createSplitFlap(cell);
+    flip("", false);
+    return flip;
+  });
   const blindValue = $("mechanicalBlindValue");
   const phaseNames = {
     idle: "等待开局", preflop: "翻牌前", flop: "翻牌圈", turn: "转牌圈",
     river: "河牌圈", showdown: "摊牌", show_choice: "亮牌选择",
   };
-  let instrumentRoom, instrumentHand, instrumentPhase, phaseAnimations = [];
+  let instrumentRoom, instrumentHand, instrumentPhase;
+  let strengthRank = -1, strengthLevel = 0, strengthTimer;
   const wagers = new Map();
   const labels = new Map();
   const payouts = new Map();
@@ -101,7 +114,7 @@ const MechanicalTable = (() => {
     retireCardBatch();
     clearTurnClock();
     submittedDeadline = undefined;
-    MechanicalActionDesk.showStrength();
+    clearHandStrength();
     sweep = state = handToDeal = finalizedHand = null;
     deliveries.clear();
     wagers.clear();
@@ -519,17 +532,58 @@ const MechanicalTable = (() => {
     return paper;
   }
 
-  function updateHandStrength() {
-    const me = state?.players.find(player => player.id === Net.playerId);
-    const pending = cardBatch?.pending.size;
-    const boardFrom = pending ? cardBatch.boardFrom : undefined;
-    MechanicalActionDesk.showStrength(!isSpectator && !me?.folded && boardFrom !== null ? me?.hand : undefined,
-      state?.community.slice(0, boardFrom ?? undefined));
+  function setStrengthLevel(level) {
+    strengthLevel = level;
+    strengthLamps.forEach((lamp, index) => lamp.toggleAttribute("data-lit", index < level));
+    strength.toggleAttribute("data-royal", strengthRank === 9 && level === 9);
+  }
+
+  function clearHandStrength() {
+    if (strengthRank < 0) return;
+    clearTimeout(strengthTimer);
+    strengthRank = -1;
+    strength.hidden = true;
+    strength.removeAttribute("aria-label");
+    setStrengthLevel(0);
+    strengthFlaps.forEach(flip => flip("", false));
+  }
+
+  function updateHandStrength(animate = !reduced.matches && !document.hidden) {
+    const me = !isSpectator && !state?.isSpectatorView && state?.players.find(player => player.id === Net.playerId);
+    if (!me?.hand?.[0] || !me.hand[1] || me.folded || [0, 1].some(slot => deliveries.has(seatCardKey(me.id, slot)))) {
+      clearHandStrength();
+      return;
+    }
+    const board = state.community.filter((_, index) => !deliveries.has(boardCardKey(index)));
+    const rank = evaluateHand([...me.hand, ...board])?.rank ?? Number(me.hand[0].rank === me.hand[1].rank);
+    if (rank === strengthRank && animate) return;
+
+    clearTimeout(strengthTimer);
+    const level = Math.min(rank + 1, 9);
+    const lettered = HAND_NAMES[Math.min(rank, 8)];
+    const changed = lettered !== HAND_NAMES[Math.min(strengthRank, 8)];
+    strengthRank = rank;
+    strength.hidden = false;
+    strength.setAttribute("aria-label", `手牌强度 ${HAND_NAMES[rank]} ${level}/9`);
+    if (changed || !animate) strengthFlaps.forEach((flip, index) => {
+      const glyph = lettered[index] ?? "";
+      if (index < 2 || glyph !== strengthWindows.children[index].getAttribute("aria-label") || !animate) {
+        flip(glyph, animate);
+      }
+    });
+
+    if (!animate || level <= strengthLevel) setStrengthLevel(level);
+    else {
+      const step = () => {
+        setStrengthLevel(strengthLevel + 1);
+        if (strengthLevel < level) strengthTimer = setTimeout(step, 40);
+      };
+      step();
+    }
   }
 
   function confirmCardBatch(batch) {
     if (batch !== cardBatch || batch.pending.size) return;
-    updateHandStrength();
     if (!batch.sent && !isSpectator && Net.connected && gameState?.cardGate?.id === batch.id) {
       batch.sent = true;
       Net.send("game:cardsReady", { id: batch.id });
@@ -564,7 +618,8 @@ const MechanicalTable = (() => {
       card.classList.add("mechanical-pending");
       function land(animate) {
         if (entry.landed) return;
-        if (deliveries.get(key) === entry) deliveries.delete(key);
+        const current = deliveries.get(key) === entry;
+        if (current) deliveries.delete(key);
         entry.card.classList.remove("mechanical-pending");
         entry.landed = true;
         entry.onArrival?.();
@@ -575,6 +630,7 @@ const MechanicalTable = (() => {
           batch.pending.delete(land);
           confirmCardBatch(batch);
         }
+        if (current && (faceUp || action === "reveal")) updateHandStrength();
       }
       batch?.pending.add(land);
       return {
@@ -611,34 +667,39 @@ const MechanicalTable = (() => {
     }));
   }
 
-  function flipPhase(label, animate) {
-    phaseAnimations.forEach(animation => animation.cancel());
-    phaseAnimations = [];
-    const previous = phaseLabel.getAttribute("aria-label");
-    phaseLabel.setAttribute("aria-label", label);
-    upperFlap.firstElementChild.textContent = label;
-    lowerFlap.firstElementChild.textContent = animate ? previous : label;
-    if (!animate) return;
+  function createSplitFlap(cell) {
+    const [upper, lower, folding, falling] = cell.children;
+    let fold, fall;
+    return (label, animate) => {
+      fold?.cancel();
+      fall?.cancel();
+      const previous = cell.getAttribute("aria-label");
+      cell.setAttribute("aria-label", label);
+      cell.toggleAttribute("data-blank", !label);
+      upper.firstElementChild.textContent = label;
+      lower.firstElementChild.textContent = animate ? previous : label;
+      if (!animate) return;
 
-    const half = 110;
-    foldingFlap.firstElementChild.textContent = previous;
-    fallingFlap.firstElementChild.textContent = label;
-    const fold = foldingFlap.animate([
-      { transform: "scaleY(1)", filter: "brightness(1)" },
-      { transform: "scaleY(0)", filter: "brightness(.72)" },
-    ], { duration: half, fill: "backwards", easing: "cubic-bezier(.48,.05,.82,.42)" });
-    const fall = fallingFlap.animate([
-      { transform: "scaleY(0)", filter: "brightness(.78)" },
-      { transform: "scaleY(1)", filter: "brightness(1)", offset: .84 },
-      { transform: "scaleY(.965)", filter: "brightness(.98)", offset: .92 },
-      { transform: "scaleY(1)", filter: "brightness(1)" },
-    ], { duration: half, delay: half, fill: "both", easing: "cubic-bezier(.22,.54,.54,1)" });
-    phaseAnimations = [fold, fall];
-    fall.onfinish = () => {
-      if (phaseAnimations[1] !== fall) return;
-      lowerFlap.firstElementChild.textContent = label;
-      fall.cancel();
-      phaseAnimations = [];
+      const half = 110;
+      folding.firstElementChild.textContent = previous;
+      falling.firstElementChild.textContent = label;
+      fold = folding.animate([
+        { transform: "scaleY(1)", filter: "brightness(1)" },
+        { transform: "scaleY(0)", filter: "brightness(.72)" },
+      ], { duration: half, fill: "backwards", easing: "cubic-bezier(.48,.05,.82,.42)" });
+      const settling = falling.animate([
+        { transform: "scaleY(0)", filter: "brightness(.78)" },
+        { transform: "scaleY(1)", filter: "brightness(1)", offset: .84 },
+        { transform: "scaleY(.965)", filter: "brightness(.98)", offset: .92 },
+        { transform: "scaleY(1)", filter: "brightness(1)" },
+      ], { duration: half, delay: half, fill: "both", easing: "cubic-bezier(.22,.54,.54,1)" });
+      fall = settling;
+      settling.onfinish = () => {
+        if (fall !== settling) return;
+        lower.firstElementChild.textContent = label;
+        settling.cancel();
+        fold = fall = null;
+      };
     };
   }
 
@@ -700,7 +761,7 @@ const MechanicalTable = (() => {
       queueCards("reveal", board.slice(last.community.length, next.community.length));
     }
     if (cardBatch && !cardBatch.pending.size) confirmCardBatch(cardBatch);
-    else updateHandStrength();
+    updateHandStrength();
     const oldGroups = groups;
     placeWagerZones();
     groups = readGroups(next);
@@ -1605,6 +1666,7 @@ const MechanicalTable = (() => {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       finishCardBatch(cardBatch);
+      updateHandStrength(false);
       if (latestReceipt && !latestReceipt.ready) showReceiptInstantly(latestReceipt);
     } else refreshNextHand();
   });
@@ -1613,6 +1675,7 @@ const MechanicalTable = (() => {
     if (!enabled() || !reduced.matches) return;
     finishCardBatch(cardBatch);
     flipPhase(phaseLabel.getAttribute("aria-label"), false);
+    updateHandStrength(false);
     clearPayouts();
     wagers.clear();
     sweep = null;
@@ -1622,5 +1685,5 @@ const MechanicalTable = (() => {
   });
 
   return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
-    cardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand };
+    cardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
 })();

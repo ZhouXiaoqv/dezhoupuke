@@ -16,7 +16,7 @@ function clearMyHandView(resetSignature = true) {
   myHand = [];
   if (resetSignature) {
     prevMyHandIds = null;
-    MechanicalActionDesk.showStrength();
+    MechanicalTable.clearHandStrength();
   }
   document
     .querySelectorAll("#table-container .my-hand")
