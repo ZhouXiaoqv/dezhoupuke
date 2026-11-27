@@ -36,13 +36,16 @@
 }
 #gameStage { display: contents; }
 #table-container.mechanical-table #gameStage {
+  --mechanical-stage-width: 1432px;
+  --mechanical-stage-height: 832px;
   --mechanical-table-top: 98px;
   --mechanical-table-width: 960px;
   --mechanical-table-height: 536px;
+  --mechanical-desk-width: 630px;
   position: absolute;
   display: block;
-  width: 1432px;
-  height: 832px;
+  width: var(--mechanical-stage-width);
+  height: var(--mechanical-stage-height);
   bottom: var(--stage-bottom, var(--mechanical-dock-inset));
   left: calc(50% + (var(--stage-safe-left) - var(--stage-safe-right)) / 2 + var(--stage-shift-x, 0px));
   transform: translateX(-50%) scale(var(--stage-scale, 1));
@@ -1151,10 +1154,31 @@
   /* Tall wagers can extend above the rail, and shadows can cross any edge. */
   --chip-headroom: 128px;
   --chip-edge-room: 36px;
+  --chip-right-room: var(--chip-edge-room);
+  --chip-bottom-room: var(--chip-edge-room);
   z-index: 26;
-  inset: calc(-1 * var(--chip-headroom)) calc(-1 * var(--chip-edge-room)) calc(-1 * var(--chip-edge-room));
-  width: calc(100% + 2 * var(--chip-edge-room));
-  height: calc(100% + var(--chip-headroom) + var(--chip-edge-room));
+  inset: calc(-1 * var(--chip-headroom)) calc(-1 * var(--chip-right-room)) calc(-1 * var(--chip-bottom-room)) calc(-1 * var(--chip-edge-room));
+  width: calc(100% + var(--chip-edge-room) + var(--chip-right-room));
+  height: calc(100% + var(--chip-headroom) + var(--chip-bottom-room));
+}
+#gameStage:has(.mechanical-chip-reserve:not([hidden])) .mechanical-chips {
+  --chip-right-room: calc((var(--mechanical-stage-width) - var(--mechanical-table-width)) / 2 + 10px);
+  --chip-bottom-room: calc(var(--mechanical-stage-height) - var(--mechanical-table-top) - var(--mechanical-table-height) + 10px);
+}
+.mechanical-chip-reserve {
+  position: absolute;
+  left: calc(50% + var(--mechanical-desk-width) / 2 + 22px);
+  right: 20px;
+  bottom: 8px;
+  height: 168px;
+  pointer-events: none;
+}
+.mechanical-chip-reserve[hidden] { display: none; }
+.mechanical-chip-reserve .mechanical-chip-amount {
+  z-index: 27;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
 }
 .mechanical-chip-labels { z-index: 27; }
 .mechanical-payout { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 32; pointer-events: none; }

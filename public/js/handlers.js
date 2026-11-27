@@ -374,7 +374,7 @@ Net.on("game:receipt", ({ snapshot, settlement, hostId, myChips, ...timing }) =>
   isHost = hostId === Net.playerId;
   if (!$("table-container").classList.contains("active")) showScreen("table");
   $("scoreboardToggle").classList.add("visible");
-  MechanicalTable.restoreReceipt(snapshot, { ...settlement, receiptId: timing.receiptId });
+  MechanicalTable.restoreReceipt({ ...snapshot, myChips }, { ...settlement, receiptId: timing.receiptId });
   TableDrawers.updateChips(myChips);
   MechanicalTable.syncNextHand(timing);
 });

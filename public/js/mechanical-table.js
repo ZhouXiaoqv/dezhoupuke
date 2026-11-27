@@ -37,6 +37,8 @@ const MechanicalTable = (() => {
   const potMeter = $("mechanicalPotMeter");
   const potReels = $("mechanicalPotReels");
   const labelLayer = $("mechanicalChipLabels");
+  const reserve = $("mechanicalChipReserve");
+  const reserveAmount = $("mechanicalChipReserveAmount");
   const result = $("mechanicalResult");
   const receiptTemplate = $("mechanicalReceiptTemplate");
   const table = $("table");
@@ -84,6 +86,7 @@ const MechanicalTable = (() => {
   let turnClock, submittedDeadline;
   let stageScale = 1;
   let potArea;
+  let reserveStock, reserveAnchor;
   let groups = new Map();
   let chipsDirty = true;
   let viewerBackImage;
@@ -145,6 +148,8 @@ const MechanicalTable = (() => {
     cardBatch = null;
     arm.reset();
     clearHandEffects();
+    updateReserve(null);
+    reserveAnchor = null;
     moving.replaceChildren();
     feedLayer.replaceChildren();
     recycleLayer.replaceChildren();
@@ -481,6 +486,11 @@ const MechanicalTable = (() => {
     recyclerPort = measurePort(recycleLayer, recyclerSeam);
     printerPort = measurePort(printLayer, printerOpening, 1, .5);
     measurePot();
+    if (reserve.hidden) reserveAnchor = null;
+    else {
+      const pocket = stageBox(reserve);
+      reserveAnchor = { x: pocket.left + pocket.width / 2 - left, y: pocket.bottom - top - 39 };
+    }
     const ratio = Math.min(2, devicePixelRatio || 1);
     const pixelsWide = Math.round(canvas.clientWidth * ratio), pixelsHigh = Math.round(canvas.clientHeight * ratio);
     if (canvas.width !== pixelsWide || canvas.height !== pixelsHigh) {
@@ -818,7 +828,9 @@ const MechanicalTable = (() => {
 
   function render(next, viewerCardBack) {
     const last = state;
+    const previousStock = reserveStock;
     state = next;
+    updateReserve(next.myChips);
     fitStage();
     if (!measure()) return;
     renderInstruments(next);
@@ -869,7 +881,7 @@ const MechanicalTable = (() => {
     MechanicalReels.set(potReels, next.pot);
     potMeter.dataset.amount = next.pot;
     if ((sameHand || freshDeal) && !reduced.matches && !document.hidden) {
-      scheduleChips(sameHand ? oldGroups : new Map(), groups);
+      scheduleChips(sameHand ? oldGroups : new Map(), groups, previousStock);
     } else {
       wagers.clear();
       sweep = null;
@@ -1173,6 +1185,25 @@ const MechanicalTable = (() => {
     return { ...inventory, description: description.join(" · ") };
   }
 
+  function updateReserve(counts) {
+    reserve.hidden = !counts;
+    if (!counts) {
+      reserveStock = null;
+      reserveAmount.textContent = "";
+      reserve.removeAttribute("aria-label");
+      return;
+    }
+    if (reserveStock && counts.every((count, index) => count === reserveStock.counts[index])) return;
+    const amount = counts.reduce((total, count, index) => total + count * DENOMINATIONS[index][0], 0);
+    const inventory = chipInventory(counts, amount, { scale: 1, height: 74, direction: 1 });
+    for (const part of [...inventory.piles, ...inventory.chips]) part.x *= 1.35;
+    reserveStock = { counts, inventory };
+    const formatted = currency.format(amount);
+    reserveAmount.textContent = formatted;
+    reserve.setAttribute("aria-label", `我的筹码 ${formatted}${inventory.description ? "，" + inventory.description : ""}`);
+    chipsDirty = true;
+  }
+
   function layoutWagerPiles(runs, count, { scale, height, direction }) {
     const rise = Math.max(54, Math.min(96, count * .42));
     const { piles, chips } = buildPiles(runs, rise);
@@ -1271,7 +1302,7 @@ const MechanicalTable = (() => {
     return { piles, chips };
   }
 
-  function scheduleChips(previous, next) {
+  function scheduleChips(previous, next, previousStock) {
     const start = performance.now();
     const sources = [...previous.values()].filter(group => group.id !== "pot" && !next.has(group.id))
       .sort((a, b) => a.at.y - b.at.y);
@@ -1291,7 +1322,7 @@ const MechanicalTable = (() => {
     for (const [id, group] of next) {
       if (id === "pot") continue;
       const old = previous.get(id);
-      if (group.amount > (old?.amount || 0)) wagers.set(id, wagerMotion(group, old, wagers.get(id), start));
+      if (group.amount > (old?.amount || 0)) wagers.set(id, wagerMotion(group, old, wagers.get(id), start, previousStock));
     }
     for (const id of wagers.keys()) if (!next.has(id)) wagers.delete(id);
   }
@@ -1308,8 +1339,17 @@ const MechanicalTable = (() => {
     return group.inventory.chips.map(chip => fromByValue.get(chip.value)?.pop());
   }
 
-  function wagerMotion(group, old, previous, now) {
+  function wagerMotion(group, old, previous, now, previousStock) {
     const sources = matchChipSources(group, old ? [old] : []);
+    const local = group.id === Net.playerId && reserveAnchor;
+    const stockByValue = new Map();
+    if (local && previousStock) {
+      const chipsByHeight = [...previousStock.inventory.chips].sort((a, b) => b.y - a.y);
+      for (const chip of chipsByHeight) {
+        if (!stockByValue.has(chip.value)) stockByValue.set(chip.value, []);
+        stockByValue.get(chip.value).push(chip);
+      }
+    }
     const additions = sources.reduce((total, source) => total + (source ? 0 : 1), 0);
     const span = Math.min(290, Math.max(0, additions - 1) * 23);
     let flightIndex = 0;
@@ -1330,6 +1370,7 @@ const MechanicalTable = (() => {
         const start = now + span * (1 - (1 - progress) ** 1.4);
         const scatter = scatterPoint({ x: 0, y: 0 }, flightIndex + 9, 22 + 19 * group.zone.scale);
         particle = { start, end: start + WAGER_FLIGHT_MS, scatter, airborne: true };
+        if (local) particle.reserveOffset = stockByValue.get(group.inventory.chips[index].value)?.pop() || { x: 0, y: 0 };
         flightIndex++;
       }
       end = Math.max(end, particle.end);
@@ -1348,7 +1389,9 @@ const MechanicalTable = (() => {
       return { ...lerp(motion.from, target, t), angle: motion.from.angle + (chip.angle - motion.from.angle) * t };
     }
     if (elapsed < 0) return null;
-    const { outlet } = group.zone;
+    const outlet = motion.reserveOffset && reserveAnchor
+      ? { x: reserveAnchor.x + motion.reserveOffset.x, y: reserveAnchor.y + motion.reserveOffset.y }
+      : group.zone.outlet;
     const middle = lerp(outlet, group.at, .61);
     const scattered = { x: middle.x + motion.scatter.x, y: middle.y + motion.scatter.y };
     if (elapsed < WAGER_SCATTER_MS) {
@@ -1519,6 +1562,7 @@ const MechanicalTable = (() => {
     context.resetTransform();
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.restore();
+    if (reserveStock && reserveAnchor) drawSettledChips({ ...reserveStock, at: reserveAnchor });
     // Within the wagers, the piles farther down the felt cover those behind them.
     const depthOrder = [...groups.values()].filter(group => group.zone).sort((a, b) => a.at.y - b.at.y);
     for (const group of depthOrder) {
@@ -1736,6 +1780,14 @@ const MechanicalTable = (() => {
   }
 
   function restoreReceipt(snapshot, settlement) {
+    if (state?.handNum !== snapshot.handNum) renderGame(snapshot);
+    else {
+      updateReserve(snapshot.myChips);
+      if (bounds && measure()) {
+        chipsDirty = true;
+        nextFrame();
+      }
+    }
     if (latestReceipt && latestReceipt.id === settlement.receiptId) {
       for (const { id, hand } of snapshot.players) {
         const rank = settlement.winners?.find(winner => winner.id === id)?.revealedRank;
@@ -1744,7 +1796,6 @@ const MechanicalTable = (() => {
       reportReceiptReady(latestReceipt);
       return;
     }
-    if (state?.handNum !== snapshot.handNum) renderGame(snapshot);
     showResult(snapshot, settlement, true);
   }
 
@@ -1795,7 +1846,12 @@ const MechanicalTable = (() => {
     nextFrame();
   }
   const geometryObserver = new ResizeObserver(() => {
-    if (enabled()) fitStage();
+    if (!enabled()) return;
+    fitStage();
+    if (reserveStock && bounds && measure()) {
+      chipsDirty = true;
+      nextFrame();
+    }
   });
   geometryObserver.observe(container);
 

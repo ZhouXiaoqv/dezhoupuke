@@ -71,10 +71,12 @@ html.mobile-table-active body {
   transform: scale(.82);
   transform-origin: left bottom;
 }
-.mobile-table-active #table-container.mechanical-table #gameStage { --mechanical-table-height: 528px; }
+.mobile-table-active #table-container.mechanical-table #gameStage {
+  --mechanical-table-height: 528px;
+  --mechanical-desk-width: calc(var(--mechanical-table-width) * .9);
+}
 .mobile-table-active .mechanical-seat-roles { display: none; }
 .mobile-table-active .mechanical-seat-plate { grid-template-rows: 13px auto; }
-.mobile-table-active #table-container.mechanical-table #actionPanel { width: calc(var(--mechanical-table-width) * .9); }
 .mobile-table-active :is(.desk-amount-window, .desk-scale, .desk-metal-key) { height: 48px; }
 .mobile-table-active .desk-sizing { grid-template-columns: minmax(105px, 132px) minmax(58px, 1fr) auto; }
 .mobile-table-active #table-container.mechanical-table #mechanicalActionDesk .desk-raise-reels {
