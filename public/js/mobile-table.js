@@ -4,6 +4,7 @@ const MobileTable = (() => {
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const button = $("tableFullscreen");
+  const table = $("table-container");
   const guide = $("mobileLandscapeGuide");
   const stage = $("gameStage");
   const cruise = $("autoCallControl");
@@ -15,6 +16,7 @@ const MobileTable = (() => {
   const canFullscreen = () => !!requestFullscreen &&
     (document.fullscreenEnabled ?? document.webkitFullscreenEnabled ?? true);
   let active = false;
+  let pendingRoomCode = null;
   let triedEntry = false;
   let wantsFullscreen = false;
   let requesting = false;
@@ -53,7 +55,7 @@ const MobileTable = (() => {
       return;
     }
     if (!wantsFullscreen) {
-      await leaveFullscreen();
+      if (requesting) await leaveFullscreen();
       return;
     }
     if (requestedLock) return;
@@ -80,14 +82,29 @@ const MobileTable = (() => {
     }
   }
 
-  function beginEntry() {
-    if (!mobile || triedEntry) return;
+  function beginEntry(mechanical = table.classList.contains("mechanical-table")) {
+    if (!mobile || !mechanical || triedEntry) return;
     triedEntry = true;
     void enterFullscreen();
   }
 
+  function prepareRoomEntry(code, style) {
+    if (!mobile) return;
+    pendingRoomCode = style === undefined ? code : null;
+    beginEntry(style === "mechanical");
+  }
+
+  function confirmRoomEntry({ code, tableStyle }) {
+    const pending = pendingRoomCode === code;
+    pendingRoomCode = null;
+    if (tableStyle !== "mechanical") cancelEntry();
+    else if (pending && navigator.userActivation?.isActive !== false) beginEntry(true);
+  }
+
   function cancelEntry() {
     if (!mobile || active) return;
+    pendingRoomCode = null;
+    if (!triedEntry) return;
     triedEntry = wantsFullscreen = false;
     void leaveFullscreen();
   }
@@ -95,7 +112,8 @@ const MobileTable = (() => {
   function setScreen(id) {
     if (!mobile) return;
     const wasActive = active;
-    active = id === "table";
+    active = id === "table" && table.classList.contains("mechanical-table");
+    button.hidden = !active;
     root.classList.toggle("mobile-table-active", active);
     updateGuide();
     if (!active && (wasActive || id !== "roomScreen")) cancelEntry();
@@ -103,9 +121,9 @@ const MobileTable = (() => {
 
   if (mobile) {
     root.classList.add("mobile-table-device");
-    button.hidden = false;
     button.disabled = !canFullscreen();
     button.addEventListener("click", () => {
+      if (!active) return;
       triedEntry = true;
       if (inFullscreen()) {
         wantsFullscreen = false;
@@ -119,10 +137,10 @@ const MobileTable = (() => {
     orientation?.addEventListener?.("change", updateGuide);
     portrait.addEventListener("change", updateGuide);
     window.addEventListener("resize", updateGuide);
-    $("table-container").addEventListener("contextmenu", event => {
-      if (!event.target.closest("input:not([type=range]), textarea, [contenteditable]")) event.preventDefault();
+    table.addEventListener("contextmenu", event => {
+      if (active && !event.target.closest("input:not([type=range]), textarea, [contenteditable]")) event.preventDefault();
     });
   }
 
-  return { beginEntry, cancelEntry, setScreen };
+  return { beginEntry, prepareRoomEntry, confirmRoomEntry, cancelEntry, setScreen };
 })();

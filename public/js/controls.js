@@ -24,7 +24,7 @@ $("joinRoomBtn").addEventListener("click", async () => {
     showError("请输入房间号");
     return;
   }
-  MobileTable.beginEntry();
+  MobileTable.prepareRoomEntry(code, listedRoomStyles.get(code));
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
@@ -433,7 +433,7 @@ $("spectateLink").addEventListener("click", async (e) => {
     showError("请输入房间号");
     return;
   }
-  MobileTable.beginEntry();
+  MobileTable.prepareRoomEntry(code, listedRoomStyles.get(code));
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);

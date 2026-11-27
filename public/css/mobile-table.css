@@ -62,9 +62,6 @@ html.mobile-table-active body {
   left: var(--mobile-safe-left);
   bottom: var(--mobile-safe-bottom);
 }
-.mobile-table-active #table-container:not(.mechanical-table).action-active .auto-call-control {
-  bottom: calc(var(--action-panel-height) + var(--mobile-safe-bottom));
-}
 .mobile-table-active #table-container.mechanical-table .auto-call-control {
   width: 158px;
   padding: 5px;

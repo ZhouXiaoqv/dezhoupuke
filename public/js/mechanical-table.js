@@ -159,7 +159,10 @@ const MechanicalTable = (() => {
       TableDrawers.reset();
       reset();
       container.classList.toggle("mechanical-table", active);
-      if (container.classList.contains("active")) hideActions();
+      if (container.classList.contains("active")) {
+        MobileTable.setScreen("table");
+        hideActions();
+      }
       table.querySelectorAll(".seat").forEach(seat => seat.remove());
       community.replaceChildren();
       delete table.dataset.mechanicalViewer;

@@ -1,4 +1,6 @@
 // ===== NETWORK EVENT HANDLERS =====
+let listedRoomStyles = new Map();
+
 Net.on("room:created", (d) => {
   MechanicalTable.setStyle(d.tableStyle);
   roomCode = d.code;
@@ -9,6 +11,7 @@ Net.on("room:created", (d) => {
 
 Net.on("room:joined", (d) => {
   MechanicalTable.setStyle(d.tableStyle);
+  MobileTable.confirmRoomEntry(d);
   roomCode = d.code;
   $("roomCodeDisplay").textContent = d.code;
   isSpectator = !!d.isSpectator;
@@ -130,10 +133,7 @@ function createLayoutTestRoomCard() {
   <div class="room-card-status bot">\u7535\u8111\u73a9\u5bb6</div>
 </div>
     `;
-  card.addEventListener("click", () => {
-    MobileTable.beginEntry();
-    enterLayoutTestRoom();
-  });
+  card.addEventListener("click", () => enterLayoutTestRoom());
   return card;
 }
 
@@ -144,6 +144,7 @@ function renderLayoutTestRoomEntry() {
 }
 
 Net.on("room:list", (d) => {
+  listedRoomStyles = new Map(d.rooms.map(room => [room.code, room.tableStyle]));
   const list = $("publicRoomList");
   if (!list) return;
 
@@ -192,7 +193,7 @@ Net.on("room:list", (d) => {
 
     card.addEventListener("click", async () => {
       const name = getCurrentPlayerName();
-      MobileTable.beginEntry();
+      MobileTable.prepareRoomEntry(r.code, r.tableStyle);
       try {
         if (!Net.connected) await Net.connect(getWsUrl());
         if (!Net.playerId) await Net.auth(name);
