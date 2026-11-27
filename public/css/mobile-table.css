@@ -75,7 +75,30 @@ html.mobile-table-active body {
 .mobile-table-active .mechanical-seat-roles { display: none; }
 .mobile-table-active .mechanical-seat-plate { grid-template-rows: 13px auto; }
 .mobile-table-active #table-container.mechanical-table #actionPanel { width: calc(var(--mechanical-table-width) * .9); }
-.mobile-table-active .desk-action-key { height: 52px; font-size: 17px; }
+.mobile-table-active :is(.desk-amount-window, .desk-scale, .desk-metal-key) { height: 48px; }
+.mobile-table-active .desk-sizing { grid-template-columns: minmax(105px, 132px) minmax(58px, 1fr) auto; }
+.mobile-table-active #table-container.mechanical-table #mechanicalActionDesk .desk-raise-reels {
+  --reel-step: 24px;
+  font-size: 17px;
+}
+.mobile-table-active .desk-scale { background-position: 12px bottom 11px, 12px bottom 14px, 0 0; }
+.mobile-table-active .desk-scale input { --desk-thumb-width: 24px; }
+.mobile-table-active .desk-scale input::-webkit-slider-runnable-track { height: 7px; }
+.mobile-table-active .desk-scale input::-webkit-slider-thumb { height: 25px; margin-top: -10px; }
+.mobile-table-active .desk-scale input::-moz-range-track { height: 6px; }
+.mobile-table-active .desk-scale input::-moz-range-thumb { height: 23px; }
+.mobile-table-active .desk-metal-key { min-width: 54px; font-size: 14px; }
+.mobile-table-active .desk-action-key { height: 44px; font-size: 17px; }
+.mobile-table-active .desk-pass { flex-direction: row; gap: 8px; }
+.mobile-table-active #table-container.mechanical-table #mechanicalActionDesk .desk-call-reels {
+  --reel-step: 16px;
+  font-size: 12px;
+}
+.mobile-table-active #table-container.mechanical-table #mechanicalPotMeter .mechanical-reels {
+  --reel-step: 19px;
+  min-width: 78px;
+  font-size: 15px;
+}
 .mobile-table-active .mechanical-result > .mechanical-receipt { transform: scale(var(--receipt-presentation-scale, 1)); }
 
 #tableFullscreen { display: none; }
