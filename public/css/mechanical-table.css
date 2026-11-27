@@ -21,14 +21,14 @@
   --mechanical-card-width: 54px;
   --stage-safe-top: max(16px, env(safe-area-inset-top));
   --stage-safe-right: max(48px, env(safe-area-inset-right));
-  --stage-safe-bottom: max(16px, env(safe-area-inset-bottom));
+  --mechanical-dock-inset: max(20px, env(safe-area-inset-bottom));
   --stage-safe-left: max(48px, env(safe-area-inset-left));
   position: fixed;
   inset: 0;
   width: auto;
   height: auto;
   overflow: hidden;
-  padding: var(--stage-safe-top) var(--stage-safe-right) var(--stage-safe-bottom) var(--stage-safe-left);
+  padding: var(--stage-safe-top) var(--stage-safe-right) var(--mechanical-dock-inset) var(--stage-safe-left);
   color: #302d28;
   background:
     radial-gradient(circle at 1px 1px, #cdbda3 0.85px, transparent 1.15px) 0 0 / 13px 13px,
@@ -37,14 +37,15 @@
 #gameStage { display: contents; }
 #table-container.mechanical-table #gameStage {
   --mechanical-table-top: 98px;
-  --mechanical-table-height: 472px;
+  --mechanical-table-height: 536px;
   position: absolute;
   display: block;
   width: 1432px;
-  height: 768px;
-  top: calc(50% + (var(--stage-safe-top) - var(--stage-safe-bottom)) / 2);
+  height: 832px;
+  bottom: var(--stage-bottom, var(--mechanical-dock-inset));
   left: calc(50% + (var(--stage-safe-left) - var(--stage-safe-right)) / 2);
-  transform: translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform: translateX(-50%) scale(var(--stage-scale, 1));
+  transform-origin: center bottom;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -421,7 +422,8 @@
 #table-container.mechanical-table #communityStation {
   position: absolute;
   z-index: 10;
-  top: 52%;
+  /* Keep the board-to-hand spacing fixed so all added felt opens above the board. */
+  top: calc(100% - 217px);
   left: 50%;
   transform: translate(-50%, -50%);
   display: block;

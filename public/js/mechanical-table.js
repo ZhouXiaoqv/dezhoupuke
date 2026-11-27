@@ -382,31 +382,32 @@ const MechanicalTable = (() => {
     const host = container.getBoundingClientRect();
     const style = getComputedStyle(container);
     const left = parseFloat(style.paddingLeft), right = parseFloat(style.paddingRight);
-    const top = parseFloat(style.paddingTop), bottom = parseFloat(style.paddingBottom);
-    const usableWidth = host.width - left - right, usableHeight = host.height - top - bottom;
-    const x = left + usableWidth / 2, y = top + usableHeight / 2;
+    const top = parseFloat(style.paddingTop);
+    let bottom = parseFloat(style.paddingBottom);
+    const usableWidth = host.width - left - right;
+    const x = host.left + left + usableWidth / 2;
+    let scale = Math.min(1, usableWidth / width, (host.height - top - bottom) / height);
 
-    // Each part can clear the low left control horizontally or vertically.
+    // Dock the desk on the cruise box's baseline. On narrow windows, clear the
+    // independent box with the whole stage if their footprints would overlap.
     const control = autoCall.getBoundingClientRect();
-    const gapX = host.left + x - control.right - 8;
-    const gapY = control.top - host.top - y - 8;
-    const clearControl = (left, bottom) => Math.max(gapX / Math.max(1, width / 2 - left),
-      gapY / Math.max(1, bottom - height / 2));
-    const deskTop = desk.offsetTop - height / 2;
-    const controlLimit = Math.min(clearControl(table.offsetLeft, table.offsetTop + table.offsetHeight),
-      clearControl((width - desk.offsetWidth) / 2, desk.offsetTop + desk.offsetHeight),
-      clearControl(strength.offsetLeft, strength.offsetTop + strength.offsetHeight / 2));
-    let scale = Math.min(1, usableWidth / width, usableHeight / height, controlLimit);
+    const footprints = [stageBox(table), stageBox(desk), stageBox(strength)];
     for (const slot of [1, 2, 3]) {
       const plate = seats.get(slot)?.querySelector(".seat-info");
-      if (!plate) continue;
-      const box = stageBox(plate);
-      scale = Math.min(scale, clearControl(box.left, box.bottom));
+      if (plate) footprints.push(stageBox(plate));
+    }
+    const overlapsControl = footprints.some(box =>
+      x + (box.left - width / 2) * scale < control.right + 8 &&
+      host.bottom - bottom - (height - box.bottom) * scale > control.top - 8);
+    if (overlapsControl) {
+      bottom = host.bottom - control.top + 8;
+      scale = Math.min(scale, (host.height - top - bottom) / height);
     }
     // Keep the coordinate transform invertible if the viewport collapses completely.
     stageScale = Math.max(.001, scale);
+    stage.style.setProperty("--stage-bottom", `${bottom}px`);
     stage.style.setProperty("--stage-scale", stageScale);
-    document.documentElement.style.setProperty("--mechanical-desk-clearance", `${host.height - y - deskTop * stageScale + 14}px`);
+    document.documentElement.style.setProperty("--mechanical-desk-clearance", `${bottom + (height - desk.offsetTop) * stageScale + 14}px`);
   }
 
   // Browser rectangles include the stage transform. The rig, canvases, and masks

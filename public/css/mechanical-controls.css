@@ -14,7 +14,7 @@
 #table-container.mechanical-table #actionPanel {
   position: absolute;
   right: auto;
-  bottom: 12px;
+  bottom: 0;
   left: 50%;
   display: block;
   width: 630px;
@@ -310,7 +310,7 @@
   position: fixed;
   z-index: 60;
   left: max(18px, env(safe-area-inset-left));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: var(--mechanical-dock-inset, max(20px, env(safe-area-inset-bottom)));
   display: grid;
   width: 174px;
   gap: 5px;
