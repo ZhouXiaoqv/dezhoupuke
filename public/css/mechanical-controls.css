@@ -13,11 +13,12 @@
 }
 
 #table-container.mechanical-table #actionPanel {
+  position: absolute;
   right: auto;
-  bottom: max(18px, env(safe-area-inset-bottom));
+  bottom: 12px;
   left: 50%;
   display: block;
-  width: min(630px, calc(100% - 280px));
+  width: 630px;
   padding: 0;
   transform: translateX(-50%);
   border: 0;
@@ -396,7 +397,12 @@
   backdrop-filter: none;
   transition: filter .12s ease;
 }
-#table-container.mechanical-table #gameExitBtn { font: 800 16px/1 system-ui, sans-serif; }
+#table-container.mechanical-table #gameExitBtn {
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  font: 800 16px/1 system-ui, sans-serif;
+}
+#table-container.mechanical-table.active ~ .table-tools { top: max(12px, env(safe-area-inset-top)); }
 #table-container.mechanical-table.active ~ .table-tools #soundToggle { display: grid; place-items: center; }
 #table-container.mechanical-table.active ~ :is(.table-tools, #actionLogToggle, #scoreboardToggle) .table-tool-glyph { display: none; }
 #table-container.mechanical-table.active ~ :is(.table-tools, #actionLogToggle, #scoreboardToggle) .desk-corner-icon {
@@ -407,8 +413,8 @@
 #soundToggle[aria-pressed="true"] .desk-sound-muted,
 #soundToggle[aria-pressed="false"] .desk-sound-wave { display: none; }
 #table-container.mechanical-table.active ~ :is(#actionLogToggle, #scoreboardToggle) { right: max(16px, env(safe-area-inset-right)); }
-#table-container.mechanical-table.active ~ #actionLogToggle { top: 54px; }
-#table-container.mechanical-table.active ~ #scoreboardToggle { top: 96px; }
+#table-container.mechanical-table.active ~ #actionLogToggle { top: calc(max(12px, env(safe-area-inset-top)) + 42px); }
+#table-container.mechanical-table.active ~ #scoreboardToggle { top: calc(max(12px, env(safe-area-inset-top)) + 84px); }
 #table-container.mechanical-table.active ~ #actionLogToggle .log-dot {
   position: absolute;
   top: 4px;
@@ -454,17 +460,4 @@
   background: var(--desk-enamel);
   box-shadow: var(--desk-key-shadow);
   color: var(--desk-ink);
-}
-
-@media (max-width: 760px) {
-  #table-container.mechanical-table #actionPanel { width: min(540px, calc(100% - 20px)); }
-  #table-container.mechanical-table #autoCallControl {
-    bottom: calc(var(--action-panel-height) + 10px);
-  }
-  #table-container.mechanical-table .mechanical-action-desk { padding-inline: 12px; }
-  .desk-upper { gap: 5px; padding-inline: 5px; }
-  .desk-sizing { gap: 7px; }
-  .desk-keys { gap: 4px; }
-  .desk-metal-key { min-width: 32px; padding-inline: 2px; }
-  .desk-action-key { font-size: 12px; }
 }

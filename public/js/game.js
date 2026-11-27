@@ -541,7 +541,7 @@ function renderGame(state) {
     const cardsDiv = seatExisted
       ? p.id === Net.playerId
         ? seat.querySelector(".my-hand") ||
-          table.parentNode.querySelector(":scope > .my-hand")
+          $("table-container").querySelector(":scope > .my-hand")
         : seat.querySelector(".seat-cards")
       : null;
     const existingInfo = seatExisted

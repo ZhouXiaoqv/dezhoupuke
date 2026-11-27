@@ -394,6 +394,7 @@
       <div class="status-bar" id="statusBar">
         <span class="connection-dot online" id="connDot"></span><span id="handStatus">等待中...</span>
       </div>
+      <div id="gameStage">
       <div class="table" id="table">
         <div class="pot-display">
           <div class="pot-label">底池</div>
@@ -698,6 +699,8 @@
           </fieldset>
         </div>
       </div>
+      <section class="mechanical-result" id="mechanicalResult" aria-label="牌局结算单" hidden></section>
+      </div>
       <div class="auto-call-control" id="autoCallControl">
         <button type="button" class="auto-call-toggle" id="autoCallToggle" aria-pressed="false">
           &#24320;&#21551;&#33258;&#21160;&#36319;&#27880;
@@ -752,7 +755,6 @@
       </div>
     </div>
 
-    <section class="mechanical-result" id="mechanicalResult" aria-label="牌局结算单" hidden></section>
     <template id="mechanicalReceiptTemplate">
       <article class="mechanical-receipt">
         <div class="mechanical-receipt-stock">

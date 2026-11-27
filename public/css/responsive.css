@@ -2,7 +2,7 @@
   body {
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .table {
+  .table:not(:where(.mechanical-table *)) {
     width: 92vw;
     height: min(32vh, 55vw);
     border-width: 6px;
@@ -10,70 +10,70 @@
     --pot-gap-above-community: 18px;
     --seat-edge-half: 36px;
   }
-  .table::before {
+  .table:not(:where(.mechanical-table *))::before {
     inset: 4px;
   }
   /* Cards — smaller on mobile */
-  .card {
+  .card:not(:where(.mechanical-table *)) {
     width: 28px;
     height: auto;
     aspect-ratio: 7 / 10;
     border-radius: 4px;
   }
-  .card .rank {
+  .card:not(:where(.mechanical-table *)) .rank {
     font-size: 9px;
   }
-  .card .suit {
+  .card:not(:where(.mechanical-table *)) .suit {
     font-size: 10px;
   }
-  .card-front {
+  .card-front:not(:where(.mechanical-table *)) {
     padding: 3px 4px;
   }
-  .card-front .rank-br {
+  .card-front:not(:where(.mechanical-table *)) .rank-br {
     font-size: 8px;
   }
   /* Other players' cards — compact */
-  .seat-cards .card {
+  .seat-cards:not(:where(.mechanical-table *)) .card {
     width: 24px;
     height: auto;
     aspect-ratio: 7 / 10;
   }
-  .seat-cards .card-back {
+  .seat-cards:not(:where(.mechanical-table *)) .card-back {
     border-width: 1px;
   }
-  .seat-cards .card .rank {
+  .seat-cards:not(:where(.mechanical-table *)) .card .rank {
     font-size: 8px;
   }
-  .seat-cards .card .suit {
+  .seat-cards:not(:where(.mechanical-table *)) .card .suit {
     font-size: 9px;
   }
-  .seat-cards .card .rank-br {
+  .seat-cards:not(:where(.mechanical-table *)) .card .rank-br {
     display: none;
   }
   /* My hand — always above browser nav bar */
-  .my-hand {
+  .my-hand:not(:where(.mechanical-table *)) {
     bottom: max(64px, calc(env(safe-area-inset-bottom) + 60px));
     gap: 4px;
   }
-  .my-hand .card {
+  .my-hand:not(:where(.mechanical-table *)) .card {
     width: 40px;
     height: auto;
     aspect-ratio: 7 / 10;
   }
-  .my-hand .card .rank {
+  .my-hand:not(:where(.mechanical-table *)) .card .rank {
     font-size: 14px;
   }
-  .my-hand .card .suit {
+  .my-hand:not(:where(.mechanical-table *)) .card .suit {
     font-size: 16px;
   }
-  .my-hand .card .rank-br {
+  .my-hand:not(:where(.mechanical-table *)) .card .rank-br {
     font-size: 10px;
   }
-  .my-hand .card:hover {
+  .my-hand:not(:where(.mechanical-table *)) .card:hover {
     transform: translateY(-4px);
   }
   /* Push hand up above action panel on mobile — extra room for raise presets grid */
-  #table-container.action-active .my-hand {
+  #table-container:not(.mechanical-table).action-active .my-hand {
     bottom: max(
       110px,
       calc(
@@ -82,33 +82,33 @@
     );
   }
   /* Seat info — compact */
-  .seat-info {
+  .seat-info:not(:where(.mechanical-table *)) {
     padding: 3px 8px;
     min-width: 60px;
     border-radius: 6px;
   }
-  .seat-name {
+  .seat-name:not(:where(.mechanical-table *)) {
     font-size: 10px;
   }
-  .seat-stack {
+  .seat-stack:not(:where(.mechanical-table *)) {
     font-size: 9px;
   }
-  .seat-action {
+  .seat-action:not(:where(.mechanical-table *)) {
     font-size: 8px;
     min-height: 10px;
   }
-  .seat {
+  .seat:not(:where(.mechanical-table *)) {
     gap: 2px;
   }
-  .seat-cards {
+  .seat-cards:not(:where(.mechanical-table *)) {
     gap: 2px;
   }
-  .seat:not(.seat-pos-0) {
+  .seat:not(:where(.mechanical-table *)):not(.seat-pos-0) {
     width: 18vw;
     max-width: 72px;
   }
   /* Community cards */
-  .community {
+  .community:not(:where(.mechanical-table *)) {
     gap: 3px;
   }
   .pot-amount {
@@ -260,33 +260,33 @@
 }
 
 @media (max-width: 700px) and (orientation: portrait) {
-  .seat:not(.seat-pos-0) {
+  .seat:not(:where(.mechanical-table *)):not(.seat-pos-0) {
     width: 17vw;
     max-width: 68px;
   }
-  .seat-cards .card {
+  .seat-cards:not(:where(.mechanical-table *)) .card {
     width: 18px;
     height: auto;
     aspect-ratio: 7 / 10;
   }
-  .seat-cards .card-back {
+  .seat-cards:not(:where(.mechanical-table *)) .card-back {
     border-width: 0.75px;
   }
-  .seat-info {
+  .seat-info:not(:where(.mechanical-table *)) {
     min-width: 52px;
     padding: 3px 5px;
   }
-  .seat-name {
+  .seat-name:not(:where(.mechanical-table *)) {
     font-size: 9px;
   }
-  .seat-stack {
+  .seat-stack:not(:where(.mechanical-table *)) {
     font-size: 8px;
   }
-  .seat-action {
+  .seat-action:not(:where(.mechanical-table *)) {
     font-size: 7px;
     min-height: 9px;
   }
-  .table {
+  .table:not(:where(.mechanical-table *)) {
     --seat-edge-half: 34px;
   }
 }
@@ -334,11 +334,11 @@
     padding: 8px;
     margin-bottom: 8px;
   }
-  #table-container .table {
+  #table-container:not(.mechanical-table) .table {
     width: 80vw;
     height: 45vh;
   }
-  .seat {
+  .seat:not(:where(.mechanical-table *)) {
     --seat-scale: 0.85;
   }
   .action-panel {
@@ -391,10 +391,10 @@
   #table { --seat-col-2: 23%; --seat-col-4: 77%; }
 }
 @media (max-height: 500px) and (orientation: landscape) {
-  #table .seat-info { min-width: 56px; padding: 2px 5px; }
-  #table .seat-name, #table .seat-stack { font-size: 10px; }
-  #table .seat-cards .card { width: 18px; }
-  #table .community .card { width: 30px; }
+  #table:not(:where(.mechanical-table *)) .seat-info { min-width: 56px; padding: 2px 5px; }
+  #table:not(:where(.mechanical-table *)) .seat-name, #table:not(:where(.mechanical-table *)) .seat-stack { font-size: 10px; }
+  #table:not(:where(.mechanical-table *)) .seat-cards .card { width: 18px; }
+  #table:not(:where(.mechanical-table *)) .community .card { width: 30px; }
   #table { --community-card-half: 22px; }
   #table .pot-amount { font-size: 16px; }
 }

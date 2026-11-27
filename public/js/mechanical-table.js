@@ -44,6 +44,9 @@ const MechanicalTable = (() => {
   const recyclerSeam = table.querySelector(".mechanical-recycle-seam");
   const printerOpening = table.querySelector(".mechanical-printer-opening");
   const container = $("table-container");
+  const stage = $("gameStage");
+  const desk = $("actionPanel");
+  const autoCall = $("autoCallControl");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const handReels = $("mechanicalHandReels");
   const phaseLabel = $("mechanicalPhaseLabel");
@@ -76,6 +79,7 @@ const MechanicalTable = (() => {
   let receiptCountdown;
   let cardBatch;
   let turnClock, submittedDeadline;
+  let stageScale = 1;
   let potArea;
   let groups = new Map();
   let chipsDirty = true;
@@ -157,6 +161,7 @@ const MechanicalTable = (() => {
       container.querySelector(":scope > .my-hand")?.remove();
       $("tableOutfitBtn").hidden = active || !container.classList.contains("active") || !isRegistered || isSpectator;
       if (active) {
+        fitStage();
         bindSeats([]);
         $("interactPanel").classList.remove("active");
         $("settlementOverlay").classList.remove("active");
@@ -367,6 +372,48 @@ const MechanicalTable = (() => {
     return { x: rect.left - bounds.left + rect.width / 2, y: rect.top - bounds.top + rect.height / 2 };
   }
 
+  function fitStage() {
+    const width = stage.offsetWidth, height = stage.offsetHeight;
+    if (!width || !height) return;
+    const host = container.getBoundingClientRect();
+    const style = getComputedStyle(container);
+    const left = parseFloat(style.paddingLeft), right = parseFloat(style.paddingRight);
+    const top = parseFloat(style.paddingTop), bottom = parseFloat(style.paddingBottom);
+    const usableWidth = host.width - left - right, usableHeight = host.height - top - bottom;
+    const x = left + usableWidth / 2, y = top + usableHeight / 2;
+
+    // Each part can clear the low left control horizontally or vertically.
+    const control = autoCall.getBoundingClientRect();
+    const gapX = host.left + x - control.right - 8;
+    const gapY = control.top - host.top - y - 8;
+    const clearControl = (left, bottom) => Math.max(gapX / Math.max(1, width / 2 - left),
+      gapY / Math.max(1, bottom - height / 2));
+    const deskTop = desk.offsetTop - height / 2;
+    const controlLimit = Math.min(clearControl(table.offsetLeft, table.offsetTop + table.offsetHeight),
+      clearControl((width - desk.offsetWidth) / 2, desk.offsetTop + desk.offsetHeight));
+    let scale = Math.min(1, usableWidth / width, usableHeight / height, controlLimit);
+    for (const slot of [1, 2, 3]) {
+      const plate = seats.get(slot)?.querySelector(".seat-info");
+      if (!plate) continue;
+      const box = stageBox(plate);
+      scale = Math.min(scale, clearControl(box.left, box.bottom));
+    }
+    // Keep the coordinate transform invertible if the viewport collapses completely.
+    stageScale = Math.max(.001, scale);
+    stage.style.setProperty("--stage-scale", stageScale);
+    document.documentElement.style.setProperty("--mechanical-desk-clearance", `${host.height - y - deskTop * stageScale + 14}px`);
+  }
+
+  // Browser rectangles include the stage transform. The rig, canvases, and masks
+  // share the fixed design coordinate system, even through a resize in flight.
+  function stageBox(element) {
+    const origin = stage.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
+    return { left: (rect.left - origin.left) / stageScale, top: (rect.top - origin.top) / stageScale,
+      right: (rect.right - origin.left) / stageScale, bottom: (rect.bottom - origin.top) / stageScale,
+      width: rect.width / stageScale, height: rect.height / stageScale };
+  }
+
   function lerp(a, b, t) {
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
   }
@@ -380,7 +427,7 @@ const MechanicalTable = (() => {
   }
 
   function measurePort(layer, opening, anchor = .5, offset = 0) {
-    const rect = opening.getBoundingClientRect();
+    const rect = stageBox(opening);
     const left = rect.left - bounds.left;
     const y = rect.top + rect.height * anchor - bounds.top + offset;
     layer.style.clipPath = `inset(${y}px ${bounds.right - rect.right}px 0 ${left}px)`;
@@ -388,30 +435,31 @@ const MechanicalTable = (() => {
   }
 
   function measurePot() {
-    const top = Math.max(0, base.getBoundingClientRect().bottom - bounds.top - 20);
-    const bottom = potMeter.getBoundingClientRect().top - bounds.top - 5;
+    const top = Math.max(0, stageBox(base).bottom - bounds.top - 20);
+    const bottom = stageBox(potMeter).top - bounds.top - 5;
     const height = Math.max(1, bottom - top);
-    const width = Math.min(bounds.width * .68, communityStation.getBoundingClientRect().width + 156);
+    const width = Math.min(bounds.width * .68, stageBox(communityStation).width + 156);
     center = { x: bounds.width / 2, y: top + height / 2 + Math.min(9, height * .18) };
     potArea = { width, height };
   }
 
   function measure() {
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return false;
-    if (bounds?.width !== rect.width || bounds?.height !== rect.height) {
-      rig.resize(rect.width, rect.height);
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    if (!width || !height) return false;
+    if (bounds?.width !== width || bounds?.height !== height) {
+      rig.resize(width, height);
     }
-    bounds = rect;
+    const { left, top } = stageBox(canvas);
+    bounds = { left, top, right: left + width, width, height };
     bayPort = measurePort(feedLayer, baySeam);
     recyclerPort = measurePort(recycleLayer, recyclerSeam);
     printerPort = measurePort(printLayer, printerOpening, 1, .5);
     measurePot();
     const ratio = Math.min(2, devicePixelRatio || 1);
-    const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
+    const pixelsWide = Math.round(width * ratio), pixelsHigh = Math.round(height * ratio);
+    if (canvas.width !== pixelsWide || canvas.height !== pixelsHigh) {
+      canvas.width = pixelsWide;
+      canvas.height = pixelsHigh;
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
     return true;
@@ -425,7 +473,7 @@ const MechanicalTable = (() => {
   const boardCardKey = slot => "board:" + slot;
 
   function cardGeometry(card) {
-    const rect = card.getBoundingClientRect();
+    const rect = stageBox(card);
     const style = getComputedStyle(card);
     const scale = parseFloat(style.scale) || 1;
     return { ...point(rect), width: parseFloat(style.width) * scale, height: parseFloat(style.height) * scale };
@@ -728,6 +776,7 @@ const MechanicalTable = (() => {
   function render(next) {
     const last = state;
     state = next;
+    fitStage();
     if (!measure()) return;
     renderInstruments(next);
     const sameHand = last?.handNum === next.handNum;
@@ -864,16 +913,16 @@ const MechanicalTable = (() => {
   }
 
   function drawPayouts(now) {
-    const rect = payoutCanvas.getBoundingClientRect();
+    const surfaceWidth = payoutCanvas.clientWidth, surfaceHeight = payoutCanvas.clientHeight;
     const ratio = Math.min(2, devicePixelRatio || 1);
-    const width = Math.round(rect.width * ratio), height = Math.round(rect.height * ratio);
+    const width = Math.round(surfaceWidth * ratio), height = Math.round(surfaceHeight * ratio);
     if (payoutCanvas.width !== width || payoutCanvas.height !== height) {
       payoutCanvas.width = width;
       payoutCanvas.height = height;
       payoutContext.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
-    payoutContext.clearRect(0, 0, rect.width, rect.height);
-    const offset = { x: bounds.left - rect.left, y: bounds.top - rect.top };
+    payoutContext.clearRect(0, 0, surfaceWidth, surfaceHeight);
+    const offset = { x: bounds.left, y: bounds.top };
     const origin = { x: offset.x + center.x, y: offset.y + center.y };
     let animatedChips = 0;
     for (const payout of payouts.values()) {
@@ -889,7 +938,7 @@ const MechanicalTable = (() => {
         origin,
         targetAt(account) {
           const seat = payoutSeat(account);
-          if (seat) account.anchor = point(seat.querySelector(".seat-medallion").getBoundingClientRect());
+          if (seat) account.anchor = point(stageBox(seat.querySelector(".seat-medallion")));
           return account.anchor && { x: offset.x + account.anchor.x, y: offset.y + account.anchor.y };
         },
         drawChip: (at, value, angle, scale) => drawChip(at, { value, angle, scale }, payoutContext),
@@ -930,32 +979,30 @@ const MechanicalTable = (() => {
 
   function placeWagerZones() {
     const { width, height, left, top } = bounds;
-    const narrow = width < 720;
-    const compact = narrow || height < 430;
-    const scale = Math.min(narrow ? .60 : compact ? .70 : 1, width / 900, height / 465);
-    const drop = 8 * scale;
-    const zoneWidth = 92 * scale, zoneHeight = 74 * scale;
+    const drop = 8;
+    const zoneWidth = 92, zoneHeight = 74;
     const halfWidth = zoneWidth / 2, halfHeight = zoneHeight / 2;
-    const board = communityStation.getBoundingClientRect();
+    const board = stageBox(communityStation);
     const upperSeat = seats.get(3);
     const topSeat = seats.get(4);
-    const leftUpper = point(upperSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
-    const leftLower = point(seats.get(2).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
-    const topLeft = point(topSeat.querySelector(".mechanical-seat-tongue").getBoundingClientRect());
-    const bottomLeft = point(seats.get(1).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+    const tongueAt = seat => point(stageBox(seat.querySelector(".mechanical-seat-tongue")));
+    const leftUpper = tongueAt(upperSeat);
+    const leftLower = tongueAt(seats.get(2));
+    const topLeft = tongueAt(topSeat);
+    const bottomLeft = tongueAt(seats.get(1));
     // Reserve the full two-card width even while the arm is still delivering the hand.
     const topCardWidth = parseFloat(getComputedStyle(topSeat).getPropertyValue("--seat-card-width"));
     const sideCardWidth = parseFloat(getComputedStyle(upperSeat).getPropertyValue("--seat-card-width"));
-    const sideAvatar = upperSeat.querySelector(".mechanical-seat-avatar").getBoundingClientRect();
-    const sidePlate = upperSeat.querySelector(".mechanical-seat-plate").getBoundingClientRect();
+    const sideAvatar = stageBox(upperSeat.querySelector(".mechanical-seat-avatar"));
+    const sidePlate = stageBox(upperSeat.querySelector(".mechanical-seat-plate"));
     const topHandEdge = topLeft.x - topCardWidth - 2;
     const topLaneEnd = topHandEdge - 8;
     const railInset = Math.max(8, sideAvatar.right - left + 1);
     const preferredScale = Math.max(.38, (topLaneEnd - railInset) / 92);
     const clearHandScale = Math.max(.25, (topHandEdge - railInset - 2) / 92);
-    const topScale = Math.min(scale, preferredScale, clearHandScale);
+    const topScale = Math.min(1, preferredScale, clearHandScale);
     const topHalfWidth = 46 * topScale, topHalfHeight = 37 * topScale;
-    const topBandY = topLeft.y + (narrow ? 70 : 77);
+    const topBandY = topLeft.y + 77;
     const topX = Math.max(railInset + topHalfWidth, topLaneEnd - topHalfWidth);
     const nearSideHand = topX - topHalfWidth < leftUpper.x + sideCardWidth * 2 + 14;
     const nearSidePlate = topX - topHalfWidth < sidePlate.right - left;
@@ -964,22 +1011,16 @@ const MechanicalTable = (() => {
       nearSideHand ? sideHandTop - topHalfHeight - 4 : Infinity,
       nearSidePlate ? sidePlate.top - top - topHalfHeight - 13 : Infinity) };
     const upper = { x: Math.min(leftUpper.x + 152, board.left - left - halfWidth - 8),
-      y: Math.max(leftUpper.y + 16 * scale, topBandY + zoneHeight + halfHeight + 6) + drop };
-    const lower = { x: leftLower.x + 54 * scale + 8, y: leftLower.y - 30 - halfHeight };
+      y: Math.max(leftUpper.y + 16, topBandY + zoneHeight + halfHeight + 6) + drop };
+    const lower = { x: leftLower.x + 62, y: leftLower.y - 30 - halfHeight };
     const boardBottom = board.bottom - top;
-    const bottom = compact
-      ? { x: bottomLeft.x + 80, y: boardBottom + halfHeight + 7 + drop }
-      : { x: bottomLeft.x - 20, y: bottomLeft.y - 69 - halfHeight + drop };
-    // The center wager uses a lower lane on short tables to clear its neighbors' stacks.
-    const hero = compact
-      ? { x: width / 2 - 64 - halfWidth, y: Math.max(height - 19 - halfHeight + drop, bottom.y + zoneHeight + 5) }
-      : { x: width / 2 - Math.max(95, 70 + halfWidth),
-        y: Math.max(boardBottom + halfHeight + 6, height - 17 - 100 * scale) + drop };
+    const bottom = { x: bottomLeft.x - 20, y: bottomLeft.y - 69 - halfHeight + drop };
+    const hero = { x: width / 2 - 70 - halfWidth, y: Math.max(boardBottom + halfHeight + 6, height - 117) + drop };
     const mirror = ({ x, y }) => ({ x: width - x, y });
     [hero, bottom, lower, upper, topWager, mirror(topWager), mirror(upper), mirror(lower), mirror(bottom)]
       .forEach((at, slot) => {
-        const chipScale = STATIONS[slot] === "top" ? topScale : scale;
-        const tongue = point(seats.get(slot).querySelector(".mechanical-seat-tongue").getBoundingClientRect());
+        const chipScale = STATIONS[slot] === "top" ? topScale : 1;
+        const tongue = tongueAt(seats.get(slot));
         const outlet = { x: Math.max(17, Math.min(width - 17, tongue.x)),
           y: Math.max(14, Math.min(height - 14, tongue.y)) };
         wagerZones.set(slot, { at, outlet, scale: chipScale, direction: slot >= 5 ? -1 : 1,
@@ -1507,7 +1548,7 @@ const MechanicalTable = (() => {
     carrier.inert = true;
     carrier.append(paper);
     moving.append(carrier);
-    const { width, height } = paper.getBoundingClientRect();
+    const { width, height } = stageBox(paper);
     carrier.remove();
     // Leave room at both ends of the slit and keep the pull within the arm's reach.
     const scale = Math.min(1, (printerPort.width - 16) / width, 312 / height);
@@ -1523,7 +1564,7 @@ const MechanicalTable = (() => {
       return;
     }
     const { paper } = ticket;
-    const from = carrier?.getBoundingClientRect();
+    const from = carrier && stageBox(carrier);
     ticket.presented = true;
     paper.style.transform = "";
     result.replaceChildren(paper);
@@ -1533,7 +1574,7 @@ const MechanicalTable = (() => {
       finishReceiptPresentation(ticket);
       return;
     }
-    const to = paper.getBoundingClientRect();
+    const to = stageBox(paper);
     const dx = from.left + (from.width - to.width) / 2 - to.left;
     const dy = from.top + (from.height - to.height) / 2 - to.top;
     ticket.animation = paper.animate([
@@ -1653,14 +1694,8 @@ const MechanicalTable = (() => {
     nextFrame();
   }
   const geometryObserver = new ResizeObserver(() => {
-    if (!enabled() || !measure()) return;
-    placeWagerZones();
-    if (!state) return;
-    groups = readGroups(state);
-    syncLabels();
-    nextFrame();
+    if (enabled()) fitStage();
   });
-  geometryObserver.observe(table);
   geometryObserver.observe(container);
 
   document.addEventListener("visibilitychange", () => {

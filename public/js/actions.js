@@ -125,15 +125,8 @@ function syncActionPanelOffset() {
   if (!container || !panel) return;
   const panelActive = panel.classList.contains("active");
   container.classList.toggle("action-active", panelActive);
-  const mechanical = MechanicalTable.enabled();
-  const box = panel.getBoundingClientRect();
-  const height = box.height && (mechanical || panelActive)
-    ? Math.ceil(box.height + (mechanical ? Math.max(0, innerHeight - box.bottom) : 0))
-    : 0;
+  const height = !MechanicalTable.enabled() && panelActive ? Math.ceil(panel.getBoundingClientRect().height) : 0;
   container.style.setProperty("--action-panel-height", `${height}px`);
-  if (mechanical && height) {
-    document.documentElement.style.setProperty("--mechanical-desk-clearance", `${height + 14}px`);
-  }
   if (typeof syncAutoCallControls === "function") {
     syncAutoCallControls(lastTurnActionData || {});
   }

@@ -222,7 +222,8 @@ async function verifySeatClamps(browser) {
     });
     for (const [width, height] of [[1280, 900], [1024, 768]]) {
       await page.setViewport({ width, height });
-      const layout = await page.evaluate(() => {
+      const layout = await page.evaluate(async () => {
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const rect = node => node.getBoundingClientRect();
         const overlaps = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 &&
           a.top < b.bottom - 1 && a.bottom > b.top + 1;
