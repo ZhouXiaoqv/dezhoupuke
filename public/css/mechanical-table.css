@@ -36,9 +36,11 @@
 }
 #gameStage { display: contents; }
 #table-container.mechanical-table #gameStage {
+  --mechanical-table-top: 98px;
+  --mechanical-table-height: 472px;
   position: absolute;
   display: block;
-  width: 1184px;
+  width: 1432px;
   height: 768px;
   top: calc(50% + (var(--stage-safe-top) - var(--stage-safe-bottom)) / 2);
   left: calc(50% + (var(--stage-safe-left) - var(--stage-safe-right)) / 2);
@@ -48,10 +50,10 @@
 }
 #table-container.mechanical-table #table {
   position: absolute;
-  top: 98px;
-  left: 112px;
+  top: var(--mechanical-table-top);
+  left: calc((100% - 960px) / 2);
   width: 960px;
-  height: 472px;
+  height: var(--mechanical-table-height);
   border: 10px solid #ded4c2;
   border-radius: 96px;
   --top-seat-offset: 254px;
@@ -98,88 +100,154 @@
 .mechanical-pot-meter .desk-fasteners i { width: 4px; height: 4px; }
 
 .mechanical-strength {
+  --lamp-height: 21px;
+  --lamp-gap: 2px;
+  --strength-brass: linear-gradient(#fff0bd, #d5b276 29%, #a67f4d 55%, #c2a075 68%, #756049);
   position: absolute;
   z-index: 9;
-  top: 50%;
-  left: 122px;
-  width: 76px;
-  transform: translate(-50%, -50%);
+  top: calc(var(--mechanical-table-top) + var(--mechanical-table-height) / 2);
+  left: 6px;
+  width: 112px;
+  transform: translateY(-50%);
   text-align: center;
   pointer-events: none;
-  --lamp-height: 10px;
 }
-.mechanical-strength[hidden] { display: none; }
+/* Keep the footprint available to the stage fitter between hands. */
+.mechanical-table .mechanical-strength[hidden] { visibility: hidden; }
 .mechanical-strength-cap {
   position: relative;
-  z-index: 1;
-  width: 39px;
-  height: 18px;
-  margin: 0 auto;
-  border: 1px solid #9d876d;
-  border-radius: 5px 5px 3px 3px;
-  background: linear-gradient(#f8eed8, #eee2c9 52%, #b6a189);
-  box-shadow: inset 0 1px #fff9ea, inset 0 -2px #9076586b, 0 2px 2px #4333264f;
+  z-index: 2;
+  width: 58px;
+  height: 22px;
+  margin: 10px auto 0;
+  border: 1px solid #9e896e;
+  border-radius: 7px 7px 4px 4px;
+  background: repeating-linear-gradient(0deg, #604a3920 0 1px, transparent 1px 3px),
+    linear-gradient(#faf1de, #e7d8be 60%, #b8a287);
+  box-shadow: inset 0 1px #fff8e9, inset 0 0 0 2px #e4d6bd, 0 2px 3px #43332659;
 }
-.mechanical-strength-cap::before {
+.mechanical-strength-cap::before,
+.mechanical-strength-cap::after {
   content: "";
   position: absolute;
-  inset: 4px 6px 6px;
+}
+.mechanical-strength-cap::before {
+  inset: 6px 7px 5px;
+  border: 1px solid #988366;
   border-radius: 2px;
-  background: repeating-linear-gradient(90deg, #554331 0 1px, #9a794c 1px 2px, #cfb17d 2px 4px);
-  box-shadow: inset 0 1px 1px #563f35a8, 0 1px #fff5db;
+  background: repeating-linear-gradient(90deg, #554331 0 1px, #96774f 1px 2px, #ceb386 2px 4px);
+  box-shadow: inset 0 1px 1px #48332aa6, 0 1px #fff4df;
+}
+.mechanical-strength-cap::after {
+  inset: -5px 7px auto;
+  height: 6px;
+  border: 1px solid #a48b62;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--strength-brass);
+  box-shadow: inset 0 1px #fff4d4, 0 1px #806c51;
 }
 .mechanical-strength-cap > i {
-  display: block;
   position: absolute;
-  left: calc(50% - 4px);
-  top: -4px;
-  width: 8px;
-  height: 8px;
-  border: 1px solid #827057;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 26%, #fdf0d2, #bca776 36%, #705943 76%);
-  box-shadow: 0 0 0 1px #f2dfbc, 0 1px 1px #584733;
+  z-index: 1;
+  top: -12px;
+  left: calc(50% - 6px);
+  width: 12px;
+  height: 11px;
+  border: 1px solid #8d775a;
+  border-radius: 7px 7px 4px 4px;
+  background: radial-gradient(circle at 33% 25%, #fff7de, #c7af83 35%, #735e47 77%);
+  box-shadow: 0 1px 0 1px #a28a64, 0 2px 2px #594431;
+}
+.mechanical-strength:has([data-lit]) .mechanical-strength-cap > i {
+  background: radial-gradient(circle at 32% 23%, #ffffdd, #ecd496 36%, #a08148 77%);
+  box-shadow: 0 1px 0 1px #b79c6d, 0 0 7px #f3c9766e;
 }
 .mechanical-strength-tower {
   position: relative;
-  width: 37px;
-  margin: -1px auto;
-  padding: 2px 5px;
-  border-block: 2px solid #a48962;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #7c6856, #e7d8ba 8%, #9b8262 13%, #b39b74 19% 81%, #90795d 88%, #e7d8ba 93%, #756452);
-  box-shadow: inset 0 1px #fff0cc, inset 0 -1px #5f4937, 2px 4px 8px #4433243b;
+  z-index: 1;
+  width: 64px;
+  margin: -1px auto -2px;
 }
-.mechanical-strength-tower:has([data-lit]) {
-  box-shadow: inset 0 1px #fff0cc, inset 0 -1px #5f4937, 2px 4px 8px #4433243b, 0 0 9px #e2ae552f;
+.mechanical-strength-tower::before,
+.mechanical-strength-tower::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 7px;
+  border: 1px solid #888275;
+  border-radius: 3px;
+  background: repeating-linear-gradient(0deg, #4e4b4014 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #a59c8a, #f3efe4 27%, #ceccc3 44%, #8b877d 84%, #6c6457);
+  box-shadow: 1px 2px 3px #56463347;
 }
+.mechanical-strength-tower::before { left: 4px; }
+.mechanical-strength-tower::after { right: 4px; }
+.mechanical-strength-clamp {
+  position: absolute;
+  z-index: 3;
+  inset-inline: 0;
+  height: 7px;
+  border: 1px solid #8d7451;
+  border-radius: 3px;
+  background: var(--strength-brass);
+  box-shadow: inset 0 1px #ffefc7, 0 1px 2px #49342475;
+}
+.mechanical-strength-clamp::before,
+.mechanical-strength-clamp::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 25%, #fff1c7, #b49a6d 47%, #66523a 76%);
+  box-shadow: 0 0 0 1px #796447;
+}
+.mechanical-strength-clamp::before { left: 4px; }
+.mechanical-strength-clamp::after { right: 4px; }
+.mechanical-strength-clamp:nth-of-type(1) { top: 1px; }
+.mechanical-strength-clamp:nth-of-type(2) {
+  /* The bottom four lenses meet the fifth at this separator. */
+  bottom: calc(5px + 4 * (var(--lamp-height) + var(--lamp-gap)) - var(--lamp-gap) / 2);
+  transform: translateY(50%);
+}
+.mechanical-strength-clamp:nth-of-type(3) { bottom: 0; }
 .mechanical-strength-glass {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column-reverse;
-  gap: 2px;
+  gap: var(--lamp-gap);
+  width: 41px;
+  margin: 0 auto;
+  padding: 4px;
   overflow: hidden;
-  padding: 3px;
-  border: 1px solid #817367;
-  border-radius: 5px;
-  background: #423a32;
-  box-shadow: inset 0 0 2px #231a15, 0 0 0 1px #3e312b8a;
+  border: 1px solid #86745d;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #4f3b2d, #745637 46%, #4d3a2c);
+  box-shadow: inset 0 0 3px #251a11, 0 0 0 1px #544737, 2px 3px 5px #4333265a;
+}
+.mechanical-strength-tower:has([data-lit]) .mechanical-strength-glass {
+  box-shadow: inset 0 0 3px #251a11, 0 0 0 1px #544737, 0 0 9px #e2ae5552, 2px 3px 5px #4333265a;
 }
 .mechanical-strength-glass::after {
   content: "";
   position: absolute;
+  z-index: 2;
   inset: 1px;
   border-radius: inherit;
-  background: linear-gradient(90deg, #170f0c26, #fff3d63d 13%, #fff9e604 37%, #fff7e517 80%, #2e231c36);
-  border-left: 1px solid #fff2d473;
+  background: linear-gradient(90deg, #170f0c48, #fff3d64d 13%, #fff9e609 23%, transparent 32% 66%,
+    #fff7e51a 79%, #2e231c6e);
+  border-left: 1px solid #fff7de8c;
   pointer-events: none;
 }
 .mechanical-strength-glass > i {
   position: relative;
   height: var(--lamp-height);
   border-radius: 2px;
-  background: linear-gradient(110deg, #665b50, #4e463e 74%);
-  box-shadow: inset 0 1px #d2bb9442;
+  background: repeating-linear-gradient(128deg, #e1ca9b08 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #423931, #65594d 40%, #483e34);
+  box-shadow: inset 0 1px #d2bb9454, inset 0 -1px #2f261ea8;
 }
 .mechanical-strength-glass > i::before {
   content: "";
@@ -187,8 +255,9 @@
   inset: 0;
   border-radius: inherit;
   opacity: 0;
-  background: radial-gradient(ellipse at 46% 35%, color-mix(in srgb, var(--signal) 67%, #fff8d9), var(--signal) 65%, #645242);
-  box-shadow: 0 0 5px var(--signal), inset 0 1px #fff4ce7a;
+  background: radial-gradient(ellipse at 44% 38%, color-mix(in srgb, var(--signal) 55%, #fff9db), var(--signal) 64%, #705341);
+  box-shadow: inset 0 1px #fff4ce8a, inset 0 -2px 4px #6b493c5e,
+    0 0 3px color-mix(in srgb, var(--signal) 40%, transparent);
   transition: opacity 85ms ease-out;
 }
 .mechanical-strength-glass > i[data-lit]::before { opacity: 1; animation: mechanicalLensGlow 1.9s ease-in-out infinite alternate; }
@@ -205,15 +274,33 @@
 @keyframes mechanicalLensGlow { from { filter: brightness(.91); } to { filter: brightness(1.11); } }
 .mechanical-strength-base {
   position: relative;
-  padding: 7px 9px 8px;
-  border: 1px solid #9d876d;
+  padding: 9px 0 13px;
+  filter: drop-shadow(1px 4px 4px #54412d61);
+}
+.mechanical-strength-base::before,
+.mechanical-strength-base::after {
+  content: "";
+  position: absolute;
   border-radius: 6px;
-  background: linear-gradient(#f9eed8, #e9dbc3 66%, #c4b098);
-  box-shadow: inset 0 0 0 1px #fff4df, inset 0 -3px #9e856968, 0 3px #9b8268, 1px 5px 7px #56453464;
+}
+.mechanical-strength-base::before {
+  inset: 29px 0 0;
+  clip-path: polygon(6% 0, 94% 0, 100% 75%, 100% 100%, 0 100%, 0 75%);
+  background: linear-gradient(#cbbba2, #f6ead5 51%, #b7a083 62%, #8c7458);
+  box-shadow: inset 0 -1px #6f5c45;
+}
+.mechanical-strength-base::after {
+  inset: 0 5px 6px;
+  clip-path: polygon(9% 0, 91% 0, 100% 84%, 100% 100%, 0 100%, 0 84%);
+  border: 1px solid #a8967c;
+  background: repeating-linear-gradient(0deg, #856e5517 0 1px, transparent 1px 3px),
+    linear-gradient(#f8eed9, #e4d6bc 70%, #bca88c);
+  box-shadow: inset 0 1px #fff8ea, inset 0 -2px #997e5e8c, inset 0 0 0 2px #efdfc3;
 }
 .mechanical-strength-screws {
   position: absolute;
-  inset: 4px 2px;
+  z-index: 1;
+  inset: 5px 8px 8px;
   display: grid;
   grid-template-columns: repeat(2, auto);
   justify-content: space-between;
@@ -228,40 +315,79 @@
     radial-gradient(circle at 34% 26%, #fff1d3, #ac9271 72%, #79654f);
   box-shadow: 0 1px #fff3dc;
 }
+.mechanical-strength-screws i:nth-child(1) { margin-left: 6px; }
+.mechanical-strength-screws i:nth-child(2) { margin-right: 6px; }
 .mechanical-strength-windows {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
+  grid-template-columns: repeat(3, 24px);
+  justify-content: center;
+  gap: 3px;
   color: #f8ecd5;
-  font: 750 12px/1 system-ui, sans-serif;
+  font: 750 15px/1 "Noto Sans SC", system-ui, sans-serif;
 }
-.mechanical-strength-windows .mechanical-flaps[data-blank] { filter: brightness(.8); }
-.mechanical-strength[data-royal] .mechanical-strength-tower {
-  box-shadow: 0 0 12px #ffd77acf, 0 0 24px #f5a74786, inset 0 1px #fff4c4;
-  animation: mechanicalRoyalPulse 270ms ease-in-out infinite alternate;
+.mechanical-strength-windows::before,
+.mechanical-strength-windows::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 28%, #fff0d1, #c2a570 38%, #86643e 76%);
+  box-shadow: 0 0 0 1px #88735a, 0 1px #fff8e6;
+}
+.mechanical-strength-windows::before { left: 9px; }
+.mechanical-strength-windows::after { right: 9px; }
+.mechanical-strength-windows .mechanical-flaps {
+  box-shadow: 0 0 0 1px #79664f, 0 1px 0 1px #fff5dc, inset 0 0 2px #0f0d0a;
+}
+.mechanical-strength-windows .mechanical-flaps[data-blank] { filter: brightness(.82); }
+.mechanical-strength-windows .mechanical-flaps::before,
+.mechanical-strength-windows .mechanical-flaps::after { z-index: 2; width: 2px; }
+.mechanical-strength-letter {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* One settled glyph, with the same seam above both halves. */
+}
+.mechanical-strength-letter::after {
+  content: "";
+  position: absolute;
+  inset: 12px 0 auto;
+  height: 1px;
+  background: #1a1713;
+}
+.mechanical-strength-windows .mechanical-flaps:not([data-flipping]) .mechanical-flap > span,
+.mechanical-strength-windows .mechanical-flaps[data-flipping] .mechanical-strength-letter { visibility: hidden; }
+.mechanical-strength[data-royal] .mechanical-strength-glass {
+  box-shadow: 0 0 12px #ffd77ad9, 0 0 24px #f5a747a6, inset 0 1px #fff4c4;
+  animation: mechanicalRoyalPulse 360ms ease-in-out infinite alternate;
 }
 .mechanical-strength[data-royal] .mechanical-strength-glass::before {
   content: "";
   position: absolute;
   z-index: 1;
   inset: 0;
-  background: linear-gradient(transparent 32%, #fff0a7 49%, #ffd266a6 55%, transparent 71%);
-  animation: mechanicalRoyalSweep 630ms linear infinite;
+  background: linear-gradient(transparent 33%, #fff3b1bf 48%, #ffd26670 54%, transparent 67%);
+  animation: mechanicalRoyalSweep 625ms linear infinite;
 }
 .mechanical-strength[data-royal] .mechanical-strength-cap > i {
-  background: radial-gradient(circle at 33% 27%, #fffbe0, #ffbf55 40%, #dc6650 74%);
-  box-shadow: 0 0 0 1px #ffdd9a, 0 0 8px #ff973d, 0 0 15px #f1a252;
-  animation: mechanicalRoyalPulse 270ms ease-in-out infinite alternate;
+  background: radial-gradient(circle at 32% 23%, #fffbe0, #ffbf55 40%, #dc6650 74%);
+  box-shadow: 0 1px 0 1px #ffdd9a, 0 0 8px #ff973d, 0 0 14px #f1a252;
+  animation: mechanicalRoyalPulse 360ms ease-in-out infinite alternate;
 }
 .mechanical-strength[data-royal] .mechanical-strength-windows .mechanical-flaps {
   color: #ffebad;
-  box-shadow: 0 0 0 1px #8b682f, 0 0 5px #d3a04b83;
+  box-shadow: 0 0 0 1px #a77c37, 0 0 5px #d3a04b83;
 }
-@keyframes mechanicalRoyalPulse { from { filter: brightness(.96); } to { filter: brightness(1.23); } }
-@keyframes mechanicalRoyalSweep { from { transform: translateY(90%); } to { transform: translateY(-90%); } }
+@keyframes mechanicalRoyalPulse { from { filter: brightness(.92); } to { filter: brightness(1.22); } }
+@keyframes mechanicalRoyalSweep { from { transform: translateY(75%); } to { transform: translateY(-75%); } }
 @media (prefers-reduced-motion: reduce) {
-  .mechanical-strength[data-royal] :is(.mechanical-strength-tower, .mechanical-strength-cap > i),
-  .mechanical-strength[data-royal] .mechanical-strength-glass::before,
+  .mechanical-strength[data-royal] :is(.mechanical-strength-glass, .mechanical-strength-cap > i),
   .mechanical-strength .mechanical-strength-glass > i[data-lit]::before { animation: none; transition: none; }
   .mechanical-strength[data-royal] .mechanical-strength-glass::before { content: none; }
 }

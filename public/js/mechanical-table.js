@@ -58,6 +58,9 @@ const MechanicalTable = (() => {
     const cell = phaseLabel.cloneNode(true);
     cell.removeAttribute("id");
     cell.removeAttribute("role");
+    const print = document.createElement("span");
+    print.className = "mechanical-strength-letter";
+    cell.append(print);
     strengthWindows.append(cell);
     const flip = createSplitFlap(cell);
     flip("", false);
@@ -391,7 +394,8 @@ const MechanicalTable = (() => {
       gapY / Math.max(1, bottom - height / 2));
     const deskTop = desk.offsetTop - height / 2;
     const controlLimit = Math.min(clearControl(table.offsetLeft, table.offsetTop + table.offsetHeight),
-      clearControl((width - desk.offsetWidth) / 2, desk.offsetTop + desk.offsetHeight));
+      clearControl((width - desk.offsetWidth) / 2, desk.offsetTop + desk.offsetHeight),
+      clearControl(strength.offsetLeft, strength.offsetTop + strength.offsetHeight / 2));
     let scale = Math.min(1, usableWidth / width, usableHeight / height, controlLimit);
     for (const slot of [1, 2, 3]) {
       const plate = seats.get(slot)?.querySelector(".seat-info");
@@ -610,13 +614,12 @@ const MechanicalTable = (() => {
     clearTimeout(strengthTimer);
     const level = Math.min(rank + 1, 9);
     const lettered = HAND_NAMES[Math.min(rank, 8)];
-    const changed = lettered !== HAND_NAMES[Math.min(strengthRank, 8)];
     strengthRank = rank;
     strength.hidden = false;
     strength.setAttribute("aria-label", `手牌强度 ${HAND_NAMES[rank]} ${level}/9`);
-    if (changed || !animate) strengthFlaps.forEach((flip, index) => {
+    strengthFlaps.forEach((flip, index) => {
       const glyph = lettered[index] ?? "";
-      if (index < 2 || glyph !== strengthWindows.children[index].getAttribute("aria-label") || !animate) {
+      if (glyph !== strengthWindows.children[index].getAttribute("aria-label") || !animate) {
         flip(glyph, animate);
       }
     });
@@ -717,7 +720,7 @@ const MechanicalTable = (() => {
   }
 
   function createSplitFlap(cell) {
-    const [upper, lower, folding, falling] = cell.children;
+    const [upper, lower, folding, falling, print] = cell.children;
     let fold, fall;
     return (label, animate) => {
       fold?.cancel();
@@ -727,6 +730,10 @@ const MechanicalTable = (() => {
       cell.toggleAttribute("data-blank", !label);
       upper.firstElementChild.textContent = label;
       lower.firstElementChild.textContent = animate ? previous : label;
+      if (print) {
+        print.textContent = label;
+        cell.toggleAttribute("data-flipping", animate);
+      }
       if (!animate) return;
 
       const half = 110;
@@ -746,6 +753,7 @@ const MechanicalTable = (() => {
       settling.onfinish = () => {
         if (fall !== settling) return;
         lower.firstElementChild.textContent = label;
+        if (print) cell.removeAttribute("data-flipping");
         settling.cancel();
         fold = fall = null;
       };
