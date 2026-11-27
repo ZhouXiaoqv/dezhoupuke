@@ -1,5 +1,6 @@
 html.mobile-table-device {
-  --mobile-safe-top: calc(env(safe-area-inset-top, 0px) + 8px);
+  --mobile-device-top-inset: env(safe-area-inset-top, 0px);
+  --mobile-safe-top: calc(max(0px, var(--mobile-device-top-inset) - var(--mobile-top-covered, 0px)) + 8px);
   --mobile-safe-right: calc(env(safe-area-inset-right, 0px) + 8px);
   --mobile-safe-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   --mobile-safe-left: calc(env(safe-area-inset-left, 0px) + 8px);
@@ -15,14 +16,14 @@ html.mobile-table-active body {
   padding: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #efe6d5;
+  background: var(--mobile-ivory-dots);
 }
 .mobile-table-active #table-container {
   position: fixed;
-  inset: 0 0 auto;
-  width: auto;
-  height: 100%;
-  height: 100dvh;
+  inset: var(--mobile-viewport-top, 0px) auto auto var(--mobile-viewport-left, 0px);
+  width: var(--mobile-viewport-width, 100%);
+  height: 100vh;
+  height: var(--mobile-viewport-height, 100dvh);
   overflow: hidden;
   touch-action: none;
   -webkit-touch-callout: none;
@@ -40,6 +41,7 @@ html.mobile-table-active body {
   user-select: text;
 }
 .mobile-table-active #table-container.active #gameExitBtn {
+  position: absolute;
   top: var(--mobile-safe-top);
   left: var(--mobile-safe-left);
 }
@@ -50,8 +52,8 @@ html.mobile-table-active body {
   -webkit-touch-callout: none;
 }
 .mobile-table-active #table-container.mechanical-table.active ~ .table-console {
-  --console-top: var(--mobile-safe-top);
-  --console-right: var(--mobile-safe-right);
+  --console-top: calc(var(--mobile-viewport-top, 0px) + var(--mobile-safe-top));
+  --console-right: calc(var(--mobile-viewport-right, 0px) + var(--mobile-safe-right));
   --drawer-left: var(--mobile-safe-left);
 }
 .mobile-table-active :is(.action-log-body, .scoreboard-body) {
@@ -59,13 +61,22 @@ html.mobile-table-active body {
   overscroll-behavior: contain;
 }
 .mobile-table-active .auto-call-control {
+  position: absolute;
   left: var(--mobile-safe-left);
   bottom: var(--mobile-safe-bottom);
 }
 .mobile-table-active #table-container.mechanical-table .auto-call-control {
   width: 158px;
   padding: 5px;
+  transform: scale(.82);
+  transform-origin: left bottom;
 }
+.mobile-table-active #table-container.mechanical-table #gameStage { --mechanical-table-height: 528px; }
+.mobile-table-active .mechanical-seat-roles { display: none; }
+.mobile-table-active .mechanical-seat-plate { grid-template-rows: 13px auto; }
+.mobile-table-active #table-container.mechanical-table #actionPanel { width: calc(var(--mechanical-table-width) * .9); }
+.mobile-table-active .desk-action-key { height: 52px; font-size: 17px; }
+.mobile-table-active .mechanical-result > .mechanical-receipt { transform: scale(var(--receipt-presentation-scale, 1)); }
 
 #tableFullscreen { display: none; }
 .mobile-table-active #tableFullscreen:not([hidden]) {

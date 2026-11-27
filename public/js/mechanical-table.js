@@ -429,6 +429,7 @@ const MechanicalTable = (() => {
     stage.style.setProperty("--stage-bottom", `${bottom}px`);
     stage.style.setProperty("--stage-scale", stageScale);
     document.documentElement.style.setProperty("--mechanical-desk-clearance", `${bottom + (height - desk.offsetTop) * stageScale + 14}px`);
+    if (latestReceipt?.presented) fitReceipt(latestReceipt.paper, host, style);
   }
 
   // Browser rectangles include the stage transform. The rig, canvases, and masks
@@ -1616,6 +1617,18 @@ const MechanicalTable = (() => {
     return carrier;
   }
 
+  function fitReceipt(paper, host = container.getBoundingClientRect(), style = getComputedStyle(container)) {
+    if (!document.documentElement.classList.contains("mobile-table-active")) return 1;
+    const area = result.getBoundingClientRect();
+    const cx = area.left + area.width / 2;
+    const cy = area.top + area.height / 2;
+    const width = 2 * Math.min(cx - host.left - parseFloat(style.paddingLeft), host.right - cx - parseFloat(style.paddingRight));
+    const height = 2 * Math.min(cy - host.top - parseFloat(style.paddingTop), host.bottom - cy - parseFloat(style.paddingBottom));
+    const scale = Math.max(.001, Math.min(1.5, width / (paper.offsetWidth * stageScale), height / (paper.offsetHeight * stageScale)));
+    paper.style.setProperty("--receipt-presentation-scale", scale);
+    return scale;
+  }
+
   function presentReceipt(ticket, carrier) {
     if (ticket !== latestReceipt || ticket.presented) {
       carrier?.remove();
@@ -1628,6 +1641,7 @@ const MechanicalTable = (() => {
     result.replaceChildren(paper);
     carrier?.remove();
     result.hidden = false;
+    const scale = fitReceipt(paper);
     if (!from?.width || reduced.matches) {
       finishReceiptPresentation(ticket);
       return;
@@ -1636,8 +1650,8 @@ const MechanicalTable = (() => {
     const dx = from.left + (from.width - to.width) / 2 - to.left;
     const dy = from.top + (from.height - to.height) / 2 - to.top;
     ticket.animation = paper.animate([
-      { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width})` },
-      { transform: "translate(0, 0) scale(1)" },
+      { transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width * scale})` },
+      { transform: "translate(0, 0) scale(var(--receipt-presentation-scale, 1))" },
     ], { duration: 280, easing: "cubic-bezier(.22,.76,.29,1)" });
     ticket.animation.onfinish = () => finishReceiptPresentation(ticket);
   }

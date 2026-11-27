@@ -9,6 +9,7 @@ const MobileTable = (() => {
   const stage = $("gameStage");
   const cruise = $("autoCallControl");
   const portrait = matchMedia("(orientation: portrait)");
+  const viewport = window.visualViewport;
   const orientation = screen.orientation;
   const requestFullscreen = root.requestFullscreen || root.webkitRequestFullscreen;
   const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
@@ -21,12 +22,53 @@ const MobileTable = (() => {
   let wantsFullscreen = false;
   let requesting = false;
   let requestedLock = false;
+  let viewportFrame = 0;
+  let viewportSettleTimer;
+  let portraitTopInset = 0;
+
+  const readTopInset = () => parseFloat(getComputedStyle(root).getPropertyValue("--mobile-device-top-inset")) || 0;
 
   function updateGuide() {
-    const visible = active && portrait.matches;
+    const upright = viewport?.width && viewport.height ? viewport.width < viewport.height : portrait.matches;
+    const visible = active && upright;
     root.classList.toggle("mobile-table-portrait", visible);
     guide.hidden = !visible;
     stage.inert = cruise.inert = visible;
+  }
+
+  function syncViewport() {
+    if (!active) return;
+    const left = Math.max(0, viewport?.offsetLeft ?? 0);
+    const top = Math.max(0, viewport?.offsetTop ?? 0);
+    const width = viewport?.width || window.innerWidth;
+    const height = viewport?.height || window.innerHeight;
+    const right = Math.max(0, root.clientWidth - left - width);
+    const topInset = readTopInset();
+    // Some devices retain the portrait status-bar inset during the first landscape frame.
+    // Keep real cutouts unless the viewport already covers the screen and the old inset persists.
+    const stalePortraitInset = inFullscreen() && width > height && top < 2 &&
+      height >= Math.min(screen.width, screen.height) - 2 && portraitTopInset >= 24 &&
+      Math.abs(topInset - portraitTopInset) < 1;
+    root.style.setProperty("--mobile-top-covered", `${stalePortraitInset ? topInset : top}px`);
+    for (const [key, value] of Object.entries({ left, top, right, width, height })) {
+      root.style.setProperty(`--mobile-viewport-${key}`, `${value}px`);
+    }
+  }
+
+  function updateViewport() {
+    if (portrait.matches && !inFullscreen()) portraitTopInset = readTopInset();
+    updateGuide();
+    if (!active || viewportFrame) return;
+    viewportFrame = requestAnimationFrame(() => {
+      viewportFrame = 0;
+      syncViewport();
+    });
+  }
+
+  function settleViewport() {
+    updateViewport();
+    clearTimeout(viewportSettleTimer);
+    viewportSettleTimer = setTimeout(updateViewport, 300);
   }
 
   async function leaveFullscreen() {
@@ -44,7 +86,7 @@ const MobileTable = (() => {
     button.setAttribute("aria-label", label);
     button.setAttribute("aria-pressed", String(fullscreen));
     button.disabled = !fullscreen && !canFullscreen();
-    updateGuide();
+    settleViewport();
     if (!fullscreen) {
       try {
         if (requestedLock) orientation?.unlock?.();
@@ -64,16 +106,22 @@ const MobileTable = (() => {
       await orientation?.lock?.("landscape");
     } catch {
       // Portrait guidance still works when this browser rejects the lock.
+    } finally {
+      settleViewport();
     }
   }
 
   async function enterFullscreen() {
     if (!canFullscreen() || requesting) return;
+    if (portrait.matches && !inFullscreen()) portraitTopInset = readTopInset();
     wantsFullscreen = true;
     requesting = true;
     try {
       // Call before awaiting anything so this still has transient user activation.
-      if (!inFullscreen()) await requestFullscreen.call(root);
+      if (!inFullscreen()) {
+        if (root.requestFullscreen) await requestFullscreen.call(root, { navigationUI: "hide" });
+        else await requestFullscreen.call(root);
+      }
       await syncFullscreen();
     } catch {
       wantsFullscreen = false;
@@ -115,12 +163,14 @@ const MobileTable = (() => {
     active = id === "table" && table.classList.contains("mechanical-table");
     button.hidden = !active;
     root.classList.toggle("mobile-table-active", active);
-    updateGuide();
+    syncViewport();
+    updateViewport();
     if (!active && (wasActive || id !== "roomScreen")) cancelEntry();
   }
 
   if (mobile) {
     root.classList.add("mobile-table-device");
+    updateViewport();
     button.disabled = !canFullscreen();
     button.addEventListener("click", () => {
       if (!active) return;
@@ -134,9 +184,11 @@ const MobileTable = (() => {
     });
     document.addEventListener("fullscreenchange", syncFullscreen);
     document.addEventListener("webkitfullscreenchange", syncFullscreen);
-    orientation?.addEventListener?.("change", updateGuide);
-    portrait.addEventListener("change", updateGuide);
-    window.addEventListener("resize", updateGuide);
+    orientation?.addEventListener?.("change", settleViewport);
+    portrait.addEventListener("change", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
     table.addEventListener("contextmenu", event => {
       if (active && !event.target.closest("input:not([type=range]), textarea, [contenteditable]")) event.preventDefault();
     });

@@ -37,6 +37,7 @@
 #gameStage { display: contents; }
 #table-container.mechanical-table #gameStage {
   --mechanical-table-top: 98px;
+  --mechanical-table-width: 960px;
   --mechanical-table-height: 536px;
   position: absolute;
   display: block;
@@ -52,8 +53,8 @@
 #table-container.mechanical-table #table {
   position: absolute;
   top: var(--mechanical-table-top);
-  left: calc((100% - 960px) / 2);
-  width: 960px;
+  left: calc((100% - var(--mechanical-table-width)) / 2);
+  width: var(--mechanical-table-width);
   height: var(--mechanical-table-height);
   border: 10px solid #ded4c2;
   border-radius: 96px;
