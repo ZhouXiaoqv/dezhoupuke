@@ -1137,7 +1137,15 @@
   height: 100%;
   pointer-events: none;
 }
-.mechanical-chips { z-index: 26; }
+.mechanical-chips {
+  /* Tall wagers can extend above the rail, and shadows can cross any edge. */
+  --chip-headroom: 128px;
+  --chip-edge-room: 36px;
+  z-index: 26;
+  inset: calc(-1 * var(--chip-headroom)) calc(-1 * var(--chip-edge-room)) calc(-1 * var(--chip-edge-room));
+  width: calc(100% + 2 * var(--chip-edge-room));
+  height: calc(100% + var(--chip-headroom) + var(--chip-edge-room));
+}
 .mechanical-chip-labels { z-index: 27; }
 .mechanical-payout { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 32; pointer-events: none; }
 .mechanical-arm-shadow { z-index: 12; overflow: visible; }

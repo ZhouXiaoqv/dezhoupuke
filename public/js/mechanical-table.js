@@ -455,24 +455,26 @@ const MechanicalTable = (() => {
   }
 
   function measure() {
-    const width = canvas.clientWidth, height = canvas.clientHeight;
+    // Use the unpadded card layer as the shared table origin for the rig and chips.
+    const width = moving.clientWidth, height = moving.clientHeight;
     if (!width || !height) return false;
     if (bounds?.width !== width || bounds?.height !== height) {
       rig.resize(width, height);
     }
-    const { left, top } = stageBox(canvas);
+    const { left, top } = stageBox(moving);
     bounds = { left, top, right: left + width, width, height };
     bayPort = measurePort(feedLayer, baySeam);
     recyclerPort = measurePort(recycleLayer, recyclerSeam);
     printerPort = measurePort(printLayer, printerOpening, 1, .5);
     measurePot();
     const ratio = Math.min(2, devicePixelRatio || 1);
-    const pixelsWide = Math.round(width * ratio), pixelsHigh = Math.round(height * ratio);
+    const pixelsWide = Math.round(canvas.clientWidth * ratio), pixelsHigh = Math.round(canvas.clientHeight * ratio);
     if (canvas.width !== pixelsWide || canvas.height !== pixelsHigh) {
       canvas.width = pixelsWide;
       canvas.height = pixelsHigh;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
+    context.setTransform(ratio, 0, 0, ratio,
+      (moving.offsetLeft - canvas.offsetLeft) * ratio, (moving.offsetTop - canvas.offsetTop) * ratio);
     return true;
   }
 
@@ -1474,7 +1476,10 @@ const MechanicalTable = (() => {
   }
 
   function drawChips(now) {
-    context.clearRect(0, 0, bounds.width, bounds.height);
+    context.save();
+    context.resetTransform();
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.restore();
     // Within the wagers, the piles farther down the felt cover those behind them.
     const depthOrder = [...groups.values()].filter(group => group.zone).sort((a, b) => a.at.y - b.at.y);
     for (const group of depthOrder) {
