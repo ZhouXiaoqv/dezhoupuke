@@ -22,6 +22,7 @@ function run() {
   testSixPlayerZeroStackDuplicateEndDoesNotUnbalanceScoreboard();
   testScoreboardImbalanceIsReportedBeforeNextHand();
   testSettledHandScoreboardIsVisibleBeforeGameEnd();
+  testMechanicalScoreboardPreservesReturningAccount();
   testScoreboardBalancesAcrossManyPlayers();
   testRoomDoesNotStartWithOnlyOneFundedPlayer();
 }
@@ -287,6 +288,38 @@ function testSettledHandScoreboardIsVisibleBeforeGameEnd() {
   assert.strictEqual(finalScores.get('p2'), -225);
 
   console.log('PASS settled hand scoreboard includes pending net score exactly once');
+}
+
+function testMechanicalScoreboardPreservesReturningAccount() {
+  const room = new Room('TEST', 'host', 'Alice', { ...mockWs(), _username: 'Alice' }, { tableStyle: 'mechanical' });
+  const bob = { ...mockWs(), _username: 'Bob', _playerAvatar: 'crt-mech' };
+  assert.ok(room.addPlayer('old-bob', 'Bob', bob));
+  const firstHandPlayers = [...room.players.values()].map(player => ({ ...player }));
+  firstHandPlayers[0].stack += 20;
+  firstHandPlayers[1].stack -= 20;
+  room.game = { players: firstHandPlayers, winners: [firstHandPlayers[0]], handNum: 1, handleDisconnect() {} };
+  room.handStartStacks = new Map(firstHandPlayers.map(player => [player.id, room.startStack]));
+  room.gameRunning = true;
+
+  assert.ok(room.removePlayer('old-bob'));
+  assert.strictEqual(scoreMap(room.getScoreboard()).get('old-bob'), -20);
+  assert.ok(room.addPlayer('new-bob', 'Bob', { ...bob }));
+  assert.deepStrictEqual([...scoreMap(room.getScoreboard())], [['host', 20], ['new-bob', -20]]);
+  room.settleFinishedHand();
+  assert.deepStrictEqual([...scoreMap(room.getScoreboard())], [['host', 20], ['new-bob', -20]]);
+
+  const nextPlayers = [...room.players.values()].map(player => ({ ...player, stack: player.stack }));
+  room.handStartStacks = new Map(nextPlayers.map(player => [player.id, player.stack]));
+  nextPlayers[0].stack += 10;
+  nextPlayers[1].stack -= 10;
+  room.game = { players: nextPlayers, handNum: 2 };
+  room.gameRunning = true;
+  room.settleFinishedHand();
+  const scores = room.getScoreboard();
+  assert.deepStrictEqual([...scoreMap(scores)], [['host', 30], ['new-bob', -30]]);
+  assert.strictEqual(scores[1].avatar, 'crt-mech');
+  assertScoreboardBalances(scores);
+  console.log('PASS mechanical scoreboard keeps a departed account and adds the next hand to the same row');
 }
 
 function testZeroStackRefillDoesNotAffectScoreboard() {

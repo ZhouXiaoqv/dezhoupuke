@@ -401,19 +401,13 @@ let tableScores = [];
 function renderScoreboard(scores = tableScores) {
   tableScores = scores;
   const body = $("scoreboardBody");
-  const players = MechanicalTable.enabled() ? gameState?.players : null;
   const seatsById = new Map([...$("table").querySelectorAll(".seat[data-player-id]")].map(seat => [seat.dataset.playerId, seat]));
-  const scoresById = new Map(scores.map(score => [score.id, score]));
-  const rows = players?.length
-    ? players.map(player => ({ id: player.id, name: player.name, score: scoresById.get(player.id)?.score ?? 0 }))
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-    : scores;
-  if (!rows.length) {
+  if (!scores.length) {
     body.innerHTML =
       '<div class="action-log-empty">&#26242;&#26080;&#35760;&#24405;</div>';
     return;
   }
-  body.replaceChildren(...rows.map((s, index) => {
+  body.replaceChildren(...scores.map((s, index) => {
     const row = document.createElement("div");
     row.className = "score-row";
     const score = Number(s.score || 0);
@@ -425,6 +419,7 @@ function renderScoreboard(scores = tableScores) {
     const portrait = row.querySelector(".score-avatar");
     const medallion = seatsById.get(s.id)?.querySelector(".seat-medallion");
     if (medallion?.hasChildNodes()) portrait.append(...[...medallion.childNodes].map(node => node.cloneNode(true)));
+    else if (s.avatar) renderAvatar(portrait, s.avatar);
     else portrait.textContent = Array.from(label.textContent)[0] ?? "";
     if (index === 0 && score > 0) {
       const leader = document.createElement("span");

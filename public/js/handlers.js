@@ -33,7 +33,8 @@ Net.on("room:state", (d) => {
   $("roomCodeDisplay").textContent = d.code;
   isHost = d.hostId === Net.playerId;
   if (typeof syncNextHandSkipButton === "function") syncNextHandSkipButton();
-  $("scoreboardToggle").classList.toggle("visible", !!d.gameRunning);
+  const mechanicalTableOpen = $("table-container").matches(".active.mechanical-table");
+  $("scoreboardToggle").classList.toggle("visible", !!d.gameRunning || mechanicalTableOpen);
   if (!d.gameRunning && typeof clearMyHandView === "function") {
     clearMyHandView();
   }
@@ -372,6 +373,7 @@ Net.on("game:waitingForNext", (d) => {
 Net.on("game:receipt", ({ snapshot, settlement, hostId, myChips, ...timing }) => {
   isHost = hostId === Net.playerId;
   if (!$("table-container").classList.contains("active")) showScreen("table");
+  $("scoreboardToggle").classList.add("visible");
   MechanicalTable.restoreReceipt(snapshot, { ...settlement, receiptId: timing.receiptId });
   TableDrawers.updateChips(myChips);
   MechanicalTable.syncNextHand(timing);

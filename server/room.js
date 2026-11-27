@@ -57,6 +57,23 @@ class Room {
     return null;
   }
 
+  getScoreEntry(scores, player) {
+    const key = this.tableStyle === 'mechanical' && player._username
+      ? `account:${player._username}`
+      : player.id;
+    if (!scores.has(key)) {
+      scores.set(key, { id: player.id, name: player.name, score: 0 });
+    }
+    return scores.get(key);
+  }
+
+  updateScoreIdentity(player) {
+    const score = this.getScoreEntry(this.scoreboard, player);
+    score.id = player.id;
+    score.name = player.name;
+    if (this.tableStyle === 'mechanical') score.avatar = player.avatar;
+  }
+
   addPlayer(id, name, ws, isBot = false) {
     if (this.players.size >= this.maxPlayers) return false;
     if (this.players.has(id)) return false;
@@ -65,7 +82,7 @@ class Room {
     this.spectators.delete(id);
 
     if (!this.hostId && !isBot) this.hostId = id;
-    this.players.set(id, {
+    const player = {
       id,
       name,
       ws,
@@ -80,12 +97,9 @@ class Room {
       cardBack: ws?._playerCardBack || 'default-blue',
       pet: ws?._playerPet || '',
       publicProfile: this.getPublicProfileForUsername(ws?._username),
-    });
-    if (!this.scoreboard.has(id)) {
-      this.scoreboard.set(id, { id, name, score: 0 });
-    } else {
-      this.scoreboard.get(id).name = name;
-    }
+    };
+    this.players.set(id, player);
+    this.updateScoreIdentity(player);
 
     this.broadcast('room:playerJoined', {
       playerId: id,
@@ -270,6 +284,7 @@ class Room {
     player.cardBack = ws._playerCardBack || player.cardBack || 'default-blue';
     player.pet = ws._playerPet || player.pet || '';
     player.publicProfile = this.getPublicProfileForUsername(player._username);
+    if (this.tableStyle === 'mechanical') this.updateScoreIdentity(player);
     this.lastVacantAt = null;
 
     logger.info('ROOM', 'player_reconnect', {
@@ -531,10 +546,7 @@ class Room {
       const startStack = this.handStartStacks.get(gp.id) ?? this.startStack;
       const delta = gp.stack - startStack;
       const finalStack = gp.stack;
-      if (!this.scoreboard.has(gp.id)) {
-        this.scoreboard.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
-      }
-      const score = this.scoreboard.get(gp.id);
+      const score = this.getScoreEntry(this.scoreboard, gp);
       score.name = gp.name;
       score.score += delta;
       playerSnapshots.push({
@@ -761,10 +773,7 @@ class Room {
       for (const gp of this.game.players) {
         const startStack = this.handStartStacks.get(gp.id);
         if (typeof startStack !== 'number') continue;
-        if (!scores.has(gp.id)) {
-          scores.set(gp.id, { id: gp.id, name: gp.name, score: 0 });
-        }
-        const score = scores.get(gp.id);
+        const score = this.getScoreEntry(scores, gp);
         score.name = gp.name;
         score.score += gp.stack - startStack;
       }
