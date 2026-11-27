@@ -1,6 +1,6 @@
 'use strict';
 
-// Vector avatars in public/assets/avatars/<id>.svg. Keep in sync with AVATAR_CATALOG in public/js/ui.js.
+// Illustrated avatar ids. Keep in sync with AVATAR_CATALOG in public/js/ui.js.
 const AVATAR_IDS = [
   'cyber-hacker',
   'clockwork-gambler',
@@ -18,7 +18,7 @@ const AVATAR_IDS = [
   'gear-rose',
   'pearl-queen',
 ];
-// Defaults draw only from the original nine so existing unset avatars keep their look.
+// Defaults draw only from the original nine so existing accounts keep their assigned id.
 const DEFAULT_AVATAR_POOL = AVATAR_IDS.slice(0, 9);
 // Classic emoji avatars, still selectable. Keep in sync with EMOJI_AVATARS in public/js/ui.js.
 const EMOJI_AVATARS = [

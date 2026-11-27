@@ -400,7 +400,7 @@ function initAvatarSelector() {
   const colorGrid = $("colorGrid");
   if (!avatarGrid || !colorGrid) return;
 
-  // Render vector avatars, then the classic emoji avatars
+  // Render illustrated avatars, then the classic emoji avatars.
   const emojiGrid = $("avatarEmojiGrid");
   const addAvatarOption = (grid, av, name) => {
     const opt = document.createElement("div");

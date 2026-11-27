@@ -2340,7 +2340,7 @@
   opacity: 1;
 }
 
-/* Vector avatars from public/assets/avatars, drawn by renderAvatar() in ui.js */
+/* Illustrated avatars from public/assets/avatars, drawn by renderAvatar() in ui.js */
 .avatar-img {
   display: block;
   width: 100%;

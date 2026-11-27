@@ -130,7 +130,7 @@ dezhoupuke/
 | `user:login` | `{ username, password }` | 登录 |
 | `user:tokenLogin` | `{ token }` | Token 登录 |
 | `user:profile` | - | 获取个人资料 |
-| `user:setAvatar` | `{ avatar, color }` | 设置头像（15 款矢量头像 id 或 18 个经典 emoji） |
+| `user:setAvatar` | `{ avatar, color }` | 设置头像（15 款机械插画 ID 或 18 个经典 emoji） |
 | `user:setCardBack` | `{ id }` | 装备已拥有牌背，机械桌对局及结算期间不可更换 |
 | `shop:buyCardBack` | `{ id }` | 使用金币购买牌背 |
 | `room:create` | `{ gameMode, tableStyle }` | 创建房间，样式为 `classic`（默认）或 `mechanical` |

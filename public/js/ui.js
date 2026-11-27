@@ -24,7 +24,7 @@ const PLAYER_COLORS = [
   "#ab47bc",
   "#26c6da",
 ];
-// Vector avatars in public/assets/avatars/<id>.svg. Keep ids in sync with server/avatars.js.
+// Illustrated avatars in public/assets/avatars/<id>.webp. Keep ids in sync with server/avatars.js.
 const AVATAR_CATALOG = [
   { id: "cyber-hacker", name: "赛博黑客" },
   { id: "clockwork-gambler", name: "发条赌徒" },
@@ -51,10 +51,10 @@ const EMOJI_AVATARS = [
 ];
 
 function avatarImageUrl(value) {
-  return AVATAR_BY_ID.has(value) ? `/assets/avatars/${value}.svg` : "";
+  return AVATAR_BY_ID.has(value) ? `/assets/avatars/${value}.webp` : "";
 }
 
-// Draw a vector avatar; older stored emoji values still render as text.
+// Render illustrated avatars as images and emoji avatars as text.
 function renderAvatar(el, value) {
   const src = avatarImageUrl(value);
   const current = el.firstElementChild;
