@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { PET_IDS } = require('./petCatalog');
+const { isAvatarId, defaultAvatar, resolveAvatar } = require('./avatars');
 const { EMOTION_CATALOG, EMOTION_BY_ID, STOCKED_EMOTION_IDS } = require('./emotionCatalog');
 const logger = require('./logger');
 
@@ -524,7 +525,7 @@ class UserStore {
       lastLogin: Date.now(),
       sessionToken: null,
       sessionIssuedAt: null,
-      avatar: 'A',
+      avatar: 'clockwork-gambler',
       avatarColor: '#d4a840',
       coins: 0,
       charm: 0,
@@ -578,7 +579,7 @@ class UserStore {
       lastLogin: Date.now(),
       sessionToken: null,
       sessionIssuedAt: null,
-      avatar: 'A',  // Selected avatar emoji
+      avatar: defaultAvatar(username),  // Vector avatar id from server/avatars.js
       avatarColor: '#4fc3f7',  // Selected color
       coins: 0,
       charm: 0,
@@ -763,10 +764,10 @@ class UserStore {
   updateAvatar(username, avatar, color) {
     const user = this.users.get(username);
     if (!user) return null;
-    if (avatar) user.avatar = avatar;
+    if (isAvatarId(avatar)) user.avatar = avatar;
     if (color) user.avatarColor = color;
     this._save();
-    return { avatar: user.avatar, avatarColor: user.avatarColor };
+    return { avatar: resolveAvatar(user.avatar, user.username), avatarColor: user.avatarColor };
   }
 
   buyCardBack(username, cardBackId) {
@@ -1141,7 +1142,7 @@ class UserStore {
       disabled: !!user.disabled,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
-      avatar: user.avatar || 'A',
+      avatar: resolveAvatar(user.avatar, user.username),
       avatarColor: user.avatarColor || '#4fc3f7',
       coins: typeof user.coins === 'number' ? user.coins : 0,
       charm: typeof user.charm === 'number' ? user.charm : 0,
@@ -1170,7 +1171,7 @@ class UserStore {
     const s = user.stats;
     return {
       username: user.username,
-      avatar: user.avatar || 'A',
+      avatar: resolveAvatar(user.avatar, user.username),
       avatarColor: user.avatarColor || '#4fc3f7',
       pet: user.equippedPet || '',
       charm: user.charm || 0,

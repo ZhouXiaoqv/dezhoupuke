@@ -24,7 +24,54 @@ const PLAYER_COLORS = [
   "#ab47bc",
   "#26c6da",
 ];
-const PLAYER_AVATARS = ["🦊", "🐯", "🐻", "🦅", "🐬", "🦁"];
+// Vector avatars in public/assets/avatars/<id>.svg. Keep ids in sync with server/avatars.js.
+const AVATAR_CATALOG = [
+  { id: "cyber-hacker", name: "赛博黑客" },
+  { id: "clockwork-gambler", name: "发条赌徒" },
+  { id: "crt-mech", name: "显像管机甲" },
+  { id: "heavy-cyclops", name: "重工独眼" },
+  { id: "gas-technician", name: "防毒技师" },
+  { id: "deep-miner", name: "深空矿工" },
+  { id: "cyber-cat", name: "电子战猫" },
+  { id: "cyber-spade", name: "赛博黑桃" },
+  { id: "clockwork-heart", name: "发条芯片" },
+  { id: "clockwork-doll", name: "发条少女" },
+  { id: "neon-kitsune", name: "霓虹狐面" },
+  { id: "astrolabe-duchess", name: "星盘女爵" },
+  { id: "mech-butterfly", name: "机械蝶舞" },
+  { id: "gear-rose", name: "玫瑰核心" },
+  { id: "pearl-queen", name: "珍珠女皇" },
+];
+const AVATAR_BY_ID = new Map(AVATAR_CATALOG.map((a) => [a.id, a]));
+const PLAYER_AVATARS = AVATAR_CATALOG.map((a) => a.id);
+// Classic emoji avatars, still selectable. Keep in sync with server/avatars.js.
+const EMOJI_AVATARS = [
+  "🦊", "🐯", "🐻", "🦅", "🐬", "🦁", "🐼", "🐸", "🦄",
+  "🐲", "👻", "🤖", "🧙", "🥷", "🎭", "💀", "🐺", "🦇",
+];
+
+function avatarImageUrl(value) {
+  return AVATAR_BY_ID.has(value) ? `/assets/avatars/${value}.svg` : "";
+}
+
+// Draw a vector avatar; older stored emoji values still render as text.
+function renderAvatar(el, value) {
+  const src = avatarImageUrl(value);
+  const current = el.firstElementChild;
+  if (src && el.childNodes.length === 1 && current?.getAttribute("src") === src) return;
+  el.textContent = "";
+  el.classList.toggle("has-avatar-img", !!src);
+  if (!src) {
+    el.textContent = value || "";
+    return;
+  }
+  const img = document.createElement("img");
+  img.className = "avatar-img";
+  img.src = src;
+  img.alt = "";
+  img.draggable = false;
+  el.appendChild(img);
+}
 
 // Fallback until shop:catalog arrives; the server catalog adds admin
 // pricing, order, and enabled state (server/emotionCatalog.js).

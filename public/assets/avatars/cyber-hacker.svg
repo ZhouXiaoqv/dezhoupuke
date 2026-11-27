@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="hood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a4640"/>
+      <stop offset="1" stop-color="#2e2b27"/>
+    </linearGradient>
+    <linearGradient id="mask" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6eedd"/>
+      <stop offset="1" stop-color="#d6c8ad"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22262a"/>
+      <stop offset="1" stop-color="#0b0c0d"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="#ebe3d3" stroke="#cdbfa4" stroke-width="1.5"/>
+    <path d="M22.2 9H41.8L55 22.2V41.8L41.8 55H22.2L9 41.8V22.2Z" fill="none" stroke="#fffaf0" stroke-width="1"/>
+    <!-- brass data antennas -->
+    <path d="M13 31L8 22.5M51 31L56 22.5" stroke="#2a2420" stroke-width="3.4"/>
+    <path d="M13 31L8 22.5M51 31L56 22.5" stroke="#c9a24a" stroke-width="1.6"/>
+    <circle cx="8" cy="21.5" r="1.9" fill="#e3c06a" stroke="#2a2420" stroke-width="1"/>
+    <circle cx="56" cy="21.5" r="1.9" fill="#e3c06a" stroke="#2a2420" stroke-width="1"/>
+    <!-- faceted hood -->
+    <path d="M32 8L45 12L53 24L55 42L58 57H6L9 42L11 24L19 12Z" fill="url(#hood)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M32 8V15M19 12L22 20M45 12L42 20M11 24L18 31M53 24L46 31M9 42L19 47M55 42L45 47" fill="none" stroke="#1f1c19" stroke-width="1.2"/>
+    <path d="M20 13.2L31 9.6M12.2 25L18.8 14.6M10.3 41L12.2 26.5" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="1"/>
+    <!-- face cavity -->
+    <path d="M32 15L42 20L46 31L45 47L32 53L19 47L18 31L22 20Z" fill="#191715" stroke="#141210" stroke-width="1.5"/>
+    <!-- breathing half mask -->
+    <path d="M20 37L44 34L45.5 42L39.5 50.5H24.5L18.5 43Z" fill="url(#mask)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M21.5 38.6L42.6 35.9" stroke="#fff" stroke-width="1" opacity=".85"/>
+    <path d="M32 37V50" stroke="#8c7f6c" stroke-width="1.2"/>
+    <path d="M23 45.5L25.5 42.5M25.5 47.5L28.5 44M28 49L30 46.8M41 44.2L38.8 41.6M38.6 46.8L35.8 43.4M36 48.8L34 46.4" stroke="#6b6156" stroke-width="1.5"/>
+    <circle cx="22.6" cy="39.6" r="1.15" fill="#c9a24a" stroke="#5b4a2a" stroke-width=".7"/>
+    <circle cx="41.6" cy="37.3" r="1.15" fill="#c9a24a" stroke="#5b4a2a" stroke-width=".7"/>
+    <!-- tilted visor with scan band -->
+    <path d="M16.5 27.5L47.5 24L48.5 32L17.5 36Z" fill="url(#visor)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M21.5 31.4L44 28.6" stroke="#3fe6f0" stroke-width="4.4" opacity=".28"/>
+    <path d="M21.5 31.4L44 28.6" stroke="#5ff2f8" stroke-width="2"/>
+    <path d="M21.5 31.4L44 28.6" stroke="#e6ffff" stroke-width=".7"/>
+    <path d="M26.5 26.6L24.6 34.6M30 26.2L28.8 31" stroke="#fff" stroke-width="1.1" opacity=".55"/>
+    <path d="M18.4 28.3L46.4 25.1" stroke="#fff" stroke-width="1" opacity=".35"/>
+  </g>
+</svg>

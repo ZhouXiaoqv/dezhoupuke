@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="chip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#433f3a"/>
+      <stop offset="1" stop-color="#24211e"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecd082"/>
+      <stop offset=".5" stop-color="#c9a24a"/>
+      <stop offset="1" stop-color="#83622a"/>
+    </linearGradient>
+    <linearGradient id="crystal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b6faff"/>
+      <stop offset=".45" stop-color="#34c2d2"/>
+      <stop offset="1" stop-color="#0f5560"/>
+    </linearGradient>
+    <clipPath id="heart">
+      <path d="M32 16L26 10H18L13 16V25L32 45L51 25V16L46 10H38Z"/>
+    </clipPath>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="#ebe3d3" stroke="#cdbfa4" stroke-width="1.5"/>
+    <path d="M22.2 9H41.8L55 22.2V41.8L41.8 55H22.2L9 41.8V22.2Z" fill="none" stroke="#fffaf0" stroke-width="1"/>
+    <!-- brass chip pins -->
+    <g fill="url(#brass)" stroke="#1c1916" stroke-width="1">
+      <rect x="16.5" y="54" width="2.6" height="4.6" rx=".5"/><rect x="22.1" y="54" width="2.6" height="4.6" rx=".5"/>
+      <rect x="27.7" y="54" width="2.6" height="4.6" rx=".5"/><rect x="33.7" y="54" width="2.6" height="4.6" rx=".5"/>
+      <rect x="39.3" y="54" width="2.6" height="4.6" rx=".5"/><rect x="44.9" y="54" width="2.6" height="4.6" rx=".5"/>
+      <rect x="9" y="43.6" width="5" height="2.6" rx=".5"/><rect x="9" y="48.8" width="5" height="2.6" rx=".5"/>
+      <rect x="50" y="43.6" width="5" height="2.6" rx=".5"/><rect x="50" y="48.8" width="5" height="2.6" rx=".5"/>
+    </g>
+    <!-- microchip base -->
+    <rect x="13" y="40.5" width="38" height="15" rx="2" fill="url(#chip)" stroke="#1c1916" stroke-width="2"/>
+    <path d="M15.2 42.4H48.8" stroke="#fff" stroke-width="1" opacity=".3"/>
+    <circle cx="17.2" cy="51.4" r="1.3" fill="#5f5850"/>
+    <path d="M37 51.4H47M40 48.6H47" stroke="#5f5850" stroke-width="1"/>
+    <ellipse cx="32" cy="42" rx="11" ry="2.2" fill="#3fe6f0" opacity=".28"/>
+    <!-- copper feed tubes -->
+    <path d="M29 14C29 10.4 27 8.8 26 6.4M35 14C35 10.4 37 8.8 38 6.4" fill="none" stroke="#1c1916" stroke-width="3.4"/>
+    <path d="M29 14C29 10.4 27 8.8 26 6.4M35 14C35 10.4 37 8.8 38 6.4" fill="none" stroke="#c97c45" stroke-width="1.7"/>
+    <circle cx="26" cy="6.4" r="1.3" fill="#e09a63" stroke="#1c1916" stroke-width=".8"/>
+    <circle cx="38" cy="6.4" r="1.3" fill="#e09a63" stroke="#1c1916" stroke-width=".8"/>
+    <g clip-path="url(#heart)">
+      <!-- mechanical half: pipes and meshed gears -->
+      <rect x="0" y="0" width="32" height="64" fill="#3b3732"/>
+      <path d="M12 31C18 31 20 38 27 40" fill="none" stroke="#1c1916" stroke-width="3.6"/>
+      <path d="M12 31C18 31 20 38 27 40" fill="none" stroke="#a9b1b5" stroke-width="1.8"/>
+      <path d="M27.98 18.97L29.4 19.54L29.26 20.93L27.75 21.21L27.49 21.91L27.15 22.58L27.96 23.88L27.03 24.92L25.65 24.26L25.02 24.68L24.35 25.02L24.25 26.55L22.89 26.85L22.15 25.5L21.4 25.47L20.66 25.35L19.67 26.52L18.4 25.96L18.6 24.44L18.01 23.98L17.48 23.44L15.99 23.82L15.29 22.61L16.34 21.5L16.14 20.78L16.02 20.03L14.6 19.46L14.74 18.07L16.25 17.79L16.51 17.09L16.85 16.42L16.04 15.12L16.97 14.08L18.35 14.74L18.98 14.32L19.65 13.98L19.75 12.45L21.11 12.15L21.85 13.5L22.6 13.53L23.34 13.65L24.33 12.48L25.6 13.04L25.4 14.56L25.99 15.02L26.52 15.56L28.01 15.18L28.71 16.39L27.66 17.5L27.86 18.22Z" fill="url(#brass)" stroke="#1c1916" stroke-width="1.2"/>
+      <circle cx="22" cy="19.5" r="3.6" fill="none" stroke="#83622a" stroke-width="1"/>
+      <circle cx="22" cy="19.5" r="1.6" fill="#2a2622"/>
+      <path d="M31.66 32.32L32.61 33.25L31.99 34.41L30.68 34.13L30.19 34.61L29.62 35L29.63 36.33L28.37 36.71L27.65 35.59L26.96 35.58L26.28 35.46L25.35 36.41L24.19 35.79L24.47 34.48L23.99 33.99L23.6 33.42L22.27 33.43L21.89 32.17L23.01 31.45L23.02 30.76L23.14 30.08L22.19 29.15L22.81 27.99L24.12 28.27L24.61 27.79L25.18 27.4L25.17 26.07L26.43 25.69L27.15 26.81L27.84 26.82L28.52 26.94L29.45 25.99L30.61 26.61L30.33 27.92L30.81 28.41L31.2 28.98L32.53 28.97L32.91 30.23L31.79 30.95L31.78 31.64Z" fill="url(#brass)" stroke="#1c1916" stroke-width="1.2"/>
+      <circle cx="27.4" cy="31.2" r="1.4" fill="#2a2622"/>
+      <path d="M16.6 15.4A7 7 0 0 1 20 12.9" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/>
+      <!-- crystal half with pulse circuit -->
+      <rect x="32" y="0" width="32" height="64" fill="url(#crystal)"/>
+      <path d="M32 16L38 10L41.5 21L32 27Z" fill="#fff" opacity=".28"/>
+      <path d="M38 10L41.5 21L51 16M41.5 21L51 25M41.5 21L32 27M41.5 21L44 32M32 27L36.5 38M44 32L36.5 38" fill="none" stroke="#fff" stroke-width=".9" opacity=".45"/>
+      <path d="M33.4 30H36.4L38.4 26L40.6 34L42.4 29.6L43.4 30H45.4" fill="none" stroke="#3fe6f0" stroke-width="3.2" opacity=".45"/>
+      <path d="M33.4 30H36.4L38.4 26L40.6 34L42.4 29.6L43.4 30H45.4" fill="none" stroke="#efffff" stroke-width="1.2"/>
+      <!-- center seam -->
+      <path d="M32 15V46" stroke="#1c1916" stroke-width="1.5"/>
+      <g fill="#c9a24a" stroke="#1c1916" stroke-width=".6">
+        <circle cx="32" cy="22" r="1"/><circle cx="32" cy="30" r="1"/><circle cx="32" cy="38" r="1"/>
+      </g>
+    </g>
+    <path d="M32 16L26 10H18L13 16V25L32 45L51 25V16L46 10H38Z" fill="none" stroke="#1c1916" stroke-width="2"/>
+    <path d="M14.6 23.8V16.7L18.7 11.7H25.3" fill="none" stroke="#fff" stroke-width="1" opacity=".45"/>
+  </g>
+</svg>

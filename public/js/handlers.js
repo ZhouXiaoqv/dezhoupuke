@@ -58,10 +58,13 @@ Net.on("room:players", (d) => {
     else badge = '<div class="rp-badge">等待中</div>';
 
     card.innerHTML = `
-<div class="rp-name">${p.avatar || "🦊"} ${p.name}${p.id === Net.playerId ? " (你)" : ""}</div>
+<div class="rp-name"><span class="rp-avatar"></span><span class="rp-player-name"></span></div>
 <div class="rp-stack">${p.stack}</div>
 ${badge}
     `;
+    renderAvatar(card.querySelector(".rp-avatar"), p.avatar);
+    card.querySelector(".rp-player-name").textContent =
+      p.name + (p.id === Net.playerId ? " (你)" : "");
     container.appendChild(card);
   }
 

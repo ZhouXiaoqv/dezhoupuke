@@ -228,7 +228,7 @@ function renderInteractPanel() {
 
   const avatar = document.createElement("div");
   avatar.className = "interact-avatar";
-  avatar.textContent = profile.avatar || "\ud83d\udc64";
+  renderAvatar(avatar, profile.avatar || "\ud83d\udc64");
   if (profile.avatarColor) {
     avatar.style.borderColor = profile.avatarColor;
     avatar.style.boxShadow = `0 0 18px ${profile.avatarColor}44`;
@@ -376,26 +376,6 @@ Net.on("room:interact", (d) => {
 });
 
 // ===== AVATAR SELECTOR SYSTEM =====
-const AVATAR_OPTIONS = [
-  "🦊",
-  "🐯",
-  "🐻",
-  "🦅",
-  "🐬",
-  "🦁",
-  "🐼",
-  "🐸",
-  "🦄",
-  "🐲",
-  "👻",
-  "🤖",
-  "🧙",
-  "🥷",
-  "🎭",
-  "💀",
-  "🐺",
-  "🦇",
-];
 const COLOR_OPTIONS = [
   "#4fc3f7",
   "#ff7043",
@@ -410,7 +390,7 @@ const COLOR_OPTIONS = [
   "#4dd0e1",
   "#b39ddb",
 ];
-let selectedAvatar = "🦊";
+let selectedAvatar = PLAYER_AVATARS[0];
 let selectedColor = "#4fc3f7";
 let selectedCardBack = DEFAULT_CARD_BACK;
 let selectedPet = "";
@@ -420,23 +400,39 @@ function initAvatarSelector() {
   const colorGrid = $("colorGrid");
   if (!avatarGrid || !colorGrid) return;
 
-  // Render avatar options
-  avatarGrid.innerHTML = "";
-  AVATAR_OPTIONS.forEach((av) => {
+  // Render vector avatars, then the classic emoji avatars
+  const emojiGrid = $("avatarEmojiGrid");
+  const addAvatarOption = (grid, av, name) => {
     const opt = document.createElement("div");
     opt.className =
       "avatar-option" + (av === selectedAvatar ? " selected" : "");
-    opt.textContent = av;
+    const art = document.createElement("span");
+    art.className = "avatar-option-art";
+    renderAvatar(art, av);
+    opt.appendChild(art);
+    if (name) {
+      opt.title = name;
+      const label = document.createElement("span");
+      label.className = "avatar-option-name";
+      label.textContent = name;
+      opt.appendChild(label);
+    }
     opt.addEventListener("click", () => {
-      avatarGrid
+      $("avatarModal")
         .querySelectorAll(".avatar-option")
         .forEach((o) => o.classList.remove("selected"));
       opt.classList.add("selected");
       selectedAvatar = av;
       updateAvatarPreview();
     });
-    avatarGrid.appendChild(opt);
-  });
+    grid.appendChild(opt);
+  };
+  avatarGrid.innerHTML = "";
+  AVATAR_CATALOG.forEach(({ id, name }) => addAvatarOption(avatarGrid, id, name));
+  if (emojiGrid) {
+    emojiGrid.innerHTML = "";
+    EMOJI_AVATARS.forEach((emoji) => addAvatarOption(emojiGrid, emoji, ""));
+  }
 
   // Render color options
   colorGrid.innerHTML = "";
@@ -465,7 +461,7 @@ function initAvatarSelector() {
 function updateAvatarPreview() {
   const circle = $("avatarPreviewCircle");
   if (circle) {
-    circle.textContent = selectedAvatar;
+    renderAvatar(circle, selectedAvatar);
     circle.style.borderColor = selectedColor;
     circle.style.boxShadow = `0 0 20px ${selectedColor}44`;
   }
@@ -477,7 +473,7 @@ function openAvatarModal(tableOnly = false) {
   modal.classList.toggle("table-outfit", tableOnly);
   // Sync current selection
   if (userProfile) {
-    selectedAvatar = userProfile.avatar || "🦊";
+    selectedAvatar = userProfile.avatar || PLAYER_AVATARS[0];
     selectedColor = userProfile.avatarColor || "#4fc3f7";
     selectedCardBack = getEquippedCardBack(userProfile);
     selectedPet = getEquippedPet(userProfile);
@@ -525,8 +521,7 @@ if ($("avatarSaveBtn")) {
     userProfile.avatarColor = selectedColor;
     userProfile.equippedCardBack = selectedCardBack;
     userProfile.equippedPet = selectedPet;
-    const ab = $("avatarBtn");
-    if (ab) ab.textContent = selectedAvatar + " 换装";
+    updateAvatarBtn();
     toast("头像已保存");
   });
 }
@@ -539,6 +534,7 @@ Net.on("user:avatarUpdated", (d) => {
   }
   selectedAvatar = d.avatar;
   selectedColor = d.avatarColor;
+  updateAvatarBtn();
 });
 
 Net.on("user:cardBackUpdated", (d) => {
@@ -1035,8 +1031,15 @@ function showAvatarBtn(show) {
   const btn = $("avatarBtn");
   if (btn) {
     btn.style.display = show ? "inline-flex" : "none";
-    if (show && userProfile) {
-      btn.textContent = (userProfile.avatar || "🦊") + " 换装";
-    }
+    if (show) updateAvatarBtn();
   }
+}
+
+function updateAvatarBtn() {
+  const btn = $("avatarBtn");
+  if (!btn || !userProfile) return;
+  const icon = document.createElement("span");
+  icon.className = "avatar-btn-icon";
+  renderAvatar(icon, userProfile.avatar || PLAYER_AVATARS[0]);
+  btn.replaceChildren(icon, document.createTextNode("换装"));
 }

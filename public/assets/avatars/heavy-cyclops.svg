@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2622"/>
+      <stop offset="1" stop-color="#47423b"/>
+    </linearGradient>
+    <linearGradient id="ivory" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7efdf"/>
+      <stop offset="1" stop-color="#d8c9ac"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b9c0c4"/>
+      <stop offset="1" stop-color="#6d767b"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecd082"/>
+      <stop offset=".5" stop-color="#c9a24a"/>
+      <stop offset="1" stop-color="#83622a"/>
+    </linearGradient>
+    <radialGradient id="core" cx=".42" cy=".4" r=".65">
+      <stop offset="0" stop-color="#fff2c4"/>
+      <stop offset=".4" stop-color="#ff9a3c"/>
+      <stop offset="1" stop-color="#c8361f"/>
+    </radialGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="url(#bg)" stroke="#1f1b18" stroke-width="1.5"/>
+    <path d="M22.2 8.6H41.8L55.4 22.2V41.8L41.8 55.4H22.2L8.6 41.8V22.2Z" fill="none" stroke="#5c544a" stroke-width="1"/>
+    <!-- louvered chin grille -->
+    <path d="M23 45H41L40 56H24Z" fill="#5d666b" stroke="#241f1c" stroke-width="2"/>
+    <path d="M25.6 49.4H38.4M25.8 52H38.2M26 54.4H38" stroke="#26231f" stroke-width="1.5"/>
+    <path d="M25.8 50.5H38.2M26 53.1H38" stroke="#fff" stroke-width=".8" opacity=".35"/>
+    <!-- steel lower armor -->
+    <path d="M20 7H44L54 16L56 34L50 45L43 49H21L14 45L8 34L10 16Z" fill="url(#steel)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M10.4 35L18.6 39.6M53.6 35L45.4 39.6M14.6 44.2L21.4 47.8M49.4 44.2L42.6 47.8" fill="none" stroke="#4b5357" stroke-width="1.2"/>
+    <!-- hydraulic cheek pistons -->
+    <path d="M12.8 39.5L15.6 45M51.2 39.5L48.4 45" stroke="#241f1c" stroke-width="3.2"/>
+    <path d="M12.8 39.5L15.6 45M51.2 39.5L48.4 45" stroke="#dfe3e5" stroke-width="1.4"/>
+    <rect x="10.5" y="29.5" width="4.6" height="10" rx="1.2" fill="#8e979c" stroke="#241f1c" stroke-width="1.3"/>
+    <rect x="48.9" y="29.5" width="4.6" height="10" rx="1.2" fill="#8e979c" stroke="#241f1c" stroke-width="1.3"/>
+    <path d="M11.8 31V38M50.2 31V38" stroke="#fff" stroke-width="1" opacity=".55"/>
+    <!-- ivory beveled crown -->
+    <path d="M20 7H44L54 16L55 26H9L10 16Z" fill="url(#ivory)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M13 17.4L22 11.8H42L51 17.4" fill="none" stroke="#9c8e76" stroke-width="1.2"/>
+    <path d="M13.6 18.8L22.4 13.3H41.6L50.4 18.8" fill="none" stroke="#fff" stroke-width="1" opacity=".8"/>
+    <path d="M21 8.8H43M32 7V11.8" stroke="#9c8e76" stroke-width="1"/>
+    <path d="M11.4 24.6H52.6" stroke="#fff" stroke-width="1" opacity=".5"/>
+    <g fill="#a9b1b5" stroke="#4b4540" stroke-width=".7">
+      <circle cx="15.6" cy="21.6" r="1.3"/><circle cx="48.4" cy="21.6" r="1.3"/>
+      <circle cx="22" cy="11.8" r="1.2"/><circle cx="42" cy="11.8" r="1.2"/>
+    </g>
+    <!-- concentric cyclops lens -->
+    <circle cx="32" cy="31" r="15" fill="#ff7a33" opacity=".16"/>
+    <path d="M43.5 29.44L45.17 30.11L45.17 31.89L43.5 32.56L43.31 33.58L43.03 34.58L44.25 35.91L43.48 37.51L41.68 37.39L41.07 38.23L40.38 39.02L40.91 40.74L39.52 41.85L37.95 40.96L37.03 41.45L36.08 41.86L35.8 43.64L34.06 44.04L33.04 42.55L32 42.6L30.96 42.55L29.94 44.04L28.2 43.64L27.92 41.86L26.97 41.45L26.05 40.96L24.48 41.85L23.09 40.74L23.62 39.02L22.93 38.23L22.32 37.39L20.52 37.51L19.75 35.91L20.97 34.58L20.69 33.58L20.5 32.56L18.83 31.89L18.83 30.11L20.5 29.44L20.69 28.42L20.97 27.42L19.75 26.09L20.52 24.49L22.32 24.61L22.93 23.77L23.62 22.98L23.09 21.26L24.48 20.15L26.05 21.04L26.97 20.55L27.92 20.14L28.2 18.36L29.94 17.96L30.96 19.45L32 19.4L33.04 19.45L34.06 17.96L35.8 18.36L36.08 20.14L37.03 20.55L37.95 21.04L39.52 20.15L40.91 21.26L40.38 22.98L41.07 23.77L41.68 24.61L43.48 24.49L44.25 26.09L43.03 27.42L43.31 28.42Z" fill="url(#brass)" stroke="#241f1c" stroke-width="1.5"/>
+    <circle cx="32" cy="31" r="10.5" fill="#1b1917" stroke="#5b4320" stroke-width="1.2"/>
+    <path d="M36.4 31L38.15 38.75M34.2 34.81L28.36 40.21M29.8 34.81L22.21 32.45M27.6 31L25.85 23.25M29.8 27.19L35.64 21.79M34.2 27.19L41.79 29.55" stroke="#4d4741" stroke-width="1.2"/>
+    <circle cx="32" cy="31" r="6.6" fill="#ff7a33" opacity=".35"/>
+    <circle cx="32" cy="31" r="4.6" fill="url(#core)" stroke="#3a1c12" stroke-width="1"/>
+    <circle cx="30.4" cy="29.4" r="1.2" fill="#fff" opacity=".9"/>
+    <path d="M24.4 26.2A9 9 0 0 1 29 22.4" fill="none" stroke="#fff" stroke-width="1" opacity=".45"/>
+  </g>
+</svg>

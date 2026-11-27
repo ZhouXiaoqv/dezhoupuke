@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a4640"/>
+      <stop offset="1" stop-color="#2a2723"/>
+    </linearGradient>
+    <radialGradient id="skin" cx=".4" cy=".35" r=".75">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset=".7" stop-color="#f0e4cf"/>
+      <stop offset="1" stop-color="#dac9aa"/>
+    </radialGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0d68e"/>
+      <stop offset=".5" stop-color="#c9a24a"/>
+      <stop offset="1" stop-color="#83622a"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f1e8ff"/>
+      <stop offset=".5" stop-color="#b99cff"/>
+      <stop offset="1" stop-color="#6b4fc2"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="#ebe3d3" stroke="#cdbfa4" stroke-width="1.5"/>
+    <path d="M22.2 9H41.8L55 22.2V41.8L41.8 55H22.2L9 41.8V22.2Z" fill="none" stroke="#fffaf0" stroke-width="1"/>
+    <!-- long wavy hair -->
+    <path d="M32 14C43 14 49 21 49 31C49 37 52 40 50 45C48.5 49 52 52 50 57H14C12 52 15.5 49 14 45C12 40 15 37 15 31C15 21 21 14 32 14Z" fill="url(#hair)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M17.6 37C16 41 18.6 44.6 17 49M46.4 37C48 41 45.4 44.6 47 49" fill="none" stroke="#1f1c19" stroke-width="1.2"/>
+    <path d="M16.4 30C16.6 24 19.8 19 25 16.6M15.4 46C16.8 49 15.4 51.6 15.6 54" fill="none" stroke="#fff" stroke-width="1" opacity=".25"/>
+    <!-- neck and dress -->
+    <path d="M28.5 42H35.5V50.5H28.5Z" fill="#dac9aa" stroke="#2b2521" stroke-width="1.5"/>
+    <path d="M17 58C18.5 53 23.5 50.5 32 50.5C40.5 50.5 45.5 53 47 58Z" fill="#3d3934" stroke="#241f1c" stroke-width="2"/>
+    <path d="M27 50.8L32 55L37 50.8" fill="none" stroke="#c9a24a" stroke-width="1.2"/>
+    <!-- face -->
+    <path d="M23 28C23 38.5 26.5 45 32 45C37.5 45 41 38.5 41 28C41 23.4 37 20.6 32 20.6C27 20.6 23 23.4 23 28Z" fill="url(#skin)" stroke="#2b2521" stroke-width="1.8"/>
+    <path d="M24.6 31Q25 37.6 28 41.6" fill="none" stroke="#fff" stroke-width="1" opacity=".7"/>
+    <path d="M26 33Q28 34.7 30 33M34 33Q36 34.7 38 33" fill="none" stroke="#2b2521" stroke-width="1.4"/>
+    <path d="M25.4 32.2L24.6 31.4M38.6 32.2L39.4 31.4" stroke="#2b2521" stroke-width="1"/>
+    <path d="M30.5 39.6Q32 40.7 33.5 39.6" fill="none" stroke="#a83a52" stroke-width="1.4"/>
+    <!-- side-swept fringe -->
+    <path d="M22.6 31C21.8 22.5 25.8 17.4 32.4 17.4C38.6 17.4 42.2 21.6 41.6 30.4C40.2 25.2 36 22.4 30.2 23.2C27 23.6 24.4 26.4 22.6 31Z" fill="url(#hair)" stroke="#241f1c" stroke-width="1.8"/>
+    <path d="M26 20.6Q30 18.8 34.4 19.2" fill="none" stroke="#fff" stroke-width="1" opacity=".28"/>
+    <!-- star-orbit earring -->
+    <path d="M22.4 39.4V42.6" stroke="#c9a24a" stroke-width="1"/>
+    <circle cx="22.4" cy="46.4" r="3.6" fill="#b99cff" opacity=".25"/>
+    <path d="M22.4 44L23.1 45.7L24.8 46.4L23.1 47.1L22.4 48.8L21.7 47.1L20 46.4L21.7 45.7Z" fill="#efe6ff" stroke="#6b4fc2" stroke-width=".6"/>
+    <ellipse cx="22.4" cy="46.4" rx="3.8" ry="1.6" transform="rotate(-25 22.4 46.4)" fill="none" stroke="#c9a24a" stroke-width="1"/>
+    <circle cx="25.6" cy="44.9" r=".75" fill="#7ef0f8"/>
+    <!-- armillary gear crown: brass band, crossed rings and micro gear -->
+    <path d="M24.6 11.4L24.4 9.4M32 10.6V8M39.4 11.4L39.6 9.4" stroke="#83622a" stroke-width="1"/>
+    <g fill="none">
+      <ellipse cx="32" cy="14.6" rx="8.6" ry="4" stroke="#241f1c" stroke-width="2.8"/>
+      <ellipse cx="32" cy="14.6" rx="8.6" ry="4" stroke="#d8b660" stroke-width="1.2"/>
+      <ellipse cx="32" cy="14.6" rx="7" ry="2.6" transform="rotate(32 32 14.6)" stroke="#241f1c" stroke-width="2.6"/>
+      <ellipse cx="32" cy="14.6" rx="7" ry="2.6" transform="rotate(32 32 14.6)" stroke="#e6c877" stroke-width="1"/>
+      <ellipse cx="32" cy="14.6" rx="7" ry="2.6" transform="rotate(-32 32 14.6)" stroke="#241f1c" stroke-width="2.6"/>
+      <ellipse cx="32" cy="14.6" rx="7" ry="2.6" transform="rotate(-32 32 14.6)" stroke="#e6c877" stroke-width="1"/>
+    </g>
+    <path d="M34.2 14.42L34.89 14.74L34.75 15.41L33.99 15.43L33.82 15.73L33.61 16L33.88 16.71L33.31 17.09L32.75 16.57L32.42 16.66L32.08 16.7L31.76 17.39L31.09 17.25L31.07 16.49L30.77 16.32L30.5 16.11L29.79 16.38L29.41 15.81L29.93 15.25L29.84 14.92L29.8 14.58L29.11 14.26L29.25 13.59L30.01 13.57L30.18 13.27L30.39 13L30.12 12.29L30.69 11.91L31.25 12.43L31.58 12.34L31.92 12.3L32.24 11.61L32.91 11.75L32.93 12.51L33.23 12.68L33.5 12.89L34.21 12.62L34.59 13.19L34.07 13.75L34.16 14.08Z" fill="url(#brass)" stroke="#241f1c" stroke-width=".7"/>
+    <circle cx="32" cy="14.5" r=".8" fill="#3b3732"/>
+    <path d="M22.4 20.2Q32 16.4 41.6 20.2L41 22.6Q32 19.2 23 22.6Z" fill="url(#brass)" stroke="#241f1c" stroke-width="1.5"/>
+    <path d="M24.4 20.4Q32 17.8 39.6 20.4" fill="none" stroke="#fff" stroke-width=".8" opacity=".6"/>
+    <!-- three lavender crystals -->
+    <g fill="#b99cff" opacity=".3">
+      <circle cx="24.4" cy="8.4" r="2.4"/><circle cx="32" cy="7.4" r="2.6"/><circle cx="39.6" cy="8.4" r="2.4"/>
+    </g>
+    <path d="M24.4 6.6L25.6 8.4L24.4 10.2L23.2 8.4ZM32 5.4L33.5 7.5L32 9.6L30.5 7.5ZM39.6 6.6L40.8 8.4L39.6 10.2L38.4 8.4Z" fill="url(#gem)" stroke="#3b2a6e" stroke-width=".8"/>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2622"/>
+      <stop offset="1" stop-color="#47423b"/>
+    </linearGradient>
+    <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="10" y1="12" x2="30" y2="48">
+      <stop offset="0" stop-color="#ff8fc0"/>
+      <stop offset=".5" stop-color="#c79cf0"/>
+      <stop offset="1" stop-color="#4fe3f0"/>
+    </linearGradient>
+    <linearGradient id="capsule" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc4e2"/>
+      <stop offset=".5" stop-color="#e9ffff"/>
+      <stop offset="1" stop-color="#4fe3f0"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0d68e"/>
+      <stop offset=".5" stop-color="#c9a24a"/>
+      <stop offset="1" stop-color="#83622a"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="url(#bg)" stroke="#1f1b18" stroke-width="1.5"/>
+    <path d="M22.2 8.6H41.8L55.4 22.2V41.8L41.8 55.4H22.2L8.6 41.8V22.2Z" fill="none" stroke="#5c544a" stroke-width="1"/>
+    <!-- antennae -->
+    <path d="M31 18Q28 11 24.5 9M33 18Q36 11 39.5 9" fill="none" stroke="#241f1c" stroke-width="2.4"/>
+    <path d="M31 18Q28 11 24.5 9M33 18Q36 11 39.5 9" fill="none" stroke="#d99a86" stroke-width="1"/>
+    <circle cx="24.4" cy="9" r="1.3" fill="#ff8fc0" stroke="#241f1c" stroke-width=".7"/>
+    <circle cx="39.6" cy="9" r="1.3" fill="#7ef0f8" stroke="#241f1c" stroke-width=".7"/>
+    <!-- left wing pair, mirrored for the right side -->
+    <g id="wings">
+      <path d="M30 27C24 14 13 9 9.5 13C7 17 10 26 16 30C21 32.5 27 31 30 29Z" fill="url(#glass)" fill-opacity=".8"/>
+      <path d="M30.5 32.5C25 33 15 35 13.5 41C12.5 46 18 50 23 47C27 45 29.5 39 31 34Z" fill="url(#glass)" fill-opacity=".8"/>
+      <!-- glowing veins -->
+      <path d="M27.4 26.4Q20 17.6 15.6 11.8M27.4 29.4Q18.6 30.6 13 27.6M29 35.4Q21.6 36.8 15.4 41M28.6 37.4Q24.4 42.6 20.6 47.2" fill="none" stroke="#fff4fb" stroke-width=".8" opacity=".85"/>
+      <!-- iron struts with rose-gold hinges -->
+      <path d="M30 28L12.6 14.4M30 28L11 23.6M30.6 33.5L16.4 45" stroke="#3d4246" stroke-width="1.6"/>
+      <path d="M30 27C24 14 13 9 9.5 13C7 17 10 26 16 30C21 32.5 27 31 30 29Z" fill="none" stroke="#241f1c" stroke-width="3.2"/>
+      <path d="M30 27C24 14 13 9 9.5 13C7 17 10 26 16 30C21 32.5 27 31 30 29Z" fill="none" stroke="#d99a86" stroke-width="1.2"/>
+      <path d="M30.5 32.5C25 33 15 35 13.5 41C12.5 46 18 50 23 47C27 45 29.5 39 31 34Z" fill="none" stroke="#241f1c" stroke-width="3.2"/>
+      <path d="M30.5 32.5C25 33 15 35 13.5 41C12.5 46 18 50 23 47C27 45 29.5 39 31 34Z" fill="none" stroke="#d99a86" stroke-width="1.2"/>
+      <g fill="#e8b4a2" stroke="#241f1c" stroke-width=".7">
+        <circle cx="21.2" cy="21.2" r="1.3"/><circle cx="20.4" cy="25.8" r="1.3"/><circle cx="23.4" cy="39.2" r="1.3"/>
+        <circle cx="10.2" cy="13.2" r="1"/><circle cx="14.4" cy="44.2" r="1"/>
+      </g>
+      <path d="M11.4 18.4Q11 14.4 13.6 12.6" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/>
+    </g>
+    <use href="#wings" transform="matrix(-1 0 0 1 64 0)"/>
+    <!-- glowing energy capsule body -->
+    <rect x="27.6" y="20.4" width="8.8" height="27.6" rx="4.4" fill="#ff8fc0" opacity=".22"/>
+    <rect x="29.3" y="22" width="5.4" height="24.4" rx="2.7" fill="url(#capsule)" stroke="#241f1c" stroke-width="1.6"/>
+    <path d="M30.7 24.6V33" stroke="#fff" stroke-width="1" opacity=".9"/>
+    <rect x="28.6" y="27" width="6.8" height="2.2" rx=".7" fill="url(#brass)" stroke="#241f1c" stroke-width="1"/>
+    <rect x="28.6" y="37.6" width="6.8" height="2.2" rx=".7" fill="url(#brass)" stroke="#241f1c" stroke-width="1"/>
+    <circle cx="32" cy="19.6" r="2.5" fill="url(#brass)" stroke="#241f1c" stroke-width="1.3"/>
+    <circle cx="32" cy="47.2" r="1.6" fill="url(#brass)" stroke="#241f1c" stroke-width="1"/>
+  </g>
+</svg>

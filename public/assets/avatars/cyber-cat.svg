@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2622"/>
+      <stop offset="1" stop-color="#47423b"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cbc3b5"/>
+      <stop offset="1" stop-color="#857c70"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="url(#bg)" stroke="#1f1b18" stroke-width="1.5"/>
+    <path d="M22.2 8.6H41.8L55.4 22.2V41.8L41.8 55.4H22.2L8.6 41.8V22.2Z" fill="none" stroke="#5c544a" stroke-width="1"/>
+    <!-- mechanical ears with neon strips -->
+    <path d="M11 28L12 6.5L27 18ZM53 28L52 6.5L37 18Z" fill="url(#metal)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M14 12.5L22.5 18.4L14.4 24.6ZM50 12.5L41.5 18.4L49.6 24.6Z" fill="#2a2622" stroke="#1b1815" stroke-width="1"/>
+    <path d="M15.4 14.8L15.9 22.4" stroke="#ff4fb4" stroke-width="4" opacity=".3"/>
+    <path d="M15.4 14.8L15.9 22.4" stroke="#ff74c6" stroke-width="1.7"/>
+    <path d="M48.6 14.8L48.1 22.4" stroke="#3fe6f0" stroke-width="4" opacity=".3"/>
+    <path d="M48.6 14.8L48.1 22.4" stroke="#6ff4fa" stroke-width="1.7"/>
+    <path d="M12.6 9L12 25" stroke="#fff" stroke-width="1" opacity=".45"/>
+    <!-- faceted head -->
+    <path d="M24 17H40L53 26L56 38L46 51L32 56L18 51L8 38L11 26Z" fill="url(#metal)" stroke="#241f1c" stroke-width="2"/>
+    <path d="M24 17H40L32 29Z" fill="#ddd6ca" opacity=".75"/>
+    <path d="M8 38L22 41L18 51ZM56 38L42 41L46 51Z" fill="#5f574d" opacity=".35"/>
+    <path d="M18 51L26 46H38L46 51L32 56Z" fill="#000" opacity=".14"/>
+    <path d="M24 17L32 29L40 17M11 26L21 34M53 26L43 34M8 38L22 41M56 38L42 41M22 41L26 46M42 41L38 46M26 46H38M18 51L26 46M46 51L38 46" fill="none" stroke="#6b6257" stroke-width="1"/>
+    <path d="M12.2 25.4L23.8 17.8H31" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/>
+    <!-- three-trace forehead circuit -->
+    <path d="M32 18.6V25M28.2 18.6V21L26 23.2M35.8 18.6V21L38 23.2" fill="none" stroke="#2a2622" stroke-width="2.4"/>
+    <path d="M32 18.6V25M28.2 18.6V21L26 23.2M35.8 18.6V21L38 23.2" fill="none" stroke="#5ff2f8" stroke-width="1"/>
+    <g fill="#5ff2f8" stroke="#2a2622" stroke-width=".7">
+      <circle cx="32" cy="26" r="1.2"/><circle cx="25.4" cy="23.8" r="1.1"/><circle cx="38.6" cy="23.8" r="1.1"/>
+    </g>
+    <!-- triangular green eyes -->
+    <path d="M15.6 34.6L29.4 30.4L26.8 38.6ZM48.4 34.6L34.6 30.4L37.2 38.6Z" fill="#1b1917" stroke="#1b1917" stroke-width="1.5"/>
+    <path d="M18 34.4L27.6 31.6L25.8 36.8ZM46 34.4L36.4 31.6L38.2 36.8Z" fill="#5cf08a" stroke="#5cf08a" stroke-width="2.4" stroke-opacity=".3"/>
+    <path d="M18 34.4L27.6 31.6L25.8 36.8ZM46 34.4L36.4 31.6L38.2 36.8Z" fill="#7dfba5"/>
+    <path d="M24.8 32.7L24.3 35.8M39.2 32.7L39.7 35.8" stroke="#0f3a1f" stroke-width="1.1"/>
+    <!-- muzzle -->
+    <path d="M29.6 42H34.4L32 44.6Z" fill="#2a2622" stroke="#2a2622" stroke-width="1"/>
+    <path d="M32 44.6V46.4M32 46.4Q30 48.4 28 47M32 46.4Q34 48.4 36 47" fill="none" stroke="#2a2622" stroke-width="1.2"/>
+    <!-- whisker probes -->
+    <path d="M22 43.6L7.2 41M22 46.2L8 49M42 43.6L56.8 41M42 46.2L56 49" stroke="#241f1c" stroke-width="2.6"/>
+    <path d="M22 43.6L7.2 41M22 46.2L8 49M42 43.6L56.8 41M42 46.2L56 49" stroke="#d6dbde" stroke-width="1.1"/>
+    <g fill="#e3c06a" stroke="#241f1c" stroke-width=".7">
+      <circle cx="7.2" cy="41" r="1.2"/><circle cx="8" cy="49" r="1.2"/>
+      <circle cx="56.8" cy="41" r="1.2"/><circle cx="56" cy="49" r="1.2"/>
+    </g>
+    <circle cx="22" cy="44.9" r="1.6" fill="#8e979c" stroke="#241f1c" stroke-width="1"/>
+    <circle cx="42" cy="44.9" r="1.6" fill="#8e979c" stroke="#241f1c" stroke-width="1"/>
+  </g>
+</svg>

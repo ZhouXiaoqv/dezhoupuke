@@ -243,7 +243,7 @@ const MechanicalTable = (() => {
         delete seat.dataset.playerId;
         delete seat.dataset.playerIndex;
         const medallion = seat.querySelector(".seat-medallion");
-        medallion.textContent = "";
+        renderAvatar(medallion, "");
         medallion.style.borderColor = "";
         const name = seat.querySelector(".seat-player-name");
         name.textContent = name.title = "";

@@ -86,13 +86,13 @@ function buildLayoutTestState(tableStyle = "classic") {
       allIn: false,
       lastAction: "",
       connected: true,
-      avatar: "AI",
+      avatar: PLAYER_AVATARS[(i + 1) % PLAYER_AVATARS.length],
       avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
       cardBack: cardBacks[i % cardBacks.length],
       pet: pets[i % pets.length],
       publicProfile: {
         username: `\u7535\u8111 ${i + 1}`,
-        avatar: "AI",
+        avatar: PLAYER_AVATARS[(i + 1) % PLAYER_AVATARS.length],
         avatarColor: PLAYER_COLORS[i % PLAYER_COLORS.length],
         pet: pets[i % pets.length],
         charm: 12 - i,
@@ -690,7 +690,7 @@ function renderGame(state) {
         : actionMap[p.lastAction] || (p.allIn && state.phase !== "idle" ? "ALL IN" : "");
     }
     const medallion = infoEl.querySelector(".seat-medallion");
-    medallion.textContent = seatAvatar;
+    renderAvatar(medallion, seatAvatar);
     medallion.style.borderColor = seatColor;
     const name = infoEl.querySelector(".seat-player-name");
     name.textContent = p.name + (!mechanical && isMySeat ? " (你)" : "");

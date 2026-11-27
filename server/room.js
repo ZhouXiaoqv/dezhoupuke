@@ -6,6 +6,7 @@ const { Game, START_STACK } = require('./game');
 const { startingChips } = require('./chips');
 const crypto = require('crypto');
 const logger = require('./logger');
+const { BOT_AVATAR, resolveAvatar } = require('./avatars');
 
 const ROOM_RESUME_TTL = 30 * 60 * 1000;
 const MAX_PLAYERS = 8;
@@ -74,7 +75,7 @@ class Room {
       isBot,
       connected: true,
       _username: ws?._username || null,
-      avatar: ws?._playerAvatar || (isBot ? '🤖' : 'A'),
+      avatar: isBot ? BOT_AVATAR : resolveAvatar(ws?._playerAvatar, ws?._username || id),
       avatarColor: ws?._playerColor || null,
       cardBack: ws?._playerCardBack || 'default-blue',
       pet: ws?._playerPet || '',
@@ -353,7 +354,7 @@ class Room {
       connected: true,
       isBot: !!p.isBot,
       _username: p._username || null,
-      avatar: p.avatar || 'A',
+      avatar: resolveAvatar(p.avatar, p._username || p.id),
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
       pet: p.pet || p.publicProfile?.pet || '',
@@ -707,7 +708,7 @@ class Room {
       ready: p.ready,
       isBot: !!p.isBot,
       connected: p.connected,
-      avatar: p.avatar || 'A',
+      avatar: resolveAvatar(p.avatar, p._username || p.id),
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
       pet: p.pet || p.publicProfile?.pet || '',

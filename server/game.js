@@ -9,6 +9,7 @@ const RANK_VALUES = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J
 const HAND_NAMES = ['高牌','一对','两对','三条','顺子','同花','葫芦','四条','同花顺','皇家同花顺'];
 const { randomUUID } = require('node:crypto');
 const gameLogger = require('./gameLogger');
+const { resolveAvatar } = require('./avatars');
 const { emptyChips, chipTotal, startingChips, addChips, transferChips } = require('./chips');
 
 const SB = 10;
@@ -128,7 +129,7 @@ class Game {
       lastAction: '',
       connected: p.connected !== false,
       _username: p._username || null,
-      avatar: p.avatar || '🦊',
+      avatar: resolveAvatar(p.avatar, p._username || p.id),
       avatarColor: p.avatarColor || null,
       cardBack: p.cardBack || 'default-blue',
       pet: p.pet || p.publicProfile?.pet || '',
@@ -316,7 +317,7 @@ class Game {
         folded: p.folded, allIn: p.allIn, lastAction: p.lastAction,
         handRank: this.phase === 'showdown' ? this.showdownRanks?.get(p.id) : undefined,
         connected: p.connected,
-        avatar: p.avatar || '🦊',
+        avatar: resolveAvatar(p.avatar, p._username || p.id),
         avatarColor: p.avatarColor || null,
         cardBack: p.cardBack || 'default-blue',
         pet: p.pet || p.publicProfile?.pet || '',

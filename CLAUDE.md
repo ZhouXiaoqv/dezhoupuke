@@ -57,6 +57,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 
 ## Conventions
 
+- Avatars are either one of fifteen vector ids (`public/assets/avatars/<id>.svg`) or one of the 18 classic emoji. Both lists live in `server/avatars.js` and `public/js/ui.js`; `user:setAvatar` accepts only those values. Render avatars with `renderAvatar(el, value)`. Unset or legacy `"A"` avatars resolve to a stable default from the first nine vector ids, and bots use `crt-mech`.
 - Seated players open the card-back and pet selector from the shirt icon beside the sound toggle. Equipment uses the same messages as the lobby.
 - Room hosts can send `room:addBot` between hands. Bots occupy normal seats, check or call through the server engine, and have no account or socket. The solo-room browser regression checks two consecutive hands.
 - Server sends Chinese-language error messages to clients

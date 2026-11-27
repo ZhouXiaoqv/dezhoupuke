@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="ivory" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset="1" stop-color="#dfd0b4"/>
+    </linearGradient>
+    <linearGradient id="rosegold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2c3b2"/>
+      <stop offset=".55" stop-color="#d99a86"/>
+      <stop offset="1" stop-color="#a86a5a"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6c7174"/>
+      <stop offset="1" stop-color="#43474a"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0d68e"/>
+      <stop offset=".5" stop-color="#c9a24a"/>
+      <stop offset="1" stop-color="#83622a"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd6ee"/>
+      <stop offset=".5" stop-color="#ff4fb4"/>
+      <stop offset="1" stop-color="#9e1563"/>
+    </linearGradient>
+  </defs>
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21 6H43L58 21V43L43 58H21L6 43V21Z" fill="#ebe3d3" stroke="#cdbfa4" stroke-width="1.5"/>
+    <path d="M22.2 9H41.8L55 22.2V41.8L41.8 55H22.2L9 41.8V22.2Z" fill="none" stroke="#fffaf0" stroke-width="1"/>
+    <!-- brass stem -->
+    <path d="M32 33C32 41 31 48 29.6 56" fill="none" stroke="#241f1c" stroke-width="3.8"/>
+    <path d="M32 33C32 41 31 48 29.6 56" fill="none" stroke="url(#brass)" stroke-width="2"/>
+    <!-- serrated iron leaves with micro screws -->
+    <path d="M31 45.5L27 42.2L26 43.6L22.6 41.2L22 42.8L18 41.6L17.8 43L14 43L17.6 45.6L21.4 46.9L25.6 47.4L29 46.9Z" fill="url(#leaf)" stroke="#241f1c" stroke-width="1.8"/>
+    <path d="M30.6 45.6L16.6 43.4" stroke="#2a2d2f" stroke-width="1"/>
+    <path d="M32.6 41L36 37.6L37 39L40.6 36.4L41.2 38L45 36.6L45.4 38.2L49.5 37.8L46 41.2L42 43L37.6 43.6L34 42.8Z" fill="url(#leaf)" stroke="#241f1c" stroke-width="1.8"/>
+    <path d="M33 41L47.6 38.6" stroke="#2a2d2f" stroke-width="1"/>
+    <circle cx="23.6" cy="45.2" r="1.15" fill="#b6bdc0" stroke="#241f1c" stroke-width=".6"/>
+    <circle cx="40.6" cy="40.4" r="1.15" fill="#b6bdc0" stroke="#241f1c" stroke-width=".6"/>
+    <path d="M23 45.8L24.2 44.6M40 41L41.2 39.8" stroke="#241f1c" stroke-width=".6"/>
+    <!-- base disc gives depth between petals -->
+    <circle cx="32" cy="23" r="11.4" fill="#8a5446" stroke="#241f1c" stroke-width="1.8"/>
+    <!-- outer petals: ivory / rose gold -->
+    <g stroke="#2b2521" stroke-width="1.3">
+      <path d="M30.97 20.18L26.2 12.95L32 9.4L37.8 12.95L33.03 20.18Z" fill="url(#ivory)"/>
+      <path d="M34.36 21.15L39.76 14.38L44.93 18.8L43.35 25.41L35 23.1Z" fill="url(#rosegold)"/>
+      <path d="M34.49 24.68L42.6 27.72L39.99 34L33.21 34.54L32.83 25.88Z" fill="url(#ivory)"/>
+      <path d="M31.17 25.88L30.79 34.54L24.01 34L21.4 27.72L29.51 24.68Z" fill="url(#rosegold)"/>
+      <path d="M29 23.1L20.65 25.41L19.07 18.8L24.24 14.38L29.64 21.15Z" fill="url(#ivory)"/>
+    </g>
+    <path d="M30.97 20.18L26.2 12.95L32 9.4L32 20ZM34.36 21.15L39.76 14.38L44.93 18.8L34.85 22.07ZM34.49 24.68L42.6 27.72L39.99 34L33.76 25.43ZM31.17 25.88L30.79 34.54L24.01 34L30.24 25.43ZM29 23.1L20.65 25.41L19.07 18.8L29.15 22.07Z" fill="#000" opacity=".1"/>
+    <!-- petal edge circuits -->
+    <g fill="none" stroke-width=".8">
+      <path d="M29.96 16.1L29.42 13.36L31.18 11.33M37.71 27.38L39.75 29.28L39.52 31.96M24.81 22.81L22.04 22.48L20.65 20.17" stroke="#c4577a"/>
+      <path d="M37.93 18.93L40.37 17.57L42.84 18.62M29.6 29.78L28.42 32.31L25.8 32.92" stroke="#fff1dc"/>
+    </g>
+    <g fill="#ff74c6"><circle cx="31.18" cy="11.33" r=".7"/><circle cx="39.52" cy="31.96" r=".7"/><circle cx="20.65" cy="20.17" r=".7"/></g>
+    <g fill="#fff1dc"><circle cx="42.84" cy="18.62" r=".7"/><circle cx="25.8" cy="32.92" r=".7"/></g>
+    <!-- middle petals -->
+    <g stroke="#2b2521" stroke-width="1.1">
+      <path d="M32.55 21.08L32.9 14.45L37.88 14.91L39.86 19.5L33.66 21.88Z" fill="url(#rosegold)"/>
+      <path d="M34 22.93L40.41 21.21L41.51 26.09L37.75 29.39L33.58 24.23Z" fill="url(#ivory)"/>
+      <path d="M32.68 24.88L36.3 30.45L32 33L27.7 30.45L31.32 24.88Z" fill="url(#rosegold)"/>
+      <path d="M30.42 24.23L26.25 29.39L22.49 26.09L23.59 21.21L30 22.93Z" fill="url(#ivory)"/>
+      <path d="M30.34 21.88L24.14 19.5L26.12 14.91L31.1 14.45L31.45 21.08Z" fill="url(#rosegold)"/>
+    </g>
+    <path d="M32.55 21.08L32.9 14.45L37.88 14.91L33.18 21.38ZM34 22.93L40.41 21.21L41.51 26.09L33.9 23.62ZM32.68 24.88L36.3 30.45L32 33L32 25ZM30.42 24.23L26.25 29.39L22.49 26.09L30.1 23.62ZM30.34 21.88L24.14 19.5L26.12 14.91L30.82 21.38Z" fill="#000" opacity=".12"/>
+    <!-- 1px metal highlights -->
+    <path d="M26.2 12.95L32 9.4M19.07 18.8L24.24 14.38M39.76 14.38L44.93 18.8M26.12 14.91L31.1 14.45M23.59 21.21L22.49 26.09M32.9 14.45L37.88 14.91" stroke="#fff" stroke-width="1" opacity=".75"/>
+    <!-- inner swirl -->
+    <g stroke="#2b2521" stroke-width="1" fill="url(#ivory)">
+      <path d="M32.5 22.13L33.12 17.72L37.72 19.7L37.14 24.67L33 23Z"/>
+      <path d="M32.5 23.87L36.01 26.61L32 29.6L27.99 26.61L31.5 23.87Z"/>
+      <path d="M31 23L26.86 24.67L26.28 19.7L30.88 17.72L31.5 22.13Z"/>
+    </g>
+    <!-- magenta polyhedral core -->
+    <circle cx="32" cy="23" r="5.2" fill="#ff4fb4" opacity=".3"/>
+    <path d="M32 19.6L35 21.3V24.7L32 26.4L29 24.7V21.3Z" fill="url(#gem)" stroke="#5a1838" stroke-width="1"/>
+    <path d="M32 19.6V23L35 24.7M32 23L29 24.7" stroke="#fff" stroke-width=".7" opacity=".55"/>
+    <path d="M32 19.6L29 21.3L32 23Z" fill="#fff" opacity=".45"/>
+  </g>
+</svg>
