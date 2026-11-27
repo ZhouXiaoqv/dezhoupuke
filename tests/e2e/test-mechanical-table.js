@@ -383,7 +383,7 @@ async function run() {
         ).map(node => node.dataset.playerId),
         outfit: document.getElementById('tableOutfitBtn').hidden,
         interactions: document.querySelectorAll('#table .interact-trigger').length,
-        backs: document.querySelectorAll('#table .mechanical-card-back:not([data-card-back])').length,
+        backs: document.querySelectorAll('#table .seat-cards .card-back[data-card-back="default-blue"]').length,
       }));
       const self = table.order.indexOf(table.localId);
       assert.deepEqual(table.seats, [...table.order.slice(self), ...table.order.slice(0, self)]);

@@ -184,15 +184,18 @@ function register(ws, ctx) {
 
   ws._on('user:setCardBack', (data) => {
     if (!requireLogin()) return;
+    const room = ws._currentRoom;
+    if (room?.tableStyle === 'mechanical' && (room.gameRunning || room.nextReceipt)) {
+      ws.send(JSON.stringify({ type: 'user:error', data: { message: '请回到大厅更换牌背' } }));
+      return;
+    }
     const result = userStore.updateCardBack(ws._currentUser.username, data && data.id);
     if (result.error) {
       ws.send(JSON.stringify({ type: 'user:error', data: { message: result.error } }));
       return;
     }
     ws._playerCardBack = result.equippedCardBack || DEFAULT_CARD_BACK;
-    if (ws._currentRoom && ws._playerId) {
-      ws._currentRoom.updatePlayerCardBack(ws._playerId, ws._playerCardBack);
-    }
+    if (ws._playerId) room?.updatePlayerCardBack(ws._playerId, ws._playerCardBack);
     ws.send(JSON.stringify({
       type: 'user:cardBackUpdated',
       data: {

@@ -31,8 +31,7 @@
   display: flex;
   animation: fadeIn 0.3s ease;
 }
-.table-outfit .avatar-personalization,
-.table-card-backs :is(.outfit-cardback-heading, .outfit-pets) {
+.table-outfit .avatar-personalization {
   display: none;
 }
 .avatar-card {

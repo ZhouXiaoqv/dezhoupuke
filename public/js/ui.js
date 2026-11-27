@@ -497,12 +497,16 @@ function addPatternShapes(el, shapes) {
 function $(id) {
   return document.getElementById(id);
 }
-function showScreen(id) {
+function syncTableOutfit() {
   const outfitButton = $("tableOutfitBtn");
-  outfitButton.hidden = id !== "table" || !isRegistered || isSpectator;
+  outfitButton.hidden = !$("table-container").classList.contains("active") ||
+    MechanicalTable.enabled() || !isRegistered || isSpectator;
   if (outfitButton.hidden && $("avatarModal").classList.contains("table-outfit")) {
     closeAvatarModal();
   }
+}
+
+function showScreen(id) {
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.remove("active"));
@@ -517,6 +521,7 @@ function showScreen(id) {
     window.Pets3D?.clear();
     $(id).classList.add("active");
   }
+  syncTableOutfit();
   MobileTable.setScreen(id);
 }
 

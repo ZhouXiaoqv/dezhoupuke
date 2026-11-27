@@ -58,7 +58,7 @@ User data stored in `data/users.json`, including account profile, stats, achieve
 ## Conventions
 
 - Avatars are either one of fifteen vector ids (`public/assets/avatars/<id>.svg`) or one of the 18 classic emoji. Both lists live in `server/avatars.js` and `public/js/ui.js`; `user:setAvatar` accepts only those values. Render avatars with `renderAvatar(el, value)`. Unset or legacy `"A"` avatars resolve to a stable default from the first nine vector ids, and bots use `crt-mech`.
-- Seated players open the equipment selector from the outfit button in the table console. Classic rooms offer card backs and pets. The mechanical console opens the card-back selector only. Equipment uses the same messages as the lobby.
+- Seated classic players can change card backs and pets from the table console. Mechanical players equip card backs in the lobby before play. The mechanical console omits the outfit button, and `user:setCardBack` rejects changes during play and the settlement receipt.
 - Room hosts can send `room:addBot` between hands. Bots occupy normal seats, check or call through the server engine, and have no account or socket. The solo-room browser regression checks two consecutive hands.
 - Server sends Chinese-language error messages to clients
 - The layout test room includes local-only raise and all-in preview buttons using the live feedback renderer.

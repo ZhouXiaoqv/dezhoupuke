@@ -469,11 +469,8 @@ function updateAvatarPreview() {
 
 function openAvatarModal(tableOnly = false) {
   const modal = $("avatarModal");
-  if (!modal) return;
+  if (!modal || (tableOnly && $("tableOutfitBtn").hidden)) return;
   modal.classList.toggle("table-outfit", tableOnly);
-  const cardBackOnly = tableOnly && MechanicalTable.enabled();
-  modal.classList.toggle("table-card-backs", cardBackOnly);
-  $("outfitTitle").textContent = cardBackOnly ? "更换牌背" : "角色换装";
   // Sync current selection
   if (userProfile) {
     selectedAvatar = userProfile.avatar || PLAYER_AVATARS[0];
@@ -488,7 +485,7 @@ function openAvatarModal(tableOnly = false) {
 
 function closeAvatarModal() {
   const modal = $("avatarModal");
-  if (modal) modal.classList.remove("active", "table-outfit", "table-card-backs");
+  if (modal) modal.classList.remove("active", "table-outfit");
 }
 
 $("tableOutfitBtn").addEventListener("click", () => openAvatarModal(true));
@@ -509,7 +506,7 @@ if ($("avatarSaveBtn")) {
     const cardBackChanged =
       selectedCardBack !== getEquippedCardBack(userProfile);
     const modal = $("avatarModal");
-    const petChanged = !modal.classList.contains("table-card-backs") && selectedPet !== getEquippedPet(userProfile);
+    const petChanged = selectedPet !== getEquippedPet(userProfile);
     const tableOnly = modal.classList.contains("table-outfit");
     if (!tableOnly) {
       Net.send("user:setAvatar", {

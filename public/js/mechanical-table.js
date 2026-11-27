@@ -167,10 +167,7 @@ const MechanicalTable = (() => {
       community.replaceChildren();
       delete table.dataset.mechanicalViewer;
       container.querySelector(":scope > .my-hand")?.remove();
-      const outfitButton = $("tableOutfitBtn");
-      outfitButton.title = active ? "更换牌背" : "换装";
-      outfitButton.setAttribute("aria-label", outfitButton.title);
-      outfitButton.hidden = !container.classList.contains("active") || !isRegistered || isSpectator;
+      syncTableOutfit();
       if (active) {
         fitStage();
         bindSeats([]);
