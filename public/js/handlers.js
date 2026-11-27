@@ -346,7 +346,7 @@ Net.on("game:handEnd", (d) => {
 });
 
 Net.on("game:showHandOption", (d) => {
-  if (isSpectator) return;
+  if (isSpectator || MechanicalTable.enabled()) return;
   if (d.playerId !== Net.playerId) return;
   hideActions();
   showShowHandBar(d.timeout || 8);
@@ -354,6 +354,7 @@ Net.on("game:showHandOption", (d) => {
 });
 
 Net.on("game:handShown", (d) => {
+  if (d.receiptId) MechanicalTable.showReceiptHand(d);
   toast(`${d.name || "玩家"} 展示了手牌`);
 });
 

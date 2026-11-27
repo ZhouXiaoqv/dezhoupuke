@@ -1367,8 +1367,7 @@
   background: repeating-linear-gradient(90deg, #4c3e2c 0 1px, transparent 1px 3px, #4c3e2c 3px 5px,
     transparent 5px 6px, #4c3e2c 6px 7px, transparent 7px 9px, #4c3e2c 9px 12px, transparent 12px 14px);
 }
-.mechanical-receipt-next {
-  min-width: 136px;
+:is(.mechanical-receipt-next, .mechanical-receipt-show) {
   padding: 4px 12px;
   border: 3px double #9a6c49;
   border-radius: 2px;
@@ -1379,9 +1378,11 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.mechanical-receipt-next:not(:disabled):hover { background: #fff5dc; }
-.mechanical-receipt-next:not(:disabled):active { transform: translateY(1px); box-shadow: none; }
-.mechanical-receipt-next:disabled {
+.mechanical-receipt-next { min-width: 136px; }
+.mechanical-receipt-show { min-width: 90px; margin-left: auto; }
+:is(.mechanical-receipt-next, .mechanical-receipt-show):not(:disabled):hover { background: #fff5dc; }
+:is(.mechanical-receipt-next, .mechanical-receipt-show):not(:disabled):active { transform: translateY(1px); box-shadow: none; }
+:is(.mechanical-receipt-next, .mechanical-receipt-show):disabled {
   border-color: #ab9a79;
   background: #ecddbd;
   box-shadow: inset 0 1px 2px #775d3530;

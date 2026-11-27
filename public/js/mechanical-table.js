@@ -1545,7 +1545,7 @@ const MechanicalTable = (() => {
   }
 
   function printReceipt(snapshot, settlement) {
-    const { winners = [], refunds = [], showedPlayerId } = settlement;
+    const { winners = [], refunds = [] } = settlement;
     const paper = receiptTemplate.content.firstElementChild.cloneNode(true);
     paper.querySelector("h2").textContent = `第 ${String(snapshot.handNum).padStart(3, "0")} 手 · 结算单`;
     paper.querySelector(".mechanical-receipt-pot").textContent = "总底池 " + currency.format(snapshot.pot);
@@ -1554,6 +1554,7 @@ const MechanicalTable = (() => {
     if (!snapshot.community.length) board.textContent = "本手未发公共牌";
     const rows = snapshot.players.map((player, index) => {
       const row = document.createElement("li");
+      row.dataset.playerId = player.id;
       const award = winners.find(winner => winner.id === player.id);
       const refund = refunds.find(entry => entry.id === player.id);
       if (award) row.classList.add("mechanical-result-winner");
@@ -1576,7 +1577,7 @@ const MechanicalTable = (() => {
       }
       const cards = document.createElement("span");
       cards.className = "mechanical-result-hand";
-      if ((!player.folded && snapshot.phase === "showdown") || showedPlayerId === player.id) {
+      if (snapshot.isSpectatorView || (!player.folded && snapshot.phase === "showdown")) {
         cards.append(...player.hand.filter(Boolean).map(createCardEl));
       }
       if (award) {
@@ -1677,6 +1678,7 @@ const MechanicalTable = (() => {
     const host = isHost && !isSpectator;
     const starting = remaining === 0 && ticket.canStart !== false;
     ticket.button.disabled = !host || starting || !Net.connected;
+    ticket.showButton.disabled = ticket.handShown || remaining === 0 || !Net.connected;
     if (starting) ticket.button.textContent = "正在开局…";
     else if (remaining === 0 && !host) ticket.button.textContent = "等待玩家入座";
     else {
@@ -1701,8 +1703,26 @@ const MechanicalTable = (() => {
     refreshNextHand();
   }
 
+  function showReceiptHand({ receiptId, playerId, hand, rank }) {
+    const ticket = latestReceipt;
+    if (!ticket || ticket.id !== receiptId || hand?.length !== 2 || !hand.every(Boolean)) return;
+    const row = ticket.paper.querySelector(`li[data-player-id="${CSS.escape(playerId)}"]`);
+    const cards = row?.querySelector(".mechanical-result-hand");
+    if (!cards || cards.childElementCount) return;
+    cards.append(...hand.map(createCardEl));
+    if (rank) row.querySelector(".mechanical-receipt-identity small").textContent = rank;
+    if (playerId !== Net.playerId) return;
+    ticket.handShown = true;
+    ticket.showButton.textContent = "已展示";
+    refreshNextHand();
+  }
+
   function restoreReceipt(snapshot, settlement) {
-    if (latestReceipt?.id === settlement.receiptId) {
+    if (latestReceipt && latestReceipt.id === settlement.receiptId) {
+      for (const { id, hand } of snapshot.players) {
+        const rank = settlement.winners?.find(winner => winner.id === id)?.revealedRank;
+        showReceiptHand({ receiptId: settlement.receiptId, playerId: id, hand, rank });
+      }
       reportReceiptReady(latestReceipt);
       return;
     }
@@ -1721,7 +1741,16 @@ const MechanicalTable = (() => {
     }
     const paper = printReceipt(snapshot, settlement);
     const button = paper.querySelector(".mechanical-receipt-next");
-    const ticket = latestReceipt = { handNum: snapshot.handNum, id: settlement.receiptId, paper, button };
+    const showButton = paper.querySelector(".mechanical-receipt-show");
+    const handShown = !!paper.querySelector(`li[data-player-id="${CSS.escape(Net.playerId || "")}"] .mechanical-result-hand .card`);
+    const ticket = latestReceipt = { handNum: snapshot.handNum, id: settlement.receiptId, paper, button, showButton, handShown };
+    showButton.hidden = isSpectator || !settlement.showHandPlayerIds?.includes(Net.playerId);
+    if (handShown) showButton.textContent = "已展示";
+    showButton.addEventListener("click", () => {
+      if (ticket === latestReceipt && ticket.ready && !showButton.hidden && !showButton.disabled) {
+        Net.send("game:receiptShowHand", { receiptId: ticket.id });
+      }
+    });
     button.addEventListener("click", () => {
       if (ticket === latestReceipt && ticket.ready && isHost && !isSpectator) Net.send("game:nextHand", { receiptId: ticket.id });
     });
@@ -1774,5 +1803,5 @@ const MechanicalTable = (() => {
   });
 
   return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
-    emptyCardSlot, deliveryCardBack, communitySlot, beforeRender, updateStack, render, showResult, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
+    emptyCardSlot, deliveryCardBack, communitySlot, beforeRender, updateStack, render, showResult, showReceiptHand, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
 })();

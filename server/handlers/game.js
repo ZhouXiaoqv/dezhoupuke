@@ -32,6 +32,10 @@ function register(ws, ctx = {}) {
     if (isPlayer()) ws._currentRoom?.handleReceiptReady(ws._playerId, data?.receiptId);
   });
 
+  ws._on('game:receiptShowHand', (data) => {
+    if (isPlayer() && !ws.isSpectator) ws._currentRoom?.handleReceiptShowHand(ws._playerId, data?.receiptId);
+  });
+
   ws._on('game:nextHand', (data) => {
     if (isPlayer()) ws._currentRoom?.handleNextHand(ws._playerId, data?.receiptId);
   });

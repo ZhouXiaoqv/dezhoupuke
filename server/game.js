@@ -813,9 +813,16 @@ class Game {
       this.winners = [{ id: winner.id, name: winner.name, hand: '其他人弃牌', amount: this.pot, ...(chips && { chips }) }];
       this.phase = 'show_choice';
       this.currentIdx = winner.seatIdx;
-      this.showHandPending = { playerId: winner.id, settled: false };
+      if (this.tableStyle !== 'mechanical') this.showHandPending = { playerId: winner.id, settled: false };
       this.broadcastState();
       gameLogger.logResult(this, this.winners);
+
+      if (this.tableStyle === 'mechanical') {
+        this.phase = 'idle';
+        this.broadcast('game:handEnd', { winners: this.winners, refunds: this.refunds });
+        this.onGameEnd?.();
+        return;
+      }
 
       if (winner._ws && winner.connected && winner._ws.readyState === 1) {
         winner._ws.send(JSON.stringify({
@@ -828,6 +835,12 @@ class Game {
         this.handleShowHandChoice(winner.id, false);
       }, 8000);
     }
+  }
+
+  getRevealedRank(hand) {
+    const best = evaluateHand([...hand, ...this.community]);
+    if (best) return best.name;
+    if (hand.length === 2) return HAND_NAMES[Number(hand[0].rank === hand[1].rank)];
   }
 
   handleShowHandChoice(playerId, show) {
@@ -843,12 +856,7 @@ class Game {
     if (show) {
       const player = this.players.find(p => p.id === playerId);
       const result = this.winners.find(w => w.id === playerId);
-      const best = evaluateHand([...player.hand, ...this.community]);
-      if (best) result.revealedRank = best.name;
-      else if (player.hand.length === 2) {
-        const [a, b] = player.hand;
-        result.revealedRank = a.rank === b.rank ? HAND_NAMES[1] : HAND_NAMES[0];
-      }
+      result.revealedRank = this.getRevealedRank(player.hand);
       this.revealedHands.add(playerId);
       this.broadcastState();
       this.broadcast('game:handShown', {

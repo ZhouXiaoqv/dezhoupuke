@@ -388,8 +388,12 @@ class Room {
         const id = crypto.randomUUID();
         const waiting = new Set([...this.players.values()]
           .filter(p => p.connected && !p.isBot && p.ws?.readyState === 1).map(p => p.id));
-        this.nextReceipt = { id, waiting, ready: new Set(), snapshot: game.getStateForSpectator(), settlement: data };
-        data = { ...data, receiptId: id };
+        const showHandPlayerIds = game.players.filter(p => !p.isBot && p.hand.length === 2 &&
+          (p.folded || (game.phase !== 'showdown' && game.winners.some(winner => winner.id === p.id))))
+          .map(p => p.id);
+        const settlement = { ...data, winners: data.winners.map(winner => ({ ...winner })), showHandPlayerIds };
+        this.nextReceipt = { id, waiting, ready: new Set(), snapshot: game.getStateForSpectator(), settlement };
+        data = { ...settlement, receiptId: id };
       }
       this.broadcast(type, data);
     };
@@ -488,6 +492,23 @@ class Room {
     if (!receipt || receipt.id !== receiptId || !player?.connected || player.isBot) return;
     receipt.ready.add(playerId);
     this.skipReceiptView(playerId);
+  }
+
+  handleReceiptShowHand(playerId, receiptId) {
+    const receipt = this.nextReceipt;
+    const seated = this.players.get(playerId);
+    if (!receipt || receipt.id !== receiptId || this.gameRunning || !seated?.connected || seated.isBot) return;
+    if (receipt.deadline && Date.now() >= receipt.deadline) return;
+    if (!receipt.settlement.showHandPlayerIds.includes(playerId)) return;
+    const printedPlayer = receipt.snapshot.players.find(p => p.id === playerId);
+    const player = this.game.players.find(p => p.id === playerId);
+    if (!printedPlayer || !player || printedPlayer.hand.some(Boolean)) return;
+    printedPlayer.hand = player.hand.slice();
+    const award = receipt.settlement.winners.find(winner => winner.id === playerId);
+    if (award) award.revealedRank = this.game.getRevealedRank(player.hand);
+    this.broadcast('game:handShown', {
+      receiptId, playerId, name: printedPlayer.name, hand: printedPlayer.hand, rank: award?.revealedRank,
+    });
   }
 
   handleNextHand(playerId, receiptId) {
