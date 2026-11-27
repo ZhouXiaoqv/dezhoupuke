@@ -475,8 +475,11 @@ class Room {
   sendPendingReceipt(ws) {
     const receipt = this.nextReceipt;
     if (!receipt) return;
+    const player = this.players.get(ws._playerId);
+    const chips = !ws.isSpectator && player?.ws === ws ? player.chips : undefined;
     ws.send(JSON.stringify({ type: 'game:receipt', data: {
       ...this.receiptClock(receipt), hostId: this.hostId, snapshot: receipt.snapshot, settlement: receipt.settlement,
+      ...(chips && { myChips: chips.slice() }),
     }}));
   }
 

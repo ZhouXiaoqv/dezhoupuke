@@ -348,9 +348,11 @@ class Game {
     };
   }
 
-  // Get state filtered for a specific player (hide other players' cards)
+  // Get state filtered for a specific player (private cards and remaining chips).
   getStateForPlayer(playerId) {
     const state = this.getState();
+    const chips = this.players.find(player => player.id === playerId)?.chips;
+    if (chips) state.myChips = chips.slice();
     state.players = state.players.map(p => ({
       ...p,
       hand: p.id === playerId ? p.hand : (p.hand.length > 0 && !p.folded && (this.phase === 'showdown' || this.revealedHands.has(p.id)) ? p.hand : p.hand.map(() => null)),

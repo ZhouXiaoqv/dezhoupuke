@@ -1,5 +1,6 @@
 .table-console, .table-drawer-mask { display: contents; }
 .table-drawer-rails, .scoreboard-head, .score-avatar, .score-leader, .table-corner-fasteners { display: none; }
+.chip-inventory-panel, #chipInventoryToggle { display: none; }
 
 #table-container.mechanical-table.active ~ .table-console {
   --console-top: max(12px, env(safe-area-inset-top));
@@ -29,7 +30,7 @@
   background: var(--desk-case);
   box-shadow: var(--desk-rim), 0 3px #a18a6c, 0 6px 12px #5f49354a;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen) {
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #chipInventoryToggle, #tableFullscreen) {
   position: relative;
   inset: auto;
   width: 35px;
@@ -45,17 +46,17 @@
   backdrop-filter: none;
   transition: transform 80ms ease-out, filter 90ms ease-out;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, .visible:is(#actionLogToggle, #scoreboardToggle)) { display: grid; }
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #chipInventoryToggle:not([hidden]), .visible:is(#actionLogToggle, #scoreboardToggle)) { display: grid; }
 #table-container.mechanical-table.active ~ .table-console .table-tool-glyph { display: none; }
 #table-container.mechanical-table.active ~ .table-console .desk-corner-icon { display: block; width: 18px; height: 18px; }
 #table-container.mechanical-table.active ~ .table-console .table-tools > button:hover:not(:disabled) { filter: brightness(1.08); }
 #table-container.mechanical-table.active ~ .table-console .table-tools > button:active:not(:disabled),
 #table-container.mechanical-table.active ~ .table-console #tableFullscreen[aria-pressed="true"],
-#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)[aria-expanded="true"] {
+#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle, #chipInventoryToggle)[aria-expanded="true"] {
   transform: translateY(1.5px);
   box-shadow: inset 0 2px 3px #76604468, inset 0 -1px #fff5df, 0 1px #ac9277;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)::after,
+#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle, #chipInventoryToggle)::after,
 #table-container.mechanical-table.active ~ .table-console .action-log-title::before {
   content: "";
   width: 6px;
@@ -65,12 +66,12 @@
   background: radial-gradient(circle at 34% 27%, #bfb8a7, #636357 60%, #494238);
   box-shadow: 0 0 0 1px #e8d6b9;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)::after {
+#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle, #chipInventoryToggle)::after {
   position: absolute;
   top: 3px;
   left: 3px;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)[aria-expanded="true"]::after,
+#table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle, #chipInventoryToggle)[aria-expanded="true"]::after,
 #table-container.mechanical-table.active ~ .table-console .action-log-title::before {
   background: radial-gradient(circle at 34% 27%, #ecfac6, #79aa77 46%, #386851 77%);
   box-shadow: 0 0 0 1px #dfcfae, 0 0 5px #669c71aa;
@@ -323,3 +324,29 @@
 }
 :where(#table-container.mechanical-table.active ~ .table-console) .score-value.positive { color: #366849; }
 :where(#table-container.mechanical-table.active ~ .table-console) .score-value.negative { color: #894736; }
+
+:where(#table-container.mechanical-table.active ~ .table-console) .chip-inventory-panel { display: block; }
+.chip-inventory-list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin: 5px 3px 3px;
+  padding: 5px;
+  list-style: none;
+  border: 1px solid #bdab91;
+  border-radius: 4px;
+  background: linear-gradient(#e9decb, #f5ebd9);
+  box-shadow: inset 0 1px 3px #755c403b;
+}
+.chip-inventory-list li { display: grid; justify-items: center; gap: 2px; }
+.chip-inventory-list img { display: block; width: min(100%, 44px); height: auto; filter: drop-shadow(0 2px 1px #4c382e42); }
+.chip-inventory-list .chip-inventory-count {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-inline: 1px;
+  color: var(--desk-ink);
+  font-family: "JetBrains Mono", monospace;
+  text-align: center;
+  overflow-wrap: anywhere;
+}

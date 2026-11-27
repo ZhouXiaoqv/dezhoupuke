@@ -1,10 +1,26 @@
 const TableDrawers = (() => {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const log = $("actionLogBody");
+  const chipDrawer = { panel: $("chipInventoryPanel"), toggle: $("chipInventoryToggle"), close: $("chipInventoryClose") };
   const drawers = [
     { panel: $("actionLogPanel"), toggle: $("actionLogToggle"), close: $("actionLogClose"), prepare: () => scrollToLatest(false) },
     { panel: $("scoreboardPanel"), toggle: $("scoreboardToggle"), close: $("scoreboardClose"), prepare: () => renderScoreboard() },
+    chipDrawer,
   ];
+  const chipList = $("chipInventoryList");
+  const chipNumber = new Intl.NumberFormat("zh-CN");
+  // The server counts and sprites share denomination order. Prepend for the ascending display.
+  const chipLabels = MechanicalTable.chipFaces().map(({ value, image }) => {
+    const cell = document.createElement("li");
+    const picture = new Image();
+    picture.src = image;
+    picture.alt = `面值 ${value}`;
+    const count = document.createElement("span");
+    count.className = "score-value chip-inventory-count";
+    cell.append(picture, count);
+    chipList.prepend(cell);
+    return count;
+  });
   let shown, requested, animation;
   let retracting = false;
   const deployed = "translateX(0px)";
@@ -44,6 +60,19 @@ const TableDrawers = (() => {
     toggle.setAttribute("aria-expanded", "false");
   }
 
+  function updateChips(counts) {
+    const available = Array.isArray(counts);
+    chipDrawer.toggle.hidden = !available;
+    chipLabels.forEach((label, index) => {
+      const text = available ? chipNumber.format(counts[index]) : "";
+      if (label.textContent !== text) label.textContent = text;
+    });
+    if (!available && requested === chipDrawer) {
+      requested = null;
+      reconcile();
+    }
+  }
+
   function reconcile() {
     if (retracting || requested === shown) return;
     if (shown) {
@@ -65,7 +94,7 @@ const TableDrawers = (() => {
     const { panel, toggle, prepare } = shown;
     panel.classList.add("open");
     toggle.setAttribute("aria-expanded", "true");
-    prepare();
+    prepare?.();
     move(panel, [
       { easing: "cubic-bezier(.16,1,.3,1)" },
       { transform: "translateX(-2.5px)", offset: .82, easing: "ease-out" },
@@ -78,10 +107,12 @@ const TableDrawers = (() => {
     animation = shown = requested = null;
     retracting = false;
     drawers.forEach(hide);
+    updateChips(null);
   }
 
   for (const drawer of drawers) {
     drawer.toggle.addEventListener("click", () => {
+      if (drawer.toggle.hidden) return;
       requested = requested === drawer ? null : drawer;
       reconcile();
     });
@@ -91,5 +122,5 @@ const TableDrawers = (() => {
     });
   }
 
-  return { reset, scrollToLatest };
+  return { reset, scrollToLatest, updateChips };
 })();

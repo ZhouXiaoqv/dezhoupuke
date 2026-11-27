@@ -785,6 +785,12 @@
             <path d="M4 16h12M5 16v-4h2v4m2 0V8h2v8m2 0V4h2v12"/>
           </svg>
         </button>
+        <button type="button" class="table-tool" id="chipInventoryToggle" title="我的筹码" aria-label="我的筹码" aria-controls="chipInventoryPanel" aria-expanded="false" hidden>
+          <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <ellipse cx="10" cy="5.5" rx="6" ry="2.5" />
+            <path d="M4 5.5v8c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-8M4 9.5c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5" />
+          </svg>
+        </button>
         <button type="button" class="table-tool" id="tableFullscreen" title="全屏" aria-label="全屏" aria-pressed="false" hidden>
           <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path class="mobile-fullscreen-open" d="M8 4H4v4m8-4h4v4M4 12v4h4m8-4v4h-4" />
@@ -816,6 +822,15 @@
           <div class="scoreboard-body" id="scoreboardBody">
             <div class="action-log-empty">暂无记录</div>
           </div>
+        </section>
+        <section class="chip-inventory-panel table-drawer" id="chipInventoryPanel" aria-labelledby="chipInventoryTitle" inert>
+          <span class="desk-fasteners table-corner-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="table-drawer-rails" aria-hidden="true"><i></i><i></i></span>
+          <div class="action-log-header">
+            <div class="action-log-title" id="chipInventoryTitle">我的筹码</div>
+            <button type="button" class="action-log-close" id="chipInventoryClose" aria-label="关闭我的筹码">×</button>
+          </div>
+          <ul class="chip-inventory-list" id="chipInventoryList"></ul>
         </section>
       </div>
     </div>

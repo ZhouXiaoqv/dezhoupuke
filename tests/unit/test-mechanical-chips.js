@@ -31,8 +31,14 @@ const [big, short] = game.players;
 game.commitBet(big, 50);
 game.commitBet(short, 20);
 assert.deepEqual(game.getState().potChips, [0, 1, 1, 0, 0, 0]);
-assert.deepEqual(game.getStateForPlayer('big').players[0].betChips, [0, 1, 0, 0, 0, 0]);
-assert.ok(game.getStateForSpectator().players.every(player => !Object.hasOwn(player, 'chips')));
+const bigView = game.getStateForPlayer('big');
+assert.deepEqual(bigView.players[0].betChips, [0, 1, 0, 0, 0, 0]);
+assert.deepEqual(bigView.myChips, [0, 0, 0, 10, 0, 0]);
+assert.deepEqual(game.getStateForPlayer('short').myChips, [0, 0, 9, 4, 0, 0]);
+assert.ok(bigView.players.every(player => !Object.hasOwn(player, 'chips')));
+const spectatorView = game.getStateForSpectator();
+assert.ok(!Object.hasOwn(spectatorView, 'myChips'));
+assert.ok(spectatorView.players.every(player => !Object.hasOwn(player, 'chips')));
 assert.ok(room.getPlayerList().players.every(player => !Object.hasOwn(player, 'chips')));
 
 const card = (rankStr, suit) => ({ rankStr, suit });

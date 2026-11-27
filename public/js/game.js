@@ -440,6 +440,7 @@ function renderGame(state) {
   gameState = state;
   const table = $("table");
   const mechanical = MechanicalTable.setStyle(state.tableStyle);
+  TableDrawers.updateChips(state.myChips);
   const viewerId = Net.playerId || "";
   const viewerIndex = mechanical ? Math.max(0, state.players.findIndex((p) => p.id === viewerId)) : 0;
   const viewerChanged = mechanical && table.dataset.mechanicalViewer !== undefined &&

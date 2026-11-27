@@ -369,10 +369,11 @@ Net.on("game:waitingForNext", (d) => {
   } else showNextHandBar(d.nextHandDelay || 15);
 });
 
-Net.on("game:receipt", ({ snapshot, settlement, hostId, ...timing }) => {
+Net.on("game:receipt", ({ snapshot, settlement, hostId, myChips, ...timing }) => {
   isHost = hostId === Net.playerId;
   if (!$("table-container").classList.contains("active")) showScreen("table");
   MechanicalTable.restoreReceipt(snapshot, { ...settlement, receiptId: timing.receiptId });
+  TableDrawers.updateChips(myChips);
   MechanicalTable.syncNextHand(timing);
 });
 

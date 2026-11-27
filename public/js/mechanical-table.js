@@ -1429,6 +1429,10 @@ const MechanicalTable = (() => {
 
   const chipSprites = new Map(DENOMINATIONS.map(([value, color]) => [value, makeChip(value, color)]));
 
+  function chipFaces() {
+    return DENOMINATIONS.map(([value]) => ({ value, image: chipSprites.get(value).toDataURL() }));
+  }
+
   function drawChip({ x, y }, { value, angle, scale = 1 }, target = context, opacity = 1) {
     const size = CHIP_SCALE * scale;
     target.save();
@@ -1816,6 +1820,6 @@ const MechanicalTable = (() => {
     nextFrame();
   });
 
-  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt,
+  return { enabled, animatesArm, setStyle, reset, notify: notice.show, startHand, bindSeats, updateSeatMarkers, syncTurn, canAct, submitTurn, acceptTurnPrompt, chipFaces,
     emptyCardSlot, deliveryCardBack, communitySlot, beforeRender, updateStack, render, showResult, showReceiptHand, restoreReceipt, syncNextHand, refreshNextHand, clearHandStrength };
 })();
