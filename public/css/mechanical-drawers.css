@@ -29,7 +29,7 @@
   background: var(--desk-case);
   box-shadow: var(--desk-rim), 0 3px #a18a6c, 0 6px 12px #5f49354a;
 }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle) {
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen) {
   position: relative;
   inset: auto;
   width: 35px;
@@ -48,8 +48,9 @@
 #table-container.mechanical-table.active ~ .table-console :is(#soundToggle, .visible:is(#actionLogToggle, #scoreboardToggle)) { display: grid; }
 #table-container.mechanical-table.active ~ .table-console .table-tool-glyph { display: none; }
 #table-container.mechanical-table.active ~ .table-console .desk-corner-icon { display: block; width: 18px; height: 18px; }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle):hover { filter: brightness(1.08); }
-#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle):active,
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen):hover:not(:disabled) { filter: brightness(1.08); }
+#table-container.mechanical-table.active ~ .table-console :is(#soundToggle, #actionLogToggle, #scoreboardToggle, #tableFullscreen):active:not(:disabled),
+#table-container.mechanical-table.active ~ .table-console #tableFullscreen[aria-pressed="true"],
 #table-container.mechanical-table.active ~ .table-console :is(#actionLogToggle, #scoreboardToggle)[aria-expanded="true"] {
   transform: translateY(1.5px);
   box-shadow: inset 0 2px 3px #76604468, inset 0 -1px #fff5df, 0 1px #ac9277;

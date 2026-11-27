@@ -385,26 +385,31 @@ const MechanicalTable = (() => {
     const top = parseFloat(style.paddingTop);
     let bottom = parseFloat(style.paddingBottom);
     const usableWidth = host.width - left - right;
-    const x = host.left + left + usableWidth / 2;
+    const centerX = host.left + left + usableWidth / 2;
     let scale = Math.min(1, usableWidth / width, (host.height - top - bottom) / height);
 
-    // Dock the desk on the cruise box's baseline. On narrow windows, clear the
-    // independent box with the whole stage if their footprints would overlap.
+    // Dock the desk on the cruise box's baseline. Phone landscape can use spare
+    // horizontal room before lifting the whole stage above the control.
     const control = autoCall.getBoundingClientRect();
     const footprints = [stageBox(table), stageBox(desk), stageBox(strength)];
     for (const slot of [1, 2, 3]) {
       const plate = seats.get(slot)?.querySelector(".seat-info");
       if (plate) footprints.push(stageBox(plate));
     }
-    const overlapsControl = footprints.some(box =>
-      x + (box.left - width / 2) * scale < control.right + 8 &&
+    const nearControl = footprints.filter(box =>
       host.bottom - bottom - (height - box.bottom) * scale > control.top - 8);
-    if (overlapsControl) {
+    const clearCenterX = Math.max(centerX, ...nearControl.map(box => control.right + 8 + (width / 2 - box.left) * scale));
+    const canShift = document.documentElement.classList.contains("mobile-table-device") && host.width > host.height;
+    const rightLimit = host.right - right - width / 2 * scale;
+    let shiftX = canShift && clearCenterX <= rightLimit ? clearCenterX - centerX : 0;
+    if (centerX + shiftX < clearCenterX) {
       bottom = host.bottom - control.top + 8;
       scale = Math.min(scale, (host.height - top - bottom) / height);
+      shiftX = 0;
     }
     // Keep the coordinate transform invertible if the viewport collapses completely.
     stageScale = Math.max(.001, scale);
+    stage.style.setProperty("--stage-shift-x", `${shiftX}px`);
     stage.style.setProperty("--stage-bottom", `${bottom}px`);
     stage.style.setProperty("--stage-scale", stageScale);
     document.documentElement.style.setProperty("--mechanical-desk-clearance", `${bottom + (height - desk.offsetTop) * stageScale + 14}px`);

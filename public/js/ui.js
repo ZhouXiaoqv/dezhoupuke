@@ -517,6 +517,7 @@ function showScreen(id) {
     window.Pets3D?.clear();
     $(id).classList.add("active");
   }
+  MobileTable.setScreen(id);
 }
 
 function toast(msg, tone = "info") {

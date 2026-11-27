@@ -145,6 +145,7 @@
   pointer-events: none;
 }
 .desk-scale input {
+  --desk-thumb-width: 19px;
   width: 100%;
   min-width: 0;
   height: 22px;
@@ -161,7 +162,7 @@
   box-shadow: 0 1px #e0c9a7;
 }
 .desk-scale input::-webkit-slider-thumb {
-  width: 19px;
+  width: var(--desk-thumb-width);
   height: 21px;
   margin-top: -9px;
   appearance: none;
@@ -179,7 +180,7 @@
   background: #776450;
 }
 .desk-scale input::-moz-range-thumb {
-  width: 17px;
+  width: calc(var(--desk-thumb-width) - 2px);
   height: 19px;
   border: 1px solid #836d51;
   border-radius: 4px;

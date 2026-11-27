@@ -130,7 +130,10 @@ function createLayoutTestRoomCard() {
   <div class="room-card-status bot">\u7535\u8111\u73a9\u5bb6</div>
 </div>
     `;
-  card.addEventListener("click", () => enterLayoutTestRoom());
+  card.addEventListener("click", () => {
+    MobileTable.beginEntry();
+    enterLayoutTestRoom();
+  });
   return card;
 }
 
@@ -189,12 +192,14 @@ Net.on("room:list", (d) => {
 
     card.addEventListener("click", async () => {
       const name = getCurrentPlayerName();
+      MobileTable.beginEntry();
       try {
         if (!Net.connected) await Net.connect(getWsUrl());
         if (!Net.playerId) await Net.auth(name);
         Net.send("room:join", { code: r.code, name });
         toast(`正在加入 ${r.code}...`);
       } catch {
+        MobileTable.cancelEntry();
         showError("无法连接到服务器");
       }
     });
@@ -220,6 +225,7 @@ function stopRoomListRefresh() {
 }
 
 Net.on("room:error", (d) => {
+  MobileTable.cancelEntry();
   showError(d.message);
   toast(d.message, "warning");
 });

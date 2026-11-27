@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="css/mechanical-table.css" />
     <link rel="stylesheet" href="css/mechanical-controls.css" />
     <link rel="stylesheet" href="css/mechanical-drawers.css" />
+    <link rel="stylesheet" href="css/mobile-table.css" />
   </head>
   <body>
     <!-- ===== LOBBY SCREEN ===== -->
@@ -725,6 +726,24 @@
           </div>
         </div>
       </div>
+      <section class="mobile-landscape-guide" id="mobileLandscapeGuide" aria-labelledby="mobileLandscapeTitle" hidden>
+        <div class="mobile-landscape-plate">
+          <span class="desk-fasteners" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <div class="mobile-landscape-symbol" aria-hidden="true">
+            <svg viewBox="0 0 96 80" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path class="mobile-rotate-arrow" d="M52 10a31 31 0 0 1 26 28m-7-5 7 7 6-8" />
+              <g class="mobile-rotate-phone">
+                <rect class="mobile-phone-shell" x="29" y="12" width="33" height="58" rx="7" />
+                <rect class="mobile-phone-screen" x="33" y="18" width="25" height="43" rx="3" />
+                <path d="M42 15h7m-7 50h7" />
+              </g>
+            </svg>
+            <span class="mobile-landscape-lamp"></span>
+          </div>
+          <h2 id="mobileLandscapeTitle">请横握手机以启动完整桌面</h2>
+          <p>如已横屏仍未切换，请关闭系统方向锁定</p>
+        </div>
+      </section>
     </div>
 
     <div class="spectator-badge" id="spectatorBadge">
@@ -762,6 +781,12 @@
           <span class="table-tool-glyph" aria-hidden="true">&#128290;</span>
           <svg class="desk-corner-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 16h12M5 16v-4h2v4m2 0V8h2v8m2 0V4h2v12"/>
+          </svg>
+        </button>
+        <button type="button" class="table-tool" id="tableFullscreen" title="全屏" aria-label="全屏" aria-pressed="false" hidden>
+          <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path class="mobile-fullscreen-open" d="M8 4H4v4m8-4h4v4M4 12v4h4m8-4v4h-4" />
+            <path class="mobile-fullscreen-close" d="M4 8h4V4m4 0v4h4m-8 8v-4H4m12 0h-4v4" />
           </svg>
         </button>
       </div>
@@ -1115,6 +1140,7 @@
 
     <script src="js/net.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/mobile-table.js"></script>
     <script src="js/sfx.js"></script>
     <script src="js/emotionFx.js"></script>
     <script src="js/emotionRigs.js"></script>

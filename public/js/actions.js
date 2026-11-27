@@ -12,6 +12,7 @@ const MechanicalActionDesk = (() => {
   const detent = 5;
   let sizingData;
   let selected = 0;
+  let touchPointer = null;
 
   MechanicalReels.set(amount, 0, { minDigits: 5, quick: true, label: "下注或加注总额" });
   MechanicalReels.set(callAmount, 0, { minDigits: 4, quick: true });
@@ -34,6 +35,28 @@ const MechanicalActionDesk = (() => {
     return min + Math.min(lastNotch, Math.round((value - min) / detent)) * detent;
   }
 
+  function selectDetent(value) {
+    const previous = selected;
+    setAmount(snapToDetent(value));
+    if (selected !== previous) SFX.ratchet();
+  }
+
+  function trackTouch(clientX) {
+    if (sizing.disabled) return;
+    const rect = range.getBoundingClientRect();
+    const thumbWidth = parseFloat(getComputedStyle(range).getPropertyValue("--desk-thumb-width"));
+    const inset = thumbWidth / 2 * rect.width / range.offsetWidth;
+    const progress = Math.max(0, Math.min(1, (clientX - rect.left - inset) / (rect.width - 2 * inset)));
+    const { min, max } = sizingData;
+    selectDetent(min + progress * (max - min));
+  }
+
+  function releaseTouch() {
+    const pointer = touchPointer;
+    touchPointer = null;
+    if (pointer !== null && range.hasPointerCapture(pointer)) range.releasePointerCapture(pointer);
+  }
+
   function moveDetents(direction, count = 1) {
     const offset = (selected - sizingData.min) / detent;
     const notch = direction > 0 ? Math.floor(offset + 1e-10) : Math.ceil(offset - 1e-10);
@@ -49,6 +72,7 @@ const MechanicalActionDesk = (() => {
     const canRaise = !data.allInOrFold && Number.isFinite(min) && Number.isFinite(max) && min > 0 && max >= min;
     const street = `${gameState?.handNum}:${gameState?.phase}`;
     const newStreet = sizingData?.street !== street;
+    if (newStreet || !canRaise || max === min) releaseTouch();
     keys.disabled = false;
     sizing.disabled = !canRaise || max === min;
     raise.disabled = !canRaise;
@@ -73,6 +97,7 @@ const MechanicalActionDesk = (() => {
   }
 
   function lock() {
+    releaseTouch();
     sizing.disabled = keys.disabled = true;
     lamp.setAttribute("aria-label", "操作台已锁定");
   }
@@ -84,10 +109,27 @@ const MechanicalActionDesk = (() => {
   pass.addEventListener("click", () => $(pass.dataset.action === "call" ? "btnCall" : "btnCheck").click());
   actionButtons.allin.addEventListener("click", () => $("btnAllin").click());
   raise.addEventListener("click", () => sendRaise(selected));
-  range.addEventListener("input", () => {
-    const previous = selected;
-    setAmount(snapToDetent(range.valueAsNumber));
-    if (selected !== previous) SFX.ratchet();
+  range.addEventListener("input", () => selectDetent(range.valueAsNumber));
+  range.addEventListener("pointerdown", event => {
+    if (event.pointerType !== "touch" || !event.isPrimary || sizing.disabled) return;
+    event.preventDefault();
+    touchPointer = event.pointerId;
+    range.setPointerCapture(event.pointerId);
+    trackTouch(event.clientX);
+  });
+  range.addEventListener("pointermove", event => {
+    if (event.pointerId === touchPointer) trackTouch(event.clientX);
+  });
+  range.addEventListener("pointerup", event => {
+    if (event.pointerId !== touchPointer) return;
+    trackTouch(event.clientX);
+    releaseTouch();
+  });
+  range.addEventListener("pointercancel", event => {
+    if (event.pointerId === touchPointer) releaseTouch();
+  });
+  range.addEventListener("lostpointercapture", event => {
+    if (event.pointerId === touchPointer) touchPointer = null;
   });
   range.addEventListener("keydown", event => {
     switch (event.key) {

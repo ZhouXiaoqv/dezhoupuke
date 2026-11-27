@@ -24,11 +24,13 @@ $("joinRoomBtn").addEventListener("click", async () => {
     showError("请输入房间号");
     return;
   }
+  MobileTable.beginEntry();
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
     Net.send("room:join", { code, name });
   } catch {
+    MobileTable.cancelEntry();
     showError("无法连接到服务器");
   }
 });
@@ -106,6 +108,8 @@ $("shareBtn").addEventListener("click", async () => {
 let myReady = false;
 $("readyBtn").addEventListener("click", () => {
   myReady = !myReady;
+  if (myReady) MobileTable.beginEntry();
+  else MobileTable.cancelEntry();
   Net.send("room:ready", { ready: myReady });
   $("readyBtn").textContent = myReady ? "取消准备" : "准备";
   $("readyBtn").className = myReady ? "btn btn-red" : "btn btn-green";
@@ -130,7 +134,10 @@ $("readyBtn").addEventListener("click", () => {
   }
 });
 $("addBotBtn").addEventListener("click", () => Net.send("room:addBot"));
-$("startGameBtn").addEventListener("click", () => Net.send("room:start"));
+$("startGameBtn").addEventListener("click", () => {
+  MobileTable.beginEntry();
+  Net.send("room:start");
+});
 
 // Game actions with sound feedback
 // ===== TURN TIMER =====
@@ -426,11 +433,13 @@ $("spectateLink").addEventListener("click", async (e) => {
     showError("请输入房间号");
     return;
   }
+  MobileTable.beginEntry();
   try {
     if (!Net.connected) await Net.connect(getWsUrl());
     if (!Net.playerId) await Net.auth(name);
     Net.send("room:spectate", { code, name });
   } catch {
+    MobileTable.cancelEntry();
     showError("无法连接到服务器");
   }
 });
@@ -574,7 +583,7 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeAvatarModal();
     return;
   }
-  if (!$("actionPanel").classList.contains("active")) return;
+  if ($("gameStage").inert || !$("actionPanel").classList.contains("active")) return;
   if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
   if (MechanicalTable.enabled()) {
     const action = { f: "fold", c: "pass", r: "raise", a: "allin" }[e.key];

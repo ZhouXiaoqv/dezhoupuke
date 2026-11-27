@@ -43,7 +43,7 @@
   width: 1432px;
   height: 832px;
   bottom: var(--stage-bottom, var(--mechanical-dock-inset));
-  left: calc(50% + (var(--stage-safe-left) - var(--stage-safe-right)) / 2);
+  left: calc(50% + (var(--stage-safe-left) - var(--stage-safe-right)) / 2 + var(--stage-shift-x, 0px));
   transform: translateX(-50%) scale(var(--stage-scale, 1));
   transform-origin: center bottom;
   -webkit-text-size-adjust: 100%;
